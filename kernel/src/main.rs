@@ -7,6 +7,7 @@ extern crate alloc;
 use core::arch::global_asm;
 use core::panic::PanicInfo;
 
+mod block;
 mod cursor;
 mod exceptions;
 mod gpu;

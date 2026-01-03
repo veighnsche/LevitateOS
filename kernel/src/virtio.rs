@@ -77,6 +77,10 @@ pub fn init() {
                         println!("Initializing Input...");
                         crate::input::init(transport);
                     }
+                    virtio_drivers::transport::DeviceType::Block => {
+                        println!("Initializing Block device...");
+                        crate::block::init(transport);
+                    }
                     _ => {}
                 }
             }

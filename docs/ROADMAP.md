@@ -20,22 +20,25 @@ This document outlines the planned development phases for LevitateOS, following 
   - [x] **GICv2/v3**: Expand GIC support to handle specific IRQ routing cleanly. (TEAM_015)
   - [x] **Safety**: Ensure all MMIO operations use `volatile` correctly and wrapper structs prevent unsafe state. (TEAM_017 — HAL Hardening)
 
-## 🚧 Phase 3: Memory Management (MMU)
-- **Objective**: Enable virtual memory and isolation.
+## ✅ Phase 3: Memory Management (MMU) (Completed)
+- **Objective**: Enabled virtual memory and implemented a higher-half kernel architecture.
 - **Tasks**:
-  - [x] **Page Tables**: Implement AArch64 page table walking and modification. (TEAM_018 — module complete)
-  - [x] **Identity Mapping**: Map kernel identically to physical memory. (Working in current kernel)
-  - [🔴] **Higher-Half Kernel**: Move kernel to higher virtual address space. **BLOCKED** — See `docs/planning/higher-half-kernel/`
-    - TEAM_024: Identified root cause (missing TTBR1 mappings in original attempt)
-    - TEAM_025: Attempted TTBR0 approach, hit execute permission issue
-    - **Bug:** Data reads from high VA work, but code execution fails
-    - **Next:** Debug with QEMU `-d int,mmu` logging
-  - [ ] **Heap**: Switch allocator to use dynamic page mapping instead of fixed static heap if possible.
+  - [x] **Page Tables**: Implement AArch64 page table walking and modification.
+  - [x] **Identity Mapping**: Initial boot mapping for transition.
+  - [x] **Higher-Half Kernel**: Kernel moved to `0xFFFF800000000000` using TTBR1. (TEAM_027)
+  - [x] **HAL Integration**: Refactored `mmu.rs` for physical address support and added conversion helpers.
+
+## 🚧 Phase 4: VirtIO & Filesystem (Next Priority)
+- **Objective**: Expand hardware support and persistency.
+- **Tasks**:
+  - [x] **VirtIO Block**: Implement driver for disk I/O (`virtio-blk`). (TEAM_029)
+  - [ ] **Memory Management II**: Replace the static heap with a dynamic Buddy Allocator + Slab for kernel objects.
+  - [ ] **Filesystem**: Basic FAT32 or ext2 reader to load initial programs.
 
 ## 🔮 Phase 4: VirtIO Ecosystem
 - **Objective**: Expand hardware support using VirtIO.
 - **Tasks**:
-  - [ ] **VirtIO Block**: Implement driver for disk I/O (`virtio-blk`).
+  - [x] **VirtIO Block**: Implement driver for disk I/O (`virtio-blk`). (TEAM_029)
   - [ ] **VirtIO Net**: Basic network packet transmission/reception (`virtio-net`).
   - [ ] **GPU Refinement**: Add text rendering or terminal emulation on the GPU framebuffer.
 
