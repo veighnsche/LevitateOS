@@ -11,10 +11,10 @@
 ## Steps
 
 ### Step 1 – Add Unit Tests
-- [ ] (Future) Add unit tests for `uptime_seconds`.
+- [x] (Future) Add unit tests for `uptime_seconds`.
 
 ### Step 2 – Add Integration Tests
 - [x] Manual verification in QEMU.
 
 ### Step 3 – Run Full Test Suite and Verify
-- [ ] Build project and run `./run.sh`.
+- [x] Build project and run `./run.sh`.

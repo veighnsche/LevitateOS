@@ -15,8 +15,8 @@ This document outlines the planned development phases for LevitateOS, following 
 ## 🚧 Phase 2: Idiomatic HAL & Basic Drivers
 - **Objective**: Harden the Hardware Abstraction Layer (HAL) and implement robust drivers.
 - **Tasks**:
-  - [ ] **Timer**: Implement a proper AArch64 Generic Timer driver in `levitate-hal`.
-  - [ ] **PL011 UART**: Refactor `console.rs` into a full PL011 driver with interrupt handling (RX/TX buffers).
+  - [x] **Timer**: Implement a proper AArch64 Generic Timer driver in `levitate-hal`.
+  - [x] **PL011 UART**: Refactor `console.rs` into a full PL011 driver with interrupt handling (RX/TX buffers).
   - [ ] **GICv2/v3**: Expand GIC support to handle specific IRQ routing cleanly.
   - [ ] **Safety**: Ensure all MMIO operations use `volatile` correctly and wrapper structs prevent unsafe state.
 

@@ -100,3 +100,42 @@ pub fn delay_cycles(cycles: u64) {
         core::hint::spin_loop();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockTimer {
+        counter: core::cell::Cell<u64>,
+        frequency: u64,
+    }
+
+    impl Timer for MockTimer {
+        fn read_counter(&self) -> u64 {
+            self.counter.get()
+        }
+
+        fn read_frequency(&self) -> u64 {
+            self.frequency
+        }
+
+        fn set_timeout(&self, _ticks: u64) {}
+        fn configure(&self, _flags: TimerCtrlFlags) {}
+        fn is_pending(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn test_uptime_seconds() {
+        let timer = MockTimer {
+            counter: core::cell::Cell::new(1000),
+            frequency: 100,
+        };
+        // 1000 ticks / 100 ticks per second = 10 seconds
+        assert_eq!(timer.read_counter() / timer.read_frequency(), 10);
+
+        timer.counter.set(250);
+        assert_eq!(timer.read_counter() / timer.read_frequency(), 2);
+    }
+}

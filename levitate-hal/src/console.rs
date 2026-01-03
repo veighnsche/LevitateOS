@@ -1,37 +1,42 @@
+use crate::IrqSafeLock;
+use crate::uart_pl011::Pl011Uart;
 use core::fmt::{self, Write};
-use levitate_utils::Spinlock;
+use levitate_utils::RingBuffer;
 
 pub const UART0_BASE: usize = 0x0900_0000;
 
-pub struct Uart {
-    base: usize,
+static WRITER: IrqSafeLock<Pl011Uart> = IrqSafeLock::new(Pl011Uart::new(UART0_BASE));
+static RX_BUFFER: IrqSafeLock<RingBuffer<1024>> = IrqSafeLock::new(RingBuffer::new());
+
+pub fn init() {
+    let mut uart = WRITER.lock();
+    uart.init();
+    uart.enable_rx_interrupt();
 }
 
-impl Uart {
-    pub const fn new(base: usize) -> Self {
-        Self { base }
+pub fn handle_interrupt() {
+    let mut uart = WRITER.lock();
+    while let Some(byte) = uart.read_byte() {
+        RX_BUFFER.lock().push(byte);
     }
-
-    pub fn write_byte(&mut self, byte: u8) {
-        unsafe {
-            core::ptr::write_volatile(self.base as *mut u8, byte);
-        }
-    }
+    uart.clear_interrupts();
 }
 
-impl Write for Uart {
+pub fn read_byte() -> Option<u8> {
+    RX_BUFFER.lock().pop()
+}
+
+pub fn _print(args: fmt::Arguments) {
+    WRITER.lock().write_fmt(args).unwrap();
+}
+
+impl Write for Pl011Uart {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for byte in s.bytes() {
             self.write_byte(byte);
         }
         Ok(())
     }
-}
-
-static WRITER: Spinlock<Uart> = Spinlock::new(Uart::new(UART0_BASE));
-
-pub fn _print(args: fmt::Arguments) {
-    WRITER.lock().write_fmt(args).unwrap();
 }
 
 #[macro_export]

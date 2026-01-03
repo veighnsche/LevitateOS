@@ -59,3 +59,47 @@ impl<'a, T> DerefMut for SpinlockGuard<'a, T> {
         self.data
     }
 }
+
+pub struct RingBuffer<const N: usize> {
+    buffer: [u8; N],
+    head: usize,
+    tail: usize,
+    full: bool,
+}
+
+impl<const N: usize> RingBuffer<N> {
+    pub const fn new() -> Self {
+        Self {
+            buffer: [0; N],
+            head: 0,
+            tail: 0,
+            full: false,
+        }
+    }
+
+    pub fn push(&mut self, byte: u8) -> bool {
+        if self.full {
+            return false;
+        }
+
+        self.buffer[self.head] = byte;
+        self.head = (self.head + 1) % N;
+        self.full = self.head == self.tail;
+        true
+    }
+
+    pub fn pop(&mut self) -> Option<u8> {
+        if !self.full && self.head == self.tail {
+            return None;
+        }
+
+        let byte = self.buffer[self.tail];
+        self.tail = (self.tail + 1) % N;
+        self.full = false;
+        Some(byte)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        !self.full && self.head == self.tail
+    }
+}

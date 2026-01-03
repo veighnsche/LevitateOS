@@ -136,6 +136,10 @@ pub extern "C" fn handle_sync_exception(esr: u64, elr: u64) {
     print!("ELR: {:#x}\n", elr);
 }
 
+/// Handle IRQs.
+///
+/// NOTE: Any drivers or shared data structures accessed here MUST use `IrqSafeLock`
+/// or equivalent to prevent deadlocks when interrupted threads hold the same lock.
 #[unsafe(no_mangle)]
 pub extern "C" fn handle_irq() {
     let irq = levitate_hal::gic::API.acknowledge();
@@ -143,6 +147,8 @@ pub extern "C" fn handle_irq() {
         // Reload timer for next interrupt (1 second)
         let freq = levitate_hal::timer::API.read_frequency();
         levitate_hal::timer::API.set_timeout(freq);
+    } else if irq == 33 {
+        levitate_hal::console::handle_interrupt();
     } else if irq < 1020 {
         println!("IRQ Received: {}", irq);
     }

@@ -18,6 +18,6 @@ This phase builds the `Timer` driver in `levitate-hal` and integrates it into th
 - [ ] Add `read_counter`, `read_frequency`, `set_timeout`, and `configure` using AArch64 system registers.
 
 ### Step 3 – Integrate and Cleanup
-- [ ] Export `timer` from `levitate-hal/src/lib.rs`.
-- [ ] Update `kernel/src/main.rs` to use the new API.
-- [ ] Remove `kernel/src/timer.rs`.
+- [x] Export `timer` from `levitate-hal/src/lib.rs`.
+- [x] Update `kernel/src/main.rs` to use the new API.
+- [x] Remove `kernel/src/timer.rs`.

@@ -107,6 +107,7 @@ pub extern "C" fn kmain() -> ! {
     gic::API.enable_irq(33); // UART
 
     println!("Core drivers initialized.");
+    levitate_hal::console::init();
 
     // 3. Initialize Timer (Phase 2)
     println!("Initializing Timer...");
@@ -155,6 +156,12 @@ pub extern "C" fn kmain() -> ! {
         if input::poll() {
             cursor::draw(&mut display);
         }
+
+        // Echo UART input
+        if let Some(c) = levitate_hal::console::read_byte() {
+            print!("{}", c as char);
+        }
+
         core::hint::spin_loop();
     }
 }
