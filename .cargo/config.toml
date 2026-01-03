@@ -1,0 +1,11 @@
+[build]
+target = "aarch64-unknown-none"
+
+[target.aarch64-unknown-none]
+rustflags = [
+    "-C", "link-arg=-Tlinker.ld",
+    "-C", "target-feature=+strict-align",
+]
+
+[unstable]
+build-std = ["core", "alloc"]
