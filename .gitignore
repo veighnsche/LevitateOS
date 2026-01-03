@@ -5,9 +5,13 @@ output.txt
 serial.log
 tinyos_disk.img
 
-# TEAM_025: Kernel Development Artifacts
+# TEAM_027: Build and Reproduction Artifacts
 *.bin
 *.log
+*.o
+*.elf
+repro.*
+linker_repro.ld
 debug_out.txt
 qemu_higher_half_debug.log
 

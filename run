@@ -26,7 +26,7 @@ qemu-system-aarch64 \
     -M virt \
     -cpu cortex-a53 \
     -m 512M \
-    -kernel target/aarch64-unknown-none/release/levitate-kernel \
+    -kernel kernel64_rust.bin \
     -display none \
     -device virtio-gpu-device \
     -device virtio-keyboard-device \

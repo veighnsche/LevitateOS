@@ -25,6 +25,29 @@ pub const KERNEL_PHYS_START: usize = 0x4008_0000;
 /// Kernel physical end address (heap end from linker.ld)
 pub const KERNEL_PHYS_END: usize = 0x4800_0000;
 
+/// Kernel virtual start address (Higher-half base)
+pub const KERNEL_VIRT_START: usize = 0xFFFF_8000_0000_0000;
+
+/// Convert a kernel virtual address to a physical address.
+#[inline]
+pub fn virt_to_phys(va: usize) -> usize {
+    if va >= KERNEL_VIRT_START {
+        va - KERNEL_VIRT_START
+    } else {
+        va // Assume already physical or identity mapped
+    }
+}
+
+/// Convert a physical address to a kernel virtual address.
+#[inline]
+pub fn phys_to_virt(pa: usize) -> usize {
+    if pa >= 0x4000_0000 {
+        pa + KERNEL_VIRT_START
+    } else {
+        pa // For devices, we often use identity mapping for now
+    }
+}
+
 // TEAM_019: 2MB block mapping constants
 /// 2MB block size (for L2 block mappings)
 pub const BLOCK_2MB_SIZE: usize = 2 * 1024 * 1024;
@@ -366,19 +389,20 @@ pub fn init() {
     // Stub for non-aarch64 builds (test builds on host)
 }
 
-/// Enable the MMU with the given page table root physical address.
+/// Enable the MMU with both TTBR0 and TTBR1 root physical addresses.
 ///
 /// # Safety
-/// - `root_phys` must point to a valid, identity-mapped page table
-/// - The identity mapping must include all currently accessed memory
+/// - `ttbr0_phys` and `ttbr1_phys` must point to valid page tables.
 #[cfg(target_arch = "aarch64")]
-pub unsafe fn enable_mmu(root_phys: usize) {
+pub unsafe fn enable_mmu(ttbr0_phys: usize, ttbr1_phys: usize) {
     unsafe {
-        // Load TTBR0_EL1
+        // Load TTBR0_EL1 and TTBR1_EL1
         core::arch::asm!(
             "msr ttbr0_el1, {}",
+            "msr ttbr1_el1, {}",
             "isb",
-            in(reg) root_phys,
+            in(reg) ttbr0_phys,
+            in(reg) ttbr1_phys,
             options(nostack)
         );
 
@@ -512,18 +536,21 @@ fn get_or_create_table(
     let entry = parent.entry(index);
 
     if entry.is_table() {
-        // Entry exists, get the child table address
-        let child_addr = entry.address();
-        unsafe { Ok(&mut *(child_addr as *mut PageTable)) }
+        // Entry exists, get the child table address (Physical)
+        let child_pa = entry.address();
+        // Convert PA to VA for Rust access
+        let child_va = phys_to_virt(child_pa);
+        unsafe { Ok(&mut *(child_va as *mut PageTable)) }
     } else {
         // Need to allocate a new table
         let new_table = alloc_page_table().ok_or("Page table pool exhausted")?;
-        let new_addr = new_table as *mut PageTable as usize;
+        let new_va = new_table as *mut PageTable as usize;
+        let new_pa = virt_to_phys(new_va);
 
-        // Set parent entry to point to new table
+        // Set parent entry to point to new table (Physical Address)
         parent
             .entry_mut(index)
-            .set(new_addr, PageFlags::VALID | PageFlags::TABLE);
+            .set(new_pa, PageFlags::VALID | PageFlags::TABLE);
 
         Ok(new_table)
     }
@@ -594,50 +621,54 @@ pub fn map_block_2mb(
     Ok(())
 }
 
-/// Identity map a range using 2MB blocks where possible, otherwise 4KB pages.
-///
-/// This is more efficient than pure 4KB mapping:
-/// - 128MB with 4KB pages = ~67 tables needed
-/// - 128MB with 2MB blocks = ~4 tables needed
-///
-/// TEAM_019: The "hard and correct" approach.
-pub fn identity_map_range_optimized(
+/// Map a range using 2MB blocks where possible, otherwise 4KB pages.
+pub fn map_range(
     root: &mut PageTable,
-    start: usize,
-    end: usize,
+    va_start: usize,
+    pa_start: usize,
+    len: usize,
     flags: PageFlags,
 ) -> Result<MappingStats, &'static str> {
-    let mut addr = start & !0xFFF; // Page align start
-    let end_aligned = (end + 0xFFF) & !0xFFF; // Page align end (round up)
+    let mut va = va_start & !0xFFF;
+    let mut pa = pa_start & !0xFFF;
+    let end_va = (va_start + len + 0xFFF) & !0xFFF;
 
     let mut stats = MappingStats {
         blocks_2mb: 0,
         pages_4kb: 0,
     };
 
-    while addr < end_aligned {
-        let remaining = end_aligned - addr;
+    while va < end_va {
+        let remaining = end_va - va;
 
         // Check if we can use 2MB block:
-        // 1. Address is 2MB aligned
+        // 1. Both VA and PA are 2MB aligned
         // 2. At least 2MB remaining
-        if (addr & BLOCK_2MB_MASK) == 0 && remaining >= BLOCK_2MB_SIZE {
-            // Use block mapping. For L2 blocks, bit[1:0] = 0b01.
-            // Our flags conventionally have bit 0 set (VALID).
-            // We ensure bit 1 (TABLE) is cleared for a block descriptor.
+        if (va & BLOCK_2MB_MASK) == 0 && (pa & BLOCK_2MB_MASK) == 0 && remaining >= BLOCK_2MB_SIZE {
             let block_flags = flags.difference(PageFlags::TABLE);
-            map_block_2mb(root, addr, addr, block_flags)?;
+            map_block_2mb(root, va, pa, block_flags)?;
             stats.blocks_2mb += 1;
-            addr += BLOCK_2MB_SIZE;
+            va += BLOCK_2MB_SIZE;
+            pa += BLOCK_2MB_SIZE;
         } else {
-            // Use 4KB page mapping
-            map_page(root, addr, addr, flags)?;
+            map_page(root, va, pa, flags)?;
             stats.pages_4kb += 1;
-            addr += PAGE_SIZE;
+            va += PAGE_SIZE;
+            pa += PAGE_SIZE;
         }
     }
 
     Ok(stats)
+}
+
+/// Identity map a range using 2MB blocks where possible, otherwise 4KB pages.
+pub fn identity_map_range_optimized(
+    root: &mut PageTable,
+    start: usize,
+    end: usize,
+    flags: PageFlags,
+) -> Result<MappingStats, &'static str> {
+    map_range(root, start, start, end - start, flags)
 }
 
 /// Statistics from an optimized identity mapping operation.
