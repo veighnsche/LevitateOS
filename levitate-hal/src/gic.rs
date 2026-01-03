@@ -41,22 +41,22 @@ pub enum IrqId {
 const MAX_HANDLERS: usize = 16;
 
 impl IrqId {
-    /// Hardware IRQ number for this source (QEMU virt machine).
+    /// [G1] Maps IrqId to correct IRQ numbers
     #[inline]
     pub const fn irq_number(self) -> u32 {
         match self {
-            IrqId::VirtualTimer => 27,
-            IrqId::Uart => 33,
+            IrqId::VirtualTimer => 27,  // [G1]
+            IrqId::Uart => 33,          // [G1]
         }
     }
 
-    /// Try to convert a raw IRQ number to a typed IrqId.
+    /// [G2] Returns correct IrqId for known IRQ, [G3] returns None for unknown
     #[inline]
     pub fn from_irq_number(irq: u32) -> Option<Self> {
         match irq {
-            27 => Some(IrqId::VirtualTimer),
-            33 => Some(IrqId::Uart),
-            _ => None,
+            27 => Some(IrqId::VirtualTimer),  // [G2]
+            33 => Some(IrqId::Uart),          // [G2]
+            _ => None,                         // [G3]
         }
     }
 }
@@ -67,18 +67,18 @@ pub type IrqHandler = fn();
 /// Static handler table (single-core assumption, set at boot).
 static mut HANDLERS: [Option<IrqHandler>; MAX_HANDLERS] = [None; MAX_HANDLERS];
 
-/// Register a handler for an IRQ.
+/// [G4] Register a handler for an IRQ.
 ///
 /// # Safety
 /// Must be called before interrupts are enabled. Not thread-safe.
 pub fn register_handler(irq: IrqId, handler: IrqHandler) {
     let idx = irq as usize;
     unsafe {
-        HANDLERS[idx] = Some(handler);
+        HANDLERS[idx] = Some(handler);  // [G4] stores handler
     }
 }
 
-/// Dispatch an IRQ to its registered handler.
+/// [G5] Dispatch calls registered handler, [G6] returns false if unregistered
 ///
 /// Returns `true` if a handler was found and called, `false` otherwise.
 pub fn dispatch(irq_num: u32) -> bool {
@@ -86,12 +86,12 @@ pub fn dispatch(irq_num: u32) -> bool {
         let idx = irq_id as usize;
         unsafe {
             if let Some(handler) = HANDLERS[idx] {
-                handler();
+                handler();           // [G5] calls handler
                 return true;
             }
         }
     }
-    false
+    false                            // [G6] unregistered returns false
 }
 
 pub struct Gic {
@@ -266,16 +266,18 @@ impl Gic {
 mod tests {
     use super::*;
 
+    /// Tests: [G1] irq_number mapping, [G2] from_irq_number valid, [G3] from_irq_number unknown
     #[test]
     fn test_irq_id_mapping() {
-        assert_eq!(IrqId::VirtualTimer.irq_number(), 27);
-        assert_eq!(IrqId::Uart.irq_number(), 33);
+        assert_eq!(IrqId::VirtualTimer.irq_number(), 27);  // [G1]
+        assert_eq!(IrqId::Uart.irq_number(), 33);          // [G1]
 
-        assert_eq!(IrqId::from_irq_number(27), Some(IrqId::VirtualTimer));
-        assert_eq!(IrqId::from_irq_number(33), Some(IrqId::Uart));
-        assert_eq!(IrqId::from_irq_number(100), None);
+        assert_eq!(IrqId::from_irq_number(27), Some(IrqId::VirtualTimer));  // [G2]
+        assert_eq!(IrqId::from_irq_number(33), Some(IrqId::Uart));          // [G2]
+        assert_eq!(IrqId::from_irq_number(100), None);                      // [G3]
     }
 
+    /// Tests: [G4] handler registration, [G5] dispatch calls handler, [G6] unregistered returns false
     #[test]
     fn test_handler_registration_and_dispatch() {
         static mut CALLED: bool = false;
@@ -285,24 +287,25 @@ mod tests {
             }
         }
 
-        register_handler(IrqId::Uart, test_handler);
+        register_handler(IrqId::Uart, test_handler);      // [G4]
 
-        let handled = dispatch(33);
+        let handled = dispatch(33);                        // [G5]
         assert!(handled);
         unsafe {
             assert!(CALLED);
         }
 
-        let handled_none = dispatch(27);
+        let handled_none = dispatch(27);                   // [G6] no handler registered
         assert!(!handled_none);
     }
 
+    /// Tests: [G7] spurious IRQ detection (1020-1023)
     #[test]
     fn test_spurious_check() {
-        assert!(Gic::is_spurious(1023));
-        assert!(Gic::is_spurious(1022));
-        assert!(Gic::is_spurious(1021));
-        assert!(Gic::is_spurious(1020));
+        assert!(Gic::is_spurious(1023));                   // [G7]
+        assert!(Gic::is_spurious(1022));                   // [G7]
+        assert!(Gic::is_spurious(1021));                   // [G7]
+        assert!(Gic::is_spurious(1020));                   // [G7]
         assert!(!Gic::is_spurious(33));
     }
 }

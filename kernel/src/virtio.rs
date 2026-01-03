@@ -56,7 +56,7 @@ unsafe impl Hal for VirtioHal {
 }
 
 pub fn init() {
-    println!("Scanning VirtIO MMIO bus...");
+    crate::verbose!("Scanning VirtIO MMIO bus...");
     for i in 0..VIRTIO_MMIO_COUNT {
         let addr = VIRTIO_MMIO_START + i * VIRTIO_MMIO_SIZE;
         let header =
@@ -66,19 +66,14 @@ pub fn init() {
         match unsafe { virtio_drivers::transport::mmio::MmioTransport::new(header) } {
             Ok(transport) => {
                 let device_type = transport.device_type();
-                // println!("Found VirtIO device {:?} at 0x{:x}", device_type, addr);
-
                 match device_type {
                     virtio_drivers::transport::DeviceType::GPU => {
-                        println!("Initializing GPU...");
                         crate::gpu::init(transport);
                     }
                     virtio_drivers::transport::DeviceType::Input => {
-                        println!("Initializing Input...");
                         crate::input::init(transport);
                     }
                     virtio_drivers::transport::DeviceType::Block => {
-                        println!("Initializing Block device...");
                         crate::block::init(transport);
                     }
                     _ => {}

@@ -34,14 +34,14 @@ pub fn init(transport: MmioTransport) {
                             });
                         }
                         Err(_e) => {
-                            crate::println!("GPU: Failed to setup framebuffer");
+                            crate::println!("GPU: Failed to setup framebuffer");  // Error always prints
                         }
                     }
                 }
-                Err(_e) => crate::println!("GPU: Failed to get resolution"),
+                Err(_e) => crate::println!("GPU: Failed to get resolution"),  // Error always prints
             }
         }
-        Err(_e) => crate::println!("GPU: VirtIOGpu::new failed"),
+        Err(_e) => crate::println!("GPU: VirtIOGpu::new failed"),  // Error always prints
     }
 }
 
@@ -50,6 +50,11 @@ impl GpuState {
         // SAFETY: The framebuffer memory is allocated via DMA and kept alive by the VirtIOGpu instance
         // which lives as long as this GpuState. The pointer and length were obtained validity from setup_framebuffer.
         unsafe { core::slice::from_raw_parts_mut(self.fb_ptr as *mut u8, self.fb_len) }
+    }
+
+    /// TEAM_030: Get screen dimensions for input coordinate scaling
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.width, self.height)
     }
 }
 

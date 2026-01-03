@@ -7,13 +7,13 @@ static BLOCK_DEVICE: Spinlock<Option<VirtIOBlk<VirtioHal, MmioTransport>>> = Spi
 pub const BLOCK_SIZE: usize = 512;
 
 pub fn init(transport: MmioTransport) {
-    crate::println!("Initializing VirtIO Block device...");
+    crate::verbose!("Initializing Block device...");
     match VirtIOBlk::<VirtioHal, MmioTransport>::new(transport) {
         Ok(blk) => {
-            crate::println!("VirtIO Block initialized successfully.");
+            crate::verbose!("VirtIO Block initialized successfully.");
             *BLOCK_DEVICE.lock() = Some(blk);
         }
-        Err(e) => crate::println!("Failed to init VirtIO Block: {:?}", e),
+        Err(e) => crate::println!("Failed to init VirtIO Block: {:?}", e),  // Errors always print
     }
 }
 

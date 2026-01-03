@@ -9,6 +9,8 @@ pub mod uart_pl011;
 
 use levitate_utils::{Spinlock, SpinlockGuard};
 
+/// IRQ-safe lock that disables interrupts while held.
+/// Behaviors: [L1]-[L4] interrupt-safe locking
 pub struct IrqSafeLock<T> {
     inner: Spinlock<T>,
 }
@@ -20,11 +22,12 @@ impl<T> IrqSafeLock<T> {
         }
     }
 
+    /// [L1] Disables interrupts before acquiring, [L4] data accessible through guard
     pub fn lock(&self) -> IrqSafeLockGuard<'_, T> {
-        let state = interrupts::disable();
+        let state = interrupts::disable();  // [L1] disable before acquire
         let guard = self.inner.lock();
         IrqSafeLockGuard {
-            guard: Some(guard),
+            guard: Some(guard),             // [L4] data access
             state,
         }
     }
@@ -49,9 +52,10 @@ impl<'a, T> core::ops::DerefMut for IrqSafeLockGuard<'a, T> {
 }
 
 impl<'a, T> Drop for IrqSafeLockGuard<'a, T> {
+    /// [L2] Restores interrupts after releasing
     fn drop(&mut self) {
         self.guard.take();
-        interrupts::restore(self.state);
+        interrupts::restore(self.state);    // [L2] restore on drop
     }
 }
 
@@ -63,27 +67,27 @@ impl<'a, T> Drop for IrqSafeLockGuard<'a, T> {
 mod tests {
     use super::*;
 
+    /// Tests: [L1] disable before acquire, [L2] restore after release, [L4] data access
+    /// Also tests [I1]-[I5] via interrupt mock
     #[test]
     fn test_irq_safe_lock_behavior() {
         let lock = IrqSafeLock::new(10);
 
-        // Initially enabled (in mock)
-        assert!(interrupts::is_enabled());
+        assert!(interrupts::is_enabled());        // [I4] initially enabled
 
         {
-            let mut guard = lock.lock();
-            assert_eq!(*guard, 10);
-            *guard = 20;
+            let mut guard = lock.lock();          // [L1] disables interrupts
+            assert_eq!(*guard, 10);               // [L4] read access
+            *guard = 20;                          // [L4] write access
 
-            // Interrupts should be disabled while holding the lock
-            assert!(!interrupts::is_enabled());
-        }
+            assert!(!interrupts::is_enabled());   // [I5] disabled while held
+        } // [L2] restore on drop
 
-        // Interrupts should be restored after dropping guard
-        assert!(interrupts::is_enabled());
+        assert!(interrupts::is_enabled());        // [I4] restored
         assert_eq!(*lock.lock(), 20);
     }
 
+    /// Tests: [L3] nested locks work correctly, [I6] disable→restore preserves state
     #[test]
     fn test_irq_safe_lock_nested() {
         let lock1 = IrqSafeLock::new(1);
@@ -91,16 +95,14 @@ mod tests {
 
         assert!(interrupts::is_enabled());
         {
-            let _g1 = lock1.lock();
+            let _g1 = lock1.lock();               // [L3] first lock
             assert!(!interrupts::is_enabled());
             {
-                let _g2 = lock2.lock();
+                let _g2 = lock2.lock();           // [L3] nested lock
                 assert!(!interrupts::is_enabled());
             }
-            // Still disabled after g2 dropped
-            assert!(!interrupts::is_enabled());
+            assert!(!interrupts::is_enabled());   // [L3] still disabled after inner drop
         }
-        // Finally restored after g1 dropped
-        assert!(interrupts::is_enabled());
+        assert!(interrupts::is_enabled());        // [I6] finally restored
     }
 }

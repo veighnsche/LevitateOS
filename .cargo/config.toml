@@ -9,3 +9,6 @@ rustflags = [
 
 [unstable]
 build-std = ["core", "alloc"]
+
+[alias]
+xtask = "run --package xtask --target x86_64-unknown-linux-gnu --"

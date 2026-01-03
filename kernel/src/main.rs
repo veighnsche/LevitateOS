@@ -3,6 +3,21 @@
 
 extern crate alloc;
 
+/// Verbose print macro - only outputs when `verbose` feature is enabled.
+/// Use for successful initialization messages (Rule 4: Silence is Golden).
+/// Errors should always use println! directly.
+#[cfg(feature = "verbose")]
+#[macro_export]
+macro_rules! verbose {
+    ($($arg:tt)*) => { $crate::println!($($arg)*) };
+}
+
+#[cfg(not(feature = "verbose"))]
+#[macro_export]
+macro_rules! verbose {
+    ($($arg:tt)*) => {};
+}
+
 // use core::alloc::Layout;
 use core::arch::global_asm;
 use core::panic::PanicInfo;
@@ -185,8 +200,8 @@ pub extern "C" fn kmain() -> ! {
         ALLOCATOR.lock().init(heap_start as *mut u8, heap_size);
     }
 
-    println!("\n*** ClaudeOS Rust Kernel ***");
-    println!("Heap initialized.");
+    verbose!("\n*** LevitateOS Kernel ***");
+    verbose!("Heap initialized.");
 
     // 1.5 Initialize MMU (TEAM_020)
     {
@@ -239,12 +254,12 @@ pub extern "C" fn kmain() -> ! {
             // both bottom-half and top-half entries.
             mmu::enable_mmu(root_phys, root_phys);
         }
-        println!("MMU re-initialized (Higher-Half + Identity).");
+        verbose!("MMU re-initialized (Higher-Half + Identity).");
     }
 
     // 2. Initialize Core Drivers
     exceptions::init();
-    println!("Exceptions initialized.");
+    verbose!("Exceptions initialized.");
     levitate_hal::console::init();
     gic::API.init();
 
@@ -254,17 +269,17 @@ pub extern "C" fn kmain() -> ! {
     gic::API.enable_irq(gic::IrqId::VirtualTimer.irq_number());
     gic::API.enable_irq(gic::IrqId::Uart.irq_number());
 
-    println!("Core drivers initialized.");
+    verbose!("Core drivers initialized.");
 
     // 3. Initialize Timer (Phase 2)
-    println!("Initializing Timer...");
+    verbose!("Initializing Timer...");
     let freq = timer::API.read_frequency();
     print!("Timer frequency (hex): ");
     levitate_hal::console::print_hex(freq);
-    println!("");
+    verbose!("");
     timer::API.set_timeout(freq);
     timer::API.enable();
-    println!("Timer initialized.");
+    verbose!("Timer initialized.");
 
     // 4. Initialize VirtIO (Phase 3)
     virtio::init();
@@ -273,7 +288,7 @@ pub extern "C" fn kmain() -> ! {
     unsafe {
         core::arch::asm!("msr daifclr, #2");
     }
-    println!("Interrupts enabled.");
+    verbose!("Interrupts enabled.");
 
     // Verify Graphics
     use embedded_graphics::{
@@ -282,7 +297,7 @@ pub extern "C" fn kmain() -> ! {
         primitives::{PrimitiveStyle, Rectangle},
     };
 
-    println!("Drawing test pattern...");
+    verbose!("Drawing test pattern...");
     let mut display = gpu::Display;
     if display.size().width > 0 {
         // Draw blue background
@@ -294,9 +309,9 @@ pub extern "C" fn kmain() -> ! {
         let _ = Rectangle::new(Point::new(100, 100), Size::new(200, 200))
             .into_styled(PrimitiveStyle::with_fill(Rgb888::new(255, 0, 0)))
             .draw(&mut display);
-        println!("Drawing complete.");
+        verbose!("Drawing complete.");
     } else {
-        println!("Display not ready.");
+        verbose!("Display not ready.");
     }
 
     loop {

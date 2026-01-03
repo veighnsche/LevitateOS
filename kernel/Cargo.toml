@@ -3,6 +3,10 @@ name = "levitate-kernel"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+verbose = []  # Enable verbose boot messages for golden file testing
+
 [dependencies]
 levitate-hal = { path = "../levitate-hal" }
 levitate-utils = { path = "../levitate-utils" }

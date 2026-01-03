@@ -22,7 +22,20 @@ LevitateOS uses a Cargo Workspace.
 ### Running
 To build and boot in QEMU:
 ```bash
-./run.sh
+cargo xtask run
+```
+
+### Testing
+```bash
+cargo xtask test           # Run all tests (behavior + regression)
+cargo xtask test behavior  # Run behavior test only (golden log comparison)
+cargo xtask test regress   # Run regression tests only
+```
+
+### Other Commands
+```bash
+cargo xtask build          # Build kernel only
+cargo xtask --help         # Show all commands
 ```
 
 ## Structure

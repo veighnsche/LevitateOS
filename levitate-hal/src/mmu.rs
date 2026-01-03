@@ -22,29 +22,30 @@ pub const ENTRIES_PER_TABLE: usize = 512;
 
 /// Kernel physical start address (from linker.ld)
 pub const KERNEL_PHYS_START: usize = 0x4008_0000;
-/// Kernel physical end address (heap end from linker.ld)
-pub const KERNEL_PHYS_END: usize = 0x4800_0000;
+/// Kernel physical end address (matches __heap_end in linker.ld)
+/// Note: linker.ld sets __heap_end = _kernel_virt_base + 0x41F00000
+pub const KERNEL_PHYS_END: usize = 0x41F0_0000;
 
 /// Kernel virtual start address (Higher-half base)
 pub const KERNEL_VIRT_START: usize = 0xFFFF_8000_0000_0000;
 
-/// Convert a kernel virtual address to a physical address.
+/// [M19] Converts high VA to PA, [M21] identity for low addresses
 #[inline]
 pub fn virt_to_phys(va: usize) -> usize {
     if va >= KERNEL_VIRT_START {
-        va - KERNEL_VIRT_START
+        va - KERNEL_VIRT_START  // [M19] high VA to PA
     } else {
-        va // Assume already physical or identity mapped
+        va // [M21] identity for low addresses
     }
 }
 
-/// Convert a physical address to a kernel virtual address.
+/// [M20] Converts PA to high VA, [M22] identity for device addresses
 #[inline]
 pub fn phys_to_virt(pa: usize) -> usize {
     if pa >= 0x4000_0000 {
-        pa + KERNEL_VIRT_START
+        pa + KERNEL_VIRT_START  // [M20] PA to high VA
     } else {
-        pa // For devices, we often use identity mapping for now
+        pa // [M22] identity for device addresses
     }
 }
 
@@ -162,11 +163,12 @@ impl PageTableEntry {
 
 bitflags! {
     /// AArch64 Stage 1 page table entry flags.
+    /// Behaviors: [M1] VALID bit 0, [M2] TABLE bit 1, [M3] block has TABLE=0, [M4] table has TABLE=1
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct PageFlags: u64 {
-        /// Entry is valid
+        /// [M1] Entry is valid (bit 0)
         const VALID       = 1 << 0;
-        /// Table descriptor (vs Block) - must be set for L0-L2 table entries
+        /// [M2] Table descriptor (bit 1) - [M3] blocks have this unset, [M4] tables have this set
         const TABLE       = 1 << 1;
 
         // MAIR index (AttrIndx[2:0] at bits [4:2])
@@ -294,30 +296,31 @@ impl PageTable {
 
 // ============================================================================
 // Virtual Address Indexing
+// Behaviors: [M7]-[M10] VA index extraction
 // ============================================================================
 
-/// Extract L0 index from virtual address (bits [47:39])
+/// [M7] Extract L0 index from virtual address (bits [47:39])
 #[inline]
 pub fn va_l0_index(va: usize) -> usize {
-    (va >> 39) & 0x1FF
+    (va >> 39) & 0x1FF  // [M7]
 }
 
-/// Extract L1 index from virtual address (bits [38:30])
+/// [M8] Extract L1 index from virtual address (bits [38:30])
 #[inline]
 pub fn va_l1_index(va: usize) -> usize {
-    (va >> 30) & 0x1FF
+    (va >> 30) & 0x1FF  // [M8]
 }
 
-/// Extract L2 index from virtual address (bits [29:21])
+/// [M9] Extract L2 index from virtual address (bits [29:21])
 #[inline]
 pub fn va_l2_index(va: usize) -> usize {
-    (va >> 21) & 0x1FF
+    (va >> 21) & 0x1FF  // [M9]
 }
 
-/// Extract L3 index from virtual address (bits [20:12])
+/// [M10] Extract L3 index from virtual address (bits [20:12])
 #[inline]
 pub fn va_l3_index(va: usize) -> usize {
-    (va >> 12) & 0x1FF
+    (va >> 12) & 0x1FF  // [M10]
 }
 
 // ============================================================================
@@ -428,7 +431,7 @@ pub unsafe fn enable_mmu(ttbr0_phys: usize, ttbr1_phys: usize) {
 }
 
 #[cfg(not(target_arch = "aarch64"))]
-pub unsafe fn enable_mmu(_root_phys: usize) {
+pub unsafe fn enable_mmu(_ttbr0_phys: usize, _ttbr1_phys: usize) {
     // Stub for non-aarch64 builds (test builds on host)
 }
 
@@ -859,5 +862,43 @@ mod tests {
         let expected_bytes = 63 * BLOCK_2MB_SIZE + 384 * PAGE_SIZE;
         assert_eq!(stats.total_bytes(), expected_bytes);
         assert_eq!(expected_bytes, 0x7F8_0000); // ~127.5MB
+    }
+
+    // === TEAM_030: Address Translation Tests (M19-M22) ===
+
+    // M19: virt_to_phys converts high VA to PA
+    #[test]
+    fn test_virt_to_phys_high_address() {
+        // Kernel virtual address in higher half
+        let va = KERNEL_VIRT_START + 0x4008_0000;
+        let pa = virt_to_phys(va);
+        assert_eq!(pa, 0x4008_0000);
+    }
+
+    // M20: phys_to_virt converts PA to high VA
+    #[test]
+    fn test_phys_to_virt_kernel_region() {
+        // Physical address in kernel region (>= 0x4000_0000)
+        let pa = 0x4008_0000;
+        let va = phys_to_virt(pa);
+        assert_eq!(va, KERNEL_VIRT_START + 0x4008_0000);
+    }
+
+    // M21: virt_to_phys identity for low addresses
+    #[test]
+    fn test_virt_to_phys_low_address_identity() {
+        // Low addresses (below KERNEL_VIRT_START) pass through unchanged
+        let va = 0x4008_0000;
+        let pa = virt_to_phys(va);
+        assert_eq!(pa, va); // Identity: already physical
+    }
+
+    // M22: phys_to_virt identity for device addresses
+    #[test]
+    fn test_phys_to_virt_device_identity() {
+        // Device addresses (< 0x4000_0000) use identity mapping
+        let pa = 0x0900_0000; // UART address
+        let va = phys_to_virt(pa);
+        assert_eq!(va, pa); // Identity: device region
     }
 }

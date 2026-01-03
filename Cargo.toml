@@ -3,6 +3,7 @@ members = [
     "kernel",
     "levitate-hal",
     "levitate-utils",
+    "xtask",
 ]
 resolver = "2"
 

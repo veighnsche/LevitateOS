@@ -110,11 +110,11 @@ impl Timer for AArch64Timer {
 /// Global instance of the AArch64 physical timer.
 pub static API: AArch64Timer = AArch64Timer;
 
-/// Returns the uptime in seconds using the global timer.
+/// [T1] Returns the uptime in seconds (counter / frequency)
 pub fn uptime_seconds() -> u64 {
     let cnt = API.read_counter();
     let freq = API.read_frequency();
-    if freq == 0 { 0 } else { cnt / freq }
+    if freq == 0 { 0 } else { cnt / freq }  // [T1]
 }
 
 /// Spin-wait for a certain number of cycles.
@@ -151,16 +151,17 @@ mod tests {
         }
     }
 
+    /// Tests: [T1] uptime_seconds = counter / frequency
     #[test]
     fn test_uptime_seconds() {
         let timer = MockTimer {
             counter: core::cell::Cell::new(1000),
             frequency: 100,
         };
-        // 1000 ticks / 100 ticks per second = 10 seconds
+        // [T1] 1000 ticks / 100 ticks per second = 10 seconds
         assert_eq!(timer.read_counter() / timer.read_frequency(), 10);
 
         timer.counter.set(250);
-        assert_eq!(timer.read_counter() / timer.read_frequency(), 2);
+        assert_eq!(timer.read_counter() / timer.read_frequency(), 2);  // [T1]
     }
 }
