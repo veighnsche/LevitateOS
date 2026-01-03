@@ -29,7 +29,7 @@ members = [
 - **Components**:
   - `console`: UART (PL011) interaction.
   - `gic`: Generic Interrupt Controller management.
-  - `timer`: (Future) System timer.
+  - `timer`: AArch64 Generic Timer driver.
 - **Design Rule**: Code here should handle `unsafe` MMIO but expose safe APIs to the kernel.
 
 ### 3. Utilities (`levitate-utils`)
