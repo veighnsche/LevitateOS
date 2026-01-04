@@ -97,6 +97,10 @@ pub fn init() {
                     virtio_drivers::transport::DeviceType::Block => {
                         crate::block::init(transport);
                     }
+                    // TEAM_057: VirtIO Net driver
+                    virtio_drivers::transport::DeviceType::Network => {
+                        crate::net::init(transport);
+                    }
                     _ => {}
                 }
             }

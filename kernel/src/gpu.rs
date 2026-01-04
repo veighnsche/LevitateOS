@@ -61,6 +61,18 @@ impl GpuState {
     pub fn dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
     }
+
+    /// TEAM_059: Flush framebuffer to display
+    pub fn flush(&mut self) {
+        self.gpu.flush().ok();
+    }
+}
+
+// TEAM_058: Static resolution getter for terminal initialization (SC2.1)
+/// Get current screen resolution without requiring mutable access
+/// Returns None if GPU not initialized (SC2.4)
+pub fn get_resolution() -> Option<(u32, u32)> {
+    GPU.lock().as_ref().map(|s| (s.width, s.height))
 }
 
 pub struct Display;
@@ -79,6 +91,7 @@ impl DrawTarget for Display {
             let height = state.height;
             let fb = state.framebuffer();
 
+            let mut updated = false;
             for Pixel(point, color) in pixels {
                 if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32
                 {
@@ -88,11 +101,14 @@ impl DrawTarget for Display {
                         fb[idx + 1] = color.g();
                         fb[idx + 2] = color.b();
                         fb[idx + 3] = 255; // Alpha
+                        updated = true;
                     }
                 }
             }
-            // Flush
-            state.gpu.flush().ok();
+            // Flush only if we actually drew something
+            if updated {
+                state.gpu.flush().ok();
+            }
         }
         Ok(())
     }

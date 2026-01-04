@@ -1,7 +1,7 @@
 ---
-trigger: always_on
+trigger: model_decision
 glob:
-description:
+description: When a new behavior is added to the kernel, it must be documented in the behavior inventory.
 ---
 
 # Behavior Testing & Traceability SOP

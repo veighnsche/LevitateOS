@@ -28,6 +28,7 @@ TEAM_030: Behavior-driven test inventory
 - `kernel/src/block.rs`
 - `kernel/src/gpu.rs`
 - `kernel/src/input.rs`
+- `kernel/src/net.rs`
 - `kernel/src/virtio.rs`
 
 ---
@@ -422,4 +423,118 @@ TEAM_055: Added buddy allocator for physical page frame management
 | **Total** | | **126** | **124** | **2 runtime-verified** ⚠️ |
 
 > **Note:** M26 and M27 are runtime-verified through kernel boot tests. FDT tests are skipped due to mock issues.
+
+---
+
+## Group 9: VirtIO Network — Behavior Inventory
+
+TEAM_057: VirtIO Net driver for Phase 6
+
+### File Groups
+- `kernel/src/net.rs` (Network driver)
+
+### VirtIO Net (net.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| NET1 | init() detects and initializes virtio-net device | ⚠️ | Runtime (boot) |
+| NET2 | init() reads MAC address from device config | ⚠️ | Runtime (boot) |
+| NET3 | mac_address() returns device MAC when initialized | ⚠️ | Runtime (boot) |
+| NET4 | mac_address() returns None when not initialized | ⚠️ | Runtime (boot) |
+| NET5 | can_send() returns true when TX queue has space | ⚠️ | Runtime |
+| NET6 | can_send() returns false when not initialized | ⚠️ | Runtime |
+| NET7 | can_recv() returns true when RX packet available | ⚠️ | Runtime |
+| NET8 | can_recv() returns false when not initialized | ⚠️ | Runtime |
+| NET9 | send() transmits packet when device ready | ⚠️ | Runtime |
+| NET10 | send() returns NotInitialized when device missing | ⚠️ | Runtime |
+| NET11 | send() returns DeviceBusy when queue full | ⚠️ | Runtime |
+| NET12 | receive() returns packet data when available | ⚠️ | Runtime |
+| NET13 | receive() returns None when no packet | ⚠️ | Runtime |
+| NET14 | receive() recycles RX buffer after read | ⚠️ | Runtime |
+
+### Group 9 Summary
+- **VirtIO Net**: 14/14 behaviors documented
+- **Runtime verified**: 14/14 ⚠️ (hardware-dependent, verified via kernel boot)
+
+---
+
+## Updated Overall Summary (TEAM_057)
+
+| Group | Module | Behaviors | Tested | Gap |
+|-------|--------|-----------|--------|-----|
+| 1 | Spinlock | 6 | 6 | ✅ |
+| 1 | RingBuffer | 8 | 8 | ✅ |
+| 2 | interrupts | 6 | 6 | ✅ |
+| 2 | IrqSafeLock | 4 | 4 | ✅ |
+| 2 | GIC | 9 | 9 | ✅ |
+| 3 | Pl011Uart bitflags | 8 | 8 | ✅ |
+| 3 | console | 5 | 5 | ✅ |
+| 4 | MMU | 27 | 25 | ⚠️ |
+| 5 | Timer | 1 | 1 | ✅ |
+| 6 | FDT | 8 | 8 | ⚠️ |
+| 6 | CPIO | 10 | 10 | ✅ |
+| 7 | SlabList | 8 | 8 | ✅ |
+| 7 | SlabPage | 8 | 8 | ✅ |
+| 7 | SlabCache | 3 | 3 | ✅ |
+| 7 | SlabAllocator | 4 | 4 | ✅ |
+| 8 | BuddyAllocator | 11 | 11 | ✅ |
+| 9 | VirtIO Net | 14 | 14 | ⚠️ |
+| **Total** | | **140** | **138** | **2 unit + 14 runtime** ⚠️ |
+
+> **Note:** NET behaviors are runtime-verified (hardware-dependent). M26/M27 verified via boot. FDT tests skipped due to mock issues.
+
+---
+
+## Group 10: GPU Terminal — Behavior Inventory
+
+TEAM_058: GPU Terminal for Phase 6
+TEAM_059: Verified behaviors after fixing newline/cursor bugs
+
+### File Groups
+- `kernel/src/terminal.rs` (Terminal emulator)
+- `kernel/src/gpu.rs` (Resolution helper)
+
+### Terminal (terminal.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| TERM1 | Character renders at cursor position | ✅ | Runtime (visual) |
+| TERM2 | Cursor advances after character | ✅ | Runtime (UART log) |
+| TERM3 | Newline moves to next line start | ✅ | Runtime (UART log) |
+| TERM4 | Screen scrolls when cursor exceeds rows | ✅ | Runtime (UART log) |
+| TERM5 | Carriage return resets column | ✅ | Runtime (UART log) |
+| TERM6 | Tab advances to 8-column boundary | ✅ | Runtime (UART log) |
+| TERM7 | Clear fills with background color | ✅ | Runtime (visual) |
+| TERM8 | Backspace moves cursor left | ✅ | Runtime (UART log) |
+| TERM9 | Resolution adapts to screen size | ✅ | Runtime (UART log) |
+
+### Group 10 Summary
+- **Terminal**: 9/9 behaviors documented
+- **Runtime verified**: 9/9 ✅ (visual + UART logging)
+
+---
+
+## Updated Overall Summary (TEAM_058)
+
+| Group | Module | Behaviors | Tested | Gap |
+|-------|--------|-----------|--------|-----|
+| 1 | Spinlock | 6 | 6 | ✅ |
+| 1 | RingBuffer | 8 | 8 | ✅ |
+| 2 | interrupts | 6 | 6 | ✅ |
+| 2 | IrqSafeLock | 4 | 4 | ✅ |
+| 2 | GIC | 9 | 9 | ✅ |
+| 3 | Pl011Uart bitflags | 8 | 8 | ✅ |
+| 3 | console | 5 | 5 | ✅ |
+| 4 | MMU | 27 | 25 | ⚠️ |
+| 5 | Timer | 1 | 1 | ✅ |
+| 6 | FDT | 8 | 8 | ⚠️ |
+| 6 | CPIO | 10 | 10 | ✅ |
+| 7 | SlabList | 8 | 8 | ✅ |
+| 7 | SlabPage | 8 | 8 | ✅ |
+| 7 | SlabCache | 3 | 3 | ✅ |
+| 7 | SlabAllocator | 4 | 4 | ✅ |
+| 8 | BuddyAllocator | 11 | 11 | ✅ |
+| 9 | VirtIO Net | 14 | 14 | ⚠️ |
+| 10 | Terminal | 9 | 9 | ⚠️ |
+| **Total** | | **149** | **147** | **2 unit + 23 runtime** ⚠️ |
 

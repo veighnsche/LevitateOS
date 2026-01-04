@@ -22,8 +22,8 @@ qemu-system-aarch64 \
     -cpu cortex-a53 \
     -m 512M \
     -kernel "$BIN" \
-    -display none \
-    -device virtio-gpu-device \
+    -display gtk \
+    -device virtio-gpu-device,xres=1280,yres=800 \
     -device virtio-keyboard-device \
     -device virtio-tablet-device \
     -device virtio-net-device,netdev=net0 \

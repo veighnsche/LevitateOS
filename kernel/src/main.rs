@@ -29,6 +29,8 @@ mod fs;
 mod gpu;
 mod input;
 mod memory;
+mod net;
+mod terminal;
 mod virtio;
 
 use levitate_hal::fdt;
@@ -473,38 +475,52 @@ pub extern "C" fn kmain() -> ! {
     }
     verbose!("Interrupts enabled.");
 
-    // Verify Graphics
-    use embedded_graphics::{
-        pixelcolor::Rgb888,
-        prelude::*,
-        primitives::{PrimitiveStyle, Rectangle},
-    };
-
-    verbose!("Drawing test pattern...");
+    // TEAM_058: Initialize GPU Terminal (SC14.1-SC14.7)
+    verbose!("Initializing GPU Terminal...");
     let mut display = gpu::Display;
-    if display.size().width > 0 {
-        // Draw blue background
-        let _ = Rectangle::new(Point::new(0, 0), display.size())
-            .into_styled(PrimitiveStyle::with_fill(Rgb888::new(0, 0, 0)))
-            .draw(&mut display);
-
-        // Draw red rectangle
-        let _ = Rectangle::new(Point::new(100, 100), Size::new(200, 200))
-            .into_styled(PrimitiveStyle::with_fill(Rgb888::new(255, 0, 0)))
-            .draw(&mut display);
-        verbose!("Drawing complete.");
-    } else {
-        verbose!("Display not ready.");
-    }
+    
+    // SC2.2, SC2.3: Get resolution from GPU
+    let (width, height) = gpu::get_resolution().unwrap_or((1280, 800));
+    println!("[TERM] GPU resolution: {}x{}", width, height);
+    
+    // SC3.3: Create terminal
+    let mut term = terminal::Terminal::new(width, height);
+    let (cols, rows) = term.size();
+    
+    // SC14.2: Print dimensions to UART
+    println!("[TERM] Terminal size: {}x{} characters", cols, rows);
+    
+    // SC10.1-SC10.5, SC14.1: Clear and show boot banner
+    term.clear(&mut display);
+    term.write_str(&mut display, "LevitateOS Terminal v0.1\n");
+    term.write_str(&mut display, "========================\n\n");
+    term.write_str(&mut display, "Type to see characters on GPU display.\n");
+    term.write_str(&mut display, "Press Enter for newline.\n\n");
+    verbose!("Terminal initialized.");
 
     loop {
+        // SC14.6: Keep existing cursor tracking
         if input::poll() {
             cursor::draw(&mut display);
         }
 
-        // Echo UART input
+        // SC14.3, SC14.4, SC14.5: Echo UART input to both serial AND GPU terminal
         if let Some(c) = levitate_hal::console::read_byte() {
-            print!("{}", c as char);
+            match c {
+                b'\r' => {
+                    print!("\r\n"); // Serial needs CRLF
+                    term.write_char(&mut display, '\n');
+                }
+                b'\n' => {
+                    // Ignore or handle if terminal expects \n
+                    print!("\r\n");
+                    term.write_char(&mut display, '\n');
+                }
+                _ => {
+                    print!("{}", c as char);  // Echo to UART
+                    term.write_char(&mut display, c as char);  // Echo to GPU
+                }
+            }
         }
 
         core::hint::spin_loop();

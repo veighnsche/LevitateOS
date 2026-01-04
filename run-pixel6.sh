@@ -53,8 +53,8 @@ qemu-system-aarch64 \
     -smp "$QEMU_SMP" \
     -m "$QEMU_MEMORY" \
     -kernel "$BIN" \
-    -display none \
-    -device virtio-gpu-device \
+    -display gtk \
+    -device virtio-gpu-device,xres=2400,yres=1080 \
     -device virtio-keyboard-device \
     -device virtio-tablet-device \
     -device virtio-net-device,netdev=net0 \

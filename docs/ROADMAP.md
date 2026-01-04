@@ -63,13 +63,14 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
-## 🔮 Phase 6: VirtIO Ecosystem Expansion
+## 🚧 Phase 6: VirtIO Ecosystem Expansion (In Progress)
 
 - **Objective**: Expand hardware support using VirtIO.
 - **Tasks**:
-  - [ ] **VirtIO Net**: Basic network packet transmission/reception (`virtio-net`).
-  - [ ] **GPU Refinement**: Text rendering or terminal emulation on GPU framebuffer.
-  - [ ] **9P Filesystem**: Mount host directories via `virtio-9p`.
+  - [x] **VirtIO Net**: Basic network packet transmission/reception (`virtio-net`). (TEAM_057)
+  - [x] **GPU Refinement**: Text rendering on GPU framebuffer. (TEAM_058, TEAM_059: Resolved newline/cursor bugs)
+  - [ ] **Keyboard Support**: Direct input from QEMU window via `virtio-keyboard`. (Planned: Task 6.4)
+  - [ ] **9P Filesystem**: Mount host directories via `virtio-9p`. (Deferred — see `docs/planning/virtio-ecosystem-phase6/task-6.3-9p-filesystem.md`)
 
 ---
 
