@@ -1,25 +1,30 @@
 use fdt::Fdt;
 
 /// Errors that can occur during FDT parsing
+/// [FD1] InvalidHeader - DTB header is malformed
+/// [FD2] InitrdMissing - No initrd properties found
 #[derive(Debug)]
 pub enum FdtError {
+    /// [FD1] Invalid DTB header
     InvalidHeader,
+    /// [FD2] Missing initrd properties, [FD5] Both start and end must exist
     InitrdMissing,
 }
 
 /// Retrieve the physical address range of the initrd from the DTB.
+/// [FD3] Parses 32-bit addresses, [FD4] Parses 64-bit addresses, [FD6] Handles big-endian
 ///
 /// # Arguments
 ///
-/// * `dtb_ptr` - Virtual pointer to the simple slice containing the DTB.
+/// * `dtb_data` - Slice containing the DTB data.
 ///
 /// # Returns
 ///
-/// * `Option<(usize, usize)>` - Start and End physical addresses of the initrd.
+/// * `Result<(usize, usize), FdtError>` - Start and End physical addresses of the initrd.
 pub fn get_initrd_range(dtb_data: &[u8]) -> Result<(usize, usize), FdtError> {
     let fdt = Fdt::new(dtb_data).map_err(|_| FdtError::InvalidHeader)?;
 
-    let chosen = fdt.chosen();
+    let _chosen = fdt.chosen();
 
     // Look for linux,initrd-start and linux,initrd-end properties
     // Note: The `fdt` crate might expose these via a helper, or we iterate properties.
@@ -38,23 +43,42 @@ pub fn get_initrd_range(dtb_data: &[u8]) -> Result<(usize, usize), FdtError> {
         for prop in node.properties() {
             match prop.name {
                 "linux,initrd-start" => {
-                    // Can be 32-bit or 64-bit depending on #address-cells.
-                    // fdt crate usually handles endianness in `as_usize()`.
-                    // Actually `prop.value` is &[u8]. Fdt crate hasn't got `as_usize`.
-                    // But let's check if the property wrapper has helpers.
-                    // Checking 0.1.5 source/docs... it seems `Property` has `as_usize`?
-                    // No, let's use manual parsing which is safer.
+                    // TEAM_039: Safe parsing using explicit array indexing
+                    // Length is checked before conversion, so indexing is safe
                     if prop.value.len() == 4 {
-                        start = Some(u32::from_be_bytes(prop.value.try_into().unwrap()) as usize);
+                        let bytes = [prop.value[0], prop.value[1], prop.value[2], prop.value[3]];
+                        start = Some(u32::from_be_bytes(bytes) as usize);
                     } else if prop.value.len() == 8 {
-                        start = Some(u64::from_be_bytes(prop.value.try_into().unwrap()) as usize);
+                        let bytes = [
+                            prop.value[0],
+                            prop.value[1],
+                            prop.value[2],
+                            prop.value[3],
+                            prop.value[4],
+                            prop.value[5],
+                            prop.value[6],
+                            prop.value[7],
+                        ];
+                        start = Some(u64::from_be_bytes(bytes) as usize);
                     }
                 }
                 "linux,initrd-end" => {
+                    // TEAM_039: Safe parsing using explicit array indexing
                     if prop.value.len() == 4 {
-                        end = Some(u32::from_be_bytes(prop.value.try_into().unwrap()) as usize);
+                        let bytes = [prop.value[0], prop.value[1], prop.value[2], prop.value[3]];
+                        end = Some(u32::from_be_bytes(bytes) as usize);
                     } else if prop.value.len() == 8 {
-                        end = Some(u64::from_be_bytes(prop.value.try_into().unwrap()) as usize);
+                        let bytes = [
+                            prop.value[0],
+                            prop.value[1],
+                            prop.value[2],
+                            prop.value[3],
+                            prop.value[4],
+                            prop.value[5],
+                            prop.value[6],
+                            prop.value[7],
+                        ];
+                        end = Some(u64::from_be_bytes(bytes) as usize);
                     }
                 }
                 _ => {}

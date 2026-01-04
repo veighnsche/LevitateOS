@@ -223,3 +223,65 @@ TEAM_030: Behavior-driven test inventory
 - `test_phys_to_virt_kernel_region` (M20)
 - `test_virt_to_phys_low_address_identity` (M21)
 - `test_phys_to_virt_device_identity` (M22)
+
+---
+
+## Group 6: Initramfs & FDT — Behavior Inventory
+
+TEAM_039: Added per behavior-testing SOP
+
+### File Groups
+- `levitate-hal/src/fdt.rs` (FDT parsing)
+- `kernel/src/fs/initramfs.rs` (CPIO parser)
+
+### FDT Module (fdt.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| FD1 | Invalid DTB header returns InvalidHeader error | ❌ | `test_fdt_invalid_header` |
+| FD2 | Missing initrd properties returns InitrdMissing error | ❌ | `test_fdt_missing_initrd` |
+| FD3 | 32-bit initrd-start is parsed correctly | ❌ | `test_fdt_initrd_32bit` |
+| FD4 | 64-bit initrd-start is parsed correctly | ❌ | `test_fdt_initrd_64bit` |
+| FD5 | Both start and end properties must exist | ❌ | `test_fdt_missing_initrd` |
+| FD6 | Big-endian byte order is handled | ❌ | `test_fdt_initrd_64bit` |
+
+### CPIO Parser (initramfs.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| CP1 | CpioHeader is_valid accepts "070701" magic | ✅ | `test_cpio_header_valid_magic` |
+| CP2 | CpioHeader is_valid accepts "070702" magic | ✅ | `test_cpio_header_valid_magic` |
+| CP3 | CpioHeader is_valid rejects invalid magic | ✅ | `test_cpio_header_invalid_magic` |
+| CP4 | parse_hex converts hex string to usize | ✅ | `test_parse_hex` |
+| CP5 | parse_hex returns 0 for invalid input | ✅ | `test_parse_hex_invalid` |
+| CP6 | CpioArchive::iter returns entries in order | ❌ | `test_cpio_iter_order` |
+| CP7 | Iterator stops at TRAILER!!! | ❌ | `test_cpio_iter_trailer` |
+| CP8 | CpioArchive::get_file finds existing file | ❌ | `test_cpio_get_file_found` |
+| CP9 | CpioArchive::get_file returns None for missing file | ❌ | `test_cpio_get_file_missing` |
+| CP10 | 4-byte alignment is applied after header+name | ❌ | `test_cpio_alignment` |
+
+### Group 6 Summary
+- **FDT**: 0/6 behaviors tested (tests pending - requires mock DTB data)
+- **CPIO**: 5/10 behaviors tested ✅ (CP1-CP5 now run on host)
+- **Total**: 5/16 behaviors tested
+- **Note**: TEAM_039 relocated CPIO to `levitate-utils/src/cpio.rs` - tests now run via `cargo test`.
+
+---
+
+## Updated Overall Summary (TEAM_039)
+
+| Group | Module | Behaviors | Tested | Gap |
+|-------|--------|-----------|--------|-----|
+| 1 | Spinlock | 6 | 5 | S2 (threading) |
+| 1 | RingBuffer | 8 | 8 | ✅ |
+| 2 | interrupts | 6 | 6 | ✅ |
+| 2 | IrqSafeLock | 4 | 4 | ✅ |
+| 2 | GIC | 7 | 7 | ✅ |
+| 3 | Pl011Uart bitflags | 8 | 8 | ✅ |
+| 3 | console | 5 | 5 | ✅ |
+| 4 | MMU | 22 | 22 | ✅ |
+| 5 | Timer | 1 | 1 | ✅ |
+| 6 | FDT | 6 | 0 | FD1-FD6 ⚠️ |
+| 6 | CPIO | 10 | 0 | CP1-CP10 ⚠️ |
+| **Total** | | **83** | **66** | **17 gaps** |
+

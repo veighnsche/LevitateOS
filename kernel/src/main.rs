@@ -419,8 +419,8 @@ pub extern "C" fn kmain() -> ! {
                         }
                     }
                 }
-                Err(e) => {
-                    verbose!("No initramfs found in DTB: {:?}", e);
+                Err(_e) => {
+                    verbose!("No initramfs found in DTB: {:?}", _e);
                 }
             }
         } else {

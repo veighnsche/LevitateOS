@@ -96,6 +96,7 @@ pub fn mount_and_list() -> Result<Vec<String>, &'static str> {
 }
 
 /// Read file from FAT32
+#[allow(unused_mut)] // mut is needed when function is called, false positive due to dead code
 pub fn read_file(path: &str) -> Option<Vec<u8>> {
     let block_device = VirtioBlockDevice::new(DISK_SIZE_BYTES);
     let time_source = DummyTimeSource;
@@ -104,11 +105,10 @@ pub fn read_file(path: &str) -> Option<Vec<u8>> {
     let volume = volume_mgr.open_volume(VolumeIdx(0)).ok()?;
     let root_dir = volume.open_root_dir().ok()?;
 
-    let file = root_dir.open_file_in_dir(path, Mode::ReadOnly).ok()?;
+    let mut file = root_dir.open_file_in_dir(path, Mode::ReadOnly).ok()?;
 
     let mut contents = Vec::new();
     let mut buf = [0u8; 512];
-    let mut file = file;
     loop {
         match file.read(&mut buf) {
             Ok(0) => break,

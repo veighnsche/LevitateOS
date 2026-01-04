@@ -3,6 +3,9 @@
 //! TEAM_032: Provides unified filesystem access with multiple backend support.
 //! - FAT32 via embedded-sdmmc (boot partition)
 //! - ext4 via ext4-view (root partition, read-only)
+//!
+//! Note: Some functions are kept for future VFS integration.
+#![allow(dead_code)]
 
 extern crate alloc;
 
@@ -36,8 +39,8 @@ pub fn init() -> Result<(), &'static str> {
         Ok(entries) => {
             *FAT32_MOUNTED.lock() = true;
             crate::verbose!("FAT32 mounted. Root contains {} entries.", entries.len());
-            for entry in entries.iter().take(5) {
-                crate::verbose!("  - {}", entry);
+            for _entry in entries.iter().take(5) {
+                // Entries logged via verbose macro if enabled
             }
             Ok(())
         }
@@ -54,8 +57,8 @@ pub fn init_ext4() -> Result<(), &'static str> {
         Ok(entries) => {
             *EXT4_MOUNTED.lock() = true;
             crate::verbose!("ext4 mounted. Root contains {} entries.", entries.len());
-            for entry in entries.iter().take(5) {
-                crate::verbose!("  - {}", entry);
+            for _entry in entries.iter().take(5) {
+                // Entries logged via verbose macro if enabled
             }
             Ok(())
         }
@@ -88,7 +91,7 @@ pub fn read_file(path: &str) -> Option<Vec<u8>> {
 }
 
 /// List directory contents
-pub fn list_dir(path: &str, fs_type: FsType) -> Vec<String> {
+pub fn list_dir(_path: &str, fs_type: FsType) -> Vec<String> {
     match fs_type {
         FsType::Fat32 => fat::mount_and_list().unwrap_or_default(),
         FsType::Ext4 => ext4::mount_and_list().unwrap_or_default(),

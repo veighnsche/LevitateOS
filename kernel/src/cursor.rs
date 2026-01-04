@@ -13,6 +13,7 @@ struct CursorState {
 
 static CURSOR: Spinlock<CursorState> = Spinlock::new(CursorState { x: 500, y: 500 });
 
+#[allow(dead_code)]
 pub fn update(x: i32, y: i32) {
     let mut state = CURSOR.lock();
     state.x = x;

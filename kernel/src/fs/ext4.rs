@@ -8,7 +8,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::fmt::Write;
+
 use ext4_view::{Ext4, Ext4Read};
 
 use crate::block;

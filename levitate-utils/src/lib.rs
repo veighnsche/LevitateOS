@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod cpio;
+pub mod hex;
+
 use core::cell::UnsafeCell;
 use core::marker::{Send, Sync};
 use core::ops::{Deref, DerefMut, Drop};
@@ -133,30 +136,30 @@ mod tests {
         let lock = Spinlock::new(42);
         {
             let mut guard = lock.lock(); // [S1] acquire
-            assert_eq!(*guard, 42);       // [S4] read access
-            *guard = 43;                  // [S5] write access
+            assert_eq!(*guard, 42); // [S4] read access
+            *guard = 43; // [S5] write access
         } // [S3] release on drop
-        assert_eq!(*lock.lock(), 43);     // [S6] multiple cycles
+        assert_eq!(*lock.lock(), 43); // [S6] multiple cycles
     }
 
     /// Tests: [R1] new empty, [R2] push, [R3] FIFO, [R4] full, [R5] empty pop, [R7] is_empty true
     #[test]
     fn test_ring_buffer_fifo() {
         let mut rb = RingBuffer::<4>::new();
-        assert!(rb.is_empty());           // [R1] new is empty
+        assert!(rb.is_empty()); // [R1] new is empty
 
-        assert!(rb.push(1));              // [R2] push adds
+        assert!(rb.push(1)); // [R2] push adds
         assert!(rb.push(2));
         assert!(rb.push(3));
         assert!(rb.push(4));
-        assert!(!rb.push(5));             // [R4] full returns false
+        assert!(!rb.push(5)); // [R4] full returns false
 
-        assert_eq!(rb.pop(), Some(1));    // [R3] FIFO order
+        assert_eq!(rb.pop(), Some(1)); // [R3] FIFO order
         assert_eq!(rb.pop(), Some(2));
         assert_eq!(rb.pop(), Some(3));
         assert_eq!(rb.pop(), Some(4));
-        assert_eq!(rb.pop(), None);       // [R5] empty returns None
-        assert!(rb.is_empty());           // [R7] is_empty true
+        assert_eq!(rb.pop(), None); // [R5] empty returns None
+        assert!(rb.is_empty()); // [R7] is_empty true
     }
 
     /// Tests: [R6] wrap around
@@ -166,7 +169,7 @@ mod tests {
         rb.push(1);
         rb.push(2);
         rb.pop();
-        rb.push(3);                       // [R6] wraps around
+        rb.push(3); // [R6] wraps around
         assert_eq!(rb.pop(), Some(2));
         assert_eq!(rb.pop(), Some(3));
         assert!(rb.is_empty());
@@ -178,7 +181,7 @@ mod tests {
         let mut rb = RingBuffer::<4>::new();
         assert!(rb.is_empty());
         rb.push(42);
-        assert!(!rb.is_empty());          // [R8] false when has data
+        assert!(!rb.is_empty()); // [R8] false when has data
         rb.push(43);
         assert!(!rb.is_empty());
     }

@@ -1,5 +1,5 @@
 use core::arch::global_asm;
-use levitate_hal::{print, println};
+use levitate_hal::println;
 
 // Exception Vector Table
 // 16 entries, each 128 bytes (0x80)

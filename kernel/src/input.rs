@@ -6,7 +6,6 @@
 use crate::virtio::{StaticMmioTransport, VirtioHal};
 use alloc::vec::Vec;
 use levitate_utils::Spinlock;
-pub use virtio_drivers::device::input::InputEvent;
 use virtio_drivers::device::input::VirtIOInput;
 
 // TEAM_032: Use StaticMmioTransport (MmioTransport<'static>) for static storage
