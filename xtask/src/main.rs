@@ -31,8 +31,10 @@ enum Commands {
     },
     /// Build the kernel
     Build,
-    /// Build and run in QEMU
+    /// Build and run in QEMU (default profile: 512MB)
     Run,
+    /// Build and run in QEMU with Pixel 6 profile (8GB, 8 cores)
+    RunPixel6,
 }
 
 fn main() -> Result<()> {
@@ -59,7 +61,12 @@ fn main() -> Result<()> {
         }
         Commands::Run => {
             build_kernel()?;
-            run_qemu(false)?;
+            run_qemu(QemuProfile::Default, false)?;
+        }
+        Commands::RunPixel6 => {
+            println!("🎯 Running with Pixel 6 profile (8GB RAM, 8 cores)");
+            build_kernel()?;
+            run_qemu(QemuProfile::Pixel6, false)?;
         }
     }
 
@@ -114,13 +121,75 @@ fn build_kernel_with_features(features: &[&str]) -> Result<()> {
     Ok(())
 }
 
-pub fn run_qemu(headless: bool) -> Result<std::process::Output> {
+/// QEMU hardware profiles
+/// TEAM_042: Added Pixel 6 profile for target hardware testing
+///
+/// Pixel 6 Tensor SoC has:
+/// - 2x Cortex-X1 @ 2.80 GHz (big)
+/// - 2x Cortex-A76 @ 2.25 GHz (medium)  
+/// - 4x Cortex-A55 @ 1.80 GHz (little)
+///
+/// QEMU Mitigations (verified QEMU 10.1+):
+/// - cortex-a76 is available (exact match for medium cores, close to X1)
+/// - Cluster topology supported via -smp clusters=N
+/// - 8GB RAM supported via highmem
+///
+/// Limitations:
+/// - QEMU cannot mix CPU types (no true big.LITTLE) → use clusters
+/// - GICv3 not supported by kernel yet → use GICv2 (limits to 8 CPUs)
+#[derive(Clone, Copy)]
+pub enum QemuProfile {
+    /// Default: 512MB RAM, 1 core, cortex-a53
+    Default,
+    /// Pixel 6: 8GB RAM, 8 cores, cortex-a76, GICv3
+    Pixel6,
+    /// Test: GICv3 on default machine
+    GicV3,
+}
+
+impl QemuProfile {
+    pub fn machine(&self) -> String {
+        match self {
+            QemuProfile::Default => "virt".to_string(),
+            QemuProfile::Pixel6 => "virt,gic-version=3".to_string(),
+            QemuProfile::GicV3 => "virt,gic-version=3".to_string(),
+        }
+    }
+
+    pub fn cpu(&self) -> &'static str {
+        match self {
+            QemuProfile::Default => "cortex-a53",
+            QemuProfile::Pixel6 => "cortex-a76",
+            QemuProfile::GicV3 => "cortex-a53",
+        }
+    }
+
+    pub fn memory(&self) -> &'static str {
+        match self {
+            QemuProfile::Default => "512M",
+            QemuProfile::Pixel6 => "8G",
+            QemuProfile::GicV3 => "512M",
+        }
+    }
+
+    /// Returns SMP topology string
+    pub fn smp(&self) -> Option<&'static str> {
+        match self {
+            QemuProfile::Default => None,
+            QemuProfile::Pixel6 => Some("8"),
+            QemuProfile::GicV3 => None,
+        }
+    }
+}
+
+pub fn run_qemu(profile: QemuProfile, headless: bool) -> Result<std::process::Output> {
     let kernel_elf = "target/aarch64-unknown-none/release/levitate-kernel";
 
+    let machine = profile.machine();
     let mut args = vec![
-        "-M", "virt",
-        "-cpu", "cortex-a53",
-        "-m", "512M",
+        "-M", machine.as_str(),
+        "-cpu", profile.cpu(),
+        "-m", profile.memory(),
         "-kernel", kernel_elf,
         "-device", "virtio-gpu-device",
         "-device", "virtio-keyboard-device",
@@ -131,6 +200,10 @@ pub fn run_qemu(headless: bool) -> Result<std::process::Output> {
         "-device", "virtio-blk-device,drive=hd0",
         "-no-reboot",
     ];
+
+    if let Some(smp) = profile.smp() {
+        args.extend(["-smp", smp]);
+    }
 
     if headless {
         args.extend(["-display", "none", "-serial", "stdio"]);

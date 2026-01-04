@@ -64,6 +64,7 @@ pub const BLOCK_1GB_SIZE: usize = 1024 * 1024 * 1024;
 const MAIR_ATTR_NORMAL: u64 = 0xFF; // Inner/Outer WriteBack
 #[allow(dead_code)]
 const MAIR_ATTR_DEVICE: u64 = 0x04; // Device-nGnRE
+#[allow(dead_code)] // Reference value - MMU setup done in assembly
 const MAIR_VALUE: u64 = MAIR_ATTR_NORMAL | (MAIR_ATTR_DEVICE << 8);
 
 // TCR_EL1 configuration
@@ -99,6 +100,7 @@ const TCR_ORGN1_WB_WA: u64 = 0b01 << 26;
 #[allow(dead_code)]
 const TCR_IRGN1_WB_WA: u64 = 0b01 << 24;
 
+#[allow(dead_code)] // Reference value - MMU setup done in assembly
 const TCR_VALUE: u64 = TCR_T0SZ
     | TCR_T1SZ
     | TCR_TG0_4KB

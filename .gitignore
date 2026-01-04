@@ -19,3 +19,11 @@ qemu_higher_half_debug.log
 .vscode/
 .DS_Store
 *.swp
+
+# Test outputs (keep only golden_*.txt baselines)
+tests/actual_*.txt
+tests/pixel6_*.txt
+tests/gicv3_*.txt
+
+# Temporary files
+tmp/

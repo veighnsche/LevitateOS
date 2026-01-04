@@ -245,16 +245,25 @@ pub fn get_dtb_phys() -> Option<usize> {
     None
 }
 
-// TEAM_015: IRQ handler functions registered via gic::register_handler
-fn timer_irq_handler() {
-    // Reload timer for next interrupt (1 second)
-    let freq = timer::API.read_frequency();
-    timer::API.set_timeout(freq);
+// TEAM_045: IRQ handlers refactored to use InterruptHandler trait
+struct TimerHandler;
+impl gic::InterruptHandler for TimerHandler {
+    fn handle(&self, _irq: u32) {
+        // Reload timer for next interrupt (1 second)
+        let freq = timer::API.read_frequency();
+        timer::API.set_timeout(freq);
+    }
 }
 
-fn uart_irq_handler() {
-    levitate_hal::console::handle_interrupt();
+struct UartHandler;
+impl gic::InterruptHandler for UartHandler {
+    fn handle(&self, _irq: u32) {
+        levitate_hal::console::handle_interrupt();
+    }
 }
+
+static TIMER_HANDLER: TimerHandler = TimerHandler;
+static UART_HANDLER: UartHandler = UartHandler;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
@@ -320,13 +329,21 @@ pub extern "C" fn kmain() -> ! {
                 mmu::PageFlags::DEVICE,
             )
             .unwrap(); // UART
+
+            // TEAM_042: GIC mapping extended for GICv3 support
+            // QEMU virt GIC layout:
+            //   GICD: 0x0800_0000 - 0x0801_0000 (64KB)
+            //   GICC: 0x0801_0000 - 0x0802_0000 (64KB) - GICv2 only
+            //   GICR: 0x080A_0000 - 0x080C_0000 (128KB per CPU, 8 CPUs = 1MB)
+            // Map 0x0800_0000 - 0x0820_0000 to cover all GIC components
             mmu::identity_map_range_optimized(
                 root,
                 0x0800_0000,
-                0x0802_0000,
+                0x0820_0000,
                 mmu::PageFlags::DEVICE,
             )
-            .unwrap(); // GIC
+            .unwrap(); // GIC (GICD + GICC + GICR)
+
             mmu::identity_map_range_optimized(
                 root,
                 0x0a00_0000,
@@ -356,13 +373,25 @@ pub extern "C" fn kmain() -> ! {
     exceptions::init();
     verbose!("Exceptions initialized.");
     levitate_hal::console::init();
-    gic::API.init();
 
-    // TEAM_015: Register IRQ handlers using typed IrqId
-    gic::register_handler(gic::IrqId::VirtualTimer, timer_irq_handler);
-    gic::register_handler(gic::IrqId::Uart, uart_irq_handler);
-    gic::API.enable_irq(gic::IrqId::VirtualTimer.irq_number());
-    gic::API.enable_irq(gic::IrqId::Uart.irq_number());
+    // TEAM_045: Reliable GIC discovery using FDT
+    let dtb_phys = get_dtb_phys();
+    let dtb_slice = dtb_phys.map(|phys| {
+        let ptr = phys as *const u8;
+        // Assume 1MB for early discovery
+        unsafe { core::slice::from_raw_parts(ptr, 1024 * 1024) }
+    });
+    let fdt = dtb_slice.and_then(|slice| fdt::Fdt::new(slice).ok());
+
+    let gic_api = gic::get_api(fdt.as_ref());
+    verbose!("Detected GIC version: {:?}", gic_api.version());
+    gic_api.init();
+
+    // TEAM_045: Register IRQ handlers using trait objects
+    gic::register_handler(gic::IrqId::VirtualTimer, &TIMER_HANDLER);
+    gic::register_handler(gic::IrqId::Uart, &UART_HANDLER);
+    gic_api.enable_irq(gic::IrqId::VirtualTimer.irq_number());
+    gic_api.enable_irq(gic::IrqId::Uart.irq_number());
 
     verbose!("Core drivers initialized.");
 
@@ -387,44 +416,33 @@ pub extern "C" fn kmain() -> ! {
         );
     }
     println!("Detecting Initramfs...");
-    if let Some(dtb_phys) = get_dtb_phys() {
-        // DTB is in the 1GB identity mapped region, safe to access directly
-        let dtb_ptr = dtb_phys as *const u8;
-        // Basic safety check on header magic (first 4 bytes)
-        // DTB magic is 0xD00DFEED big endian
-        let magic = unsafe { core::slice::from_raw_parts(dtb_ptr, 4) };
-        if magic == [0xd0, 0x0d, 0xfe, 0xed] {
-            // Assume reasonable size for now, e.g. 1MB for DTB header parsing
-            let dtb_slice = unsafe { core::slice::from_raw_parts(dtb_ptr, 1024 * 1024) };
-            match fdt::get_initrd_range(dtb_slice) {
-                Ok((start, end)) => {
-                    let size = end - start;
-                    println!(
-                        "Initramfs found at 0x{:x} - 0x{:x} ({} bytes)",
-                        start, end, size
-                    );
+    if let Some(slice) = dtb_slice {
+        // TEAM_045: Use already created DTB slice
+        match fdt::get_initrd_range(slice) {
+            Ok((start, end)) => {
+                let size = end - start;
+                println!(
+                    "Initramfs found at 0x{:x} - 0x{:x} ({} bytes)",
+                    start, end, size
+                );
 
-                    // Initramfs also in identity map region
-                    let initrd_slice =
-                        unsafe { core::slice::from_raw_parts(start as *const u8, size) };
-                    let archive = fs::initramfs::CpioArchive::new(initrd_slice);
+                // Initramfs also in identity map region
+                let initrd_slice = unsafe { core::slice::from_raw_parts(start as *const u8, size) };
+                let archive = fs::initramfs::CpioArchive::new(initrd_slice);
 
-                    println!("Files in initramfs:");
-                    for entry in archive.iter() {
-                        println!(" - {}", entry.name);
-                        if entry.name == "hello.txt" {
-                            if let Ok(s) = core::str::from_utf8(entry.data) {
-                                println!("   Content: {}", s.trim());
-                            }
+                println!("Files in initramfs:");
+                for entry in archive.iter() {
+                    println!(" - {}", entry.name);
+                    if entry.name == "hello.txt" {
+                        if let Ok(s) = core::str::from_utf8(entry.data) {
+                            println!("   Content: {}", s.trim());
                         }
                     }
                 }
-                Err(_e) => {
-                    verbose!("No initramfs found in DTB: {:?}", _e);
-                }
             }
-        } else {
-            verbose!("DTB magic mismatch at 0x{:x}", dtb_phys);
+            Err(_e) => {
+                verbose!("No initramfs found in DTB: {:?}", _e);
+            }
         }
     } else {
         verbose!("No DTB provided.");

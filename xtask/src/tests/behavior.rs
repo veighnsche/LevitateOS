@@ -1,6 +1,7 @@
 //! Behavior test - verifies kernel boot output matches golden log
 //!
 //! TEAM_030: Migrated from scripts/test_behavior.sh
+//! TEAM_042: Added Pixel 6 profile support
 //!
 //! Note: Uses --features verbose to enable boot messages.
 //! Production builds are silent (Rule 4: Silence is Golden).
@@ -9,13 +10,29 @@ use anyhow::{bail, Context, Result};
 use std::fs;
 use std::process::Command;
 
+use crate::QemuProfile;
+
 const GOLDEN_FILE: &str = "tests/golden_boot.txt";
 const ACTUAL_FILE: &str = "tests/actual_boot.txt";
 const KERNEL_ELF: &str = "target/aarch64-unknown-none/release/levitate-kernel";
 const TIMEOUT_SECS: u64 = 5;
 
 pub fn run() -> Result<()> {
-    println!("=== Behavior Test ===\n");
+    run_with_profile(QemuProfile::Default)
+}
+
+/// Run behavior test with Pixel 6 profile (8GB, 8 cores)
+pub fn run_pixel6() -> Result<()> {
+    run_with_profile(QemuProfile::Pixel6)
+}
+
+fn run_with_profile(profile: QemuProfile) -> Result<()> {
+    let profile_name = match profile {
+        QemuProfile::Default => "Default (512MB)",
+        QemuProfile::Pixel6 => "Pixel 6 (8GB, 8 cores)",
+        QemuProfile::GicV3 => "GICv3 Test (512MB)",
+    };
+    println!("=== Behavior Test [{}] ===\n", profile_name);
 
     // Build kernel with verbose feature for golden file comparison
     crate::build_kernel_verbose()?;
@@ -30,26 +47,34 @@ pub fn run() -> Result<()> {
 
     println!("Running QEMU (headless, {}s timeout)...", TIMEOUT_SECS);
 
+    // Build QEMU args using profile
+    let mut args = vec![
+        format!("{}s", TIMEOUT_SECS),
+        "qemu-system-aarch64".to_string(),
+        "-M".to_string(), profile.machine().to_string(),
+        "-cpu".to_string(), profile.cpu().to_string(),
+        "-m".to_string(), profile.memory().to_string(),
+        "-kernel".to_string(), KERNEL_ELF.to_string(),
+        "-display".to_string(), "none".to_string(),
+        "-serial".to_string(), format!("file:{}", ACTUAL_FILE),
+        "-device".to_string(), "virtio-gpu-device".to_string(),
+        "-device".to_string(), "virtio-keyboard-device".to_string(),
+        "-device".to_string(), "virtio-tablet-device".to_string(),
+        "-device".to_string(), "virtio-net-device,netdev=net0".to_string(),
+        "-netdev".to_string(), "user,id=net0".to_string(),
+        "-drive".to_string(), "file=tinyos_disk.img,format=raw,if=none,id=hd0".to_string(),
+        "-device".to_string(), "virtio-blk-device,drive=hd0".to_string(),
+        "-no-reboot".to_string(),
+    ];
+
+    if let Some(smp) = profile.smp() {
+        args.push("-smp".to_string());
+        args.push(smp.to_string());
+    }
+
     // Run QEMU with timeout, capturing serial output to file
     let status = Command::new("timeout")
-        .args([
-            &format!("{}s", TIMEOUT_SECS),
-            "qemu-system-aarch64",
-            "-M", "virt",
-            "-cpu", "cortex-a53",
-            "-m", "512M",
-            "-kernel", KERNEL_ELF,
-            "-display", "none",
-            "-serial", &format!("file:{}", ACTUAL_FILE),
-            "-device", "virtio-gpu-device",
-            "-device", "virtio-keyboard-device",
-            "-device", "virtio-tablet-device",
-            "-device", "virtio-net-device,netdev=net0",
-            "-netdev", "user,id=net0",
-            "-drive", "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-            "-device", "virtio-blk-device,drive=hd0",
-            "-no-reboot",
-        ])
+        .args(&args)
         .status()
         .context("Failed to run QEMU")?;
 

@@ -149,7 +149,9 @@ pub extern "C" fn handle_sync_exception(esr: u64, elr: u64) {
 /// or equivalent to prevent deadlocks when interrupted threads hold the same lock.
 #[unsafe(no_mangle)]
 pub extern "C" fn handle_irq() {
-    let irq = levitate_hal::gic::API.acknowledge();
+    // TEAM_045: Use detected active GIC API
+    let gic = levitate_hal::gic::active_api();
+    let irq = gic.acknowledge();
 
     // TEAM_017: Skip spurious interrupts (no EOI needed)
     if levitate_hal::gic::Gic::is_spurious(irq) {
@@ -161,7 +163,7 @@ pub extern "C" fn handle_irq() {
         println!("Unhandled IRQ: {}", irq);
     }
 
-    levitate_hal::gic::API.end_interrupt(irq);
+    gic.end_interrupt(irq);
 }
 pub fn init() {
     unsafe extern "C" {

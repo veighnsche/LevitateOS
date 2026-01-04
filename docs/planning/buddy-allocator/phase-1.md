@@ -1,8 +1,10 @@
 # Phase 1: Buddy Allocator Discovery
 
-**Status**: [ ] Draft | [ ] In Review | [ ] Approved
+**Status**: [ ] Draft | [x] In Review | [ ] Approved
 **Owner**: TEAM_041
+**Reviewed By**: TEAM_042 (2026-01-04)
 **Related Feature**: Memory Management II (Phase 5)
+**Target Hardware**: Pixel 6 (8GB RAM)
 
 ## 1. Feature Summary
 
@@ -18,6 +20,8 @@ The **Buddy Allocator** will manage the physical RAM availability, allowing the 
 - [ ] **Splitting**: Allocating a small block splits larger blocks as needed.
 - [ ] **Efficiency**: O(1) or O(log N) operations; minimal fragmentation overhead.
 - [ ] **Integration**: Replaces or supplements the static `PT_POOL` in `mmu.rs`.
+- [ ] **Robustness**: Uses a `struct Page` array (mem_map) for reliable state tracking, not just intrusive lists.
+- [ ] **Flexibility**: Initializes memory sizes dynamically via Device Tree (DTB), not hardcoded constants.
 
 ## 3. Current State Analysis
 
@@ -33,24 +37,32 @@ The **Buddy Allocator** will manage the physical RAM availability, allowing the 
 - `kernel/src/main.rs`:
   - Initializes `ALLOCATOR` (heap).
   - Explicitly maps regions in `kmain`.
+  - `get_dtb_phys` exists but is only used for initramfs detection.
 - `linker.ld` (implied):
-  - Defines `__heap_start` / `__heap_end`. We may need to redefine `__heap_end` to be the end of the *static* kernel data, and give the rest of RAM to the Buddy Allocator.
+  - Defines `__heap_start` / `__heap_end`.
 
 ## 4. Constraints
 
 - **No_std**: Must operate without the standard library.
 - **Concurrency**: Must be thread-safe (spinlocked) as it will be a global resource.
-- **Bootstrapping**: The allocator itself needs memory to store its metadata (bitmaps or linked lists). This metadata must be placed carefully in memory that isn't yet managed.
+- **Bootstrapping**: The allocator itself needs memory to store its metadata (`mem_map` array). This metadata requires a significant chunk of early memory (e.g., 24 bytes per 4KB page -> ~6MB for 1GB RAM, **48MB for 8GB Pixel 6**). This logic is complex: we must find where to put the map *before* the map exists.
 - **Memory Holes**: Physical memory is not contiguous (MMIO holes, reserved regions). The allocator must handle disjoint ranges (e.g., using an array of free lists + a frame map).
+- **Target Scale**: Must support 8GB RAM (Pixel 6) without artificial caps.
 
 ## 5. Preliminary Strategy
 
-1. **Metadata Storage**: Since `Box` isn't available until the heap is up, and the heap needs pages from the allocator (chicken-and-egg), the Buddy Allocator's metadata usually lives inside the free pages themselves (linked list of free nodes), or in a statically reserved region.
+1. **Metadata Storage**: Use a global `mem_map` (slice of `struct Page`) to track every physical frame's state (Free/Allocated, Order, Flags).
+   - *Challenge*: Computing the size of this array and placing it in memory during early boot.
 2. **Initialization**:
-   - Parse Device Tree / UEFI / Atags to find usable RAM regions.
-   - Mark kernel code/data/stack as "used".
-   - Add remaining regions to the Buddy Allocator.
+   - Parse Device Tree (DTB) to find all valid RAM regions.
+   - Subtract reserved regions (Kernel image, Initramfs, DTB itself).
+   - Calculate size required for `mem_map`.
+   - Place `mem_map` in the first available large contiguous block.
+   - Initialize the `mem_map` and populate the Buddy free lists.
 3. **API**:
    - `alloc_frame() -> Option<PhysAddr>`
    - `alloc_frames(order: usize) -> Option<PhysAddr>`
    - `free_frame(frame: PhysAddr)`
+4. **Heap Hierarchy**:
+   - The Kernel Heap (`LockedHeap`) starts empty.
+   - When `alloc` fails, it requests a large block (e.g., 64KB) from Buddy Allocator and adds it to the heap.

@@ -39,9 +39,9 @@ pub fn disable() -> u64 {
 /// [I3] Restores previous interrupt state (mock impl)
 #[cfg(not(target_arch = "aarch64"))]
 #[inline(always)]
-pub fn restore(state: u64) {
+pub fn restore(_state: u64) {
     #[cfg(feature = "std")]
-    mock::ENABLED.with(|e| e.set(state != 0));      // [I3] restore
+    mock::ENABLED.with(|e| e.set(_state != 0));      // [I3] restore
 }
 
 /// [I3] Restores previous interrupt state

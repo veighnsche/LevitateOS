@@ -14,7 +14,13 @@ Initializing Input...
 VirtIO Input initialized successfully.
 Initializing Input...
 VirtIO Input initialized successfully.
+BOOT_REGS: x0=0 x1=0 x2=0 x3=0
+Detecting Initramfs...
+Scanning for DTB magic in 0x40000000..0x49000000
+No DTB found in scanned memory region
+No DTB provided.
 FAT32 mounted. Root contains 0 entries.
+Filesystem initialized.
 Interrupts enabled.
 Drawing test pattern...
 Drawing complete.

@@ -1,4 +1,5 @@
-use fdt::Fdt;
+pub use fdt::Fdt;
+pub use fdt::node::FdtNode;
 
 /// Errors that can occur during FDT parsing
 /// [FD1] InvalidHeader - DTB header is malformed
@@ -91,6 +92,26 @@ pub fn get_initrd_range(dtb_data: &[u8]) -> Result<(usize, usize), FdtError> {
     }
 
     Err(FdtError::InitrdMissing)
+}
+
+/// Find a node by its compatible string.
+/// [FD7] Searches all nodes for a match in the 'compatible' property.
+pub fn find_node_by_compatible<'a, 'b>(
+    fdt: &'a fdt::Fdt<'b>,
+    compatible: &str,
+) -> Option<fdt::node::FdtNode<'a, 'b>> {
+    fdt.all_nodes().find(|n| {
+        n.compatible()
+            .map(|c| c.all().any(|s| s == compatible))
+            .unwrap_or(false)
+    })
+}
+
+/// Extract the first register (address, size) from a node.
+/// [FD8] Returns the first entry in the 'reg' property.
+pub fn get_node_reg(node: &fdt::node::FdtNode) -> Option<(usize, usize)> {
+    let reg = node.reg()?.next()?;
+    Some((reg.starting_address as usize, reg.size?))
 }
 
 // ============================================================================

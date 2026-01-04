@@ -50,7 +50,44 @@ pub trait Timer {
     }
 }
 
-/// Implementation of the AArch64 Generic Physical Timer.
+use core::sync::atomic::{AtomicU8, Ordering};
+
+// TEAM_046: Cache VHE detection result to avoid repeated system register reads
+// 0 = not checked, 1 = no VHE, 2 = VHE present
+static VHE_CACHE: AtomicU8 = AtomicU8::new(0);
+
+/// Check if Virtualization Host Extensions (VHE) are present.
+/// [T2] Reads ID_AA64MMFR1_EL1 to detect VHE support.
+/// Result is cached after first call for performance.
+pub fn vhe_present() -> bool {
+    match VHE_CACHE.load(Ordering::Relaxed) {
+        1 => false,
+        2 => true,
+        _ => {
+            // First call - detect and cache
+            let result = detect_vhe();
+            VHE_CACHE.store(if result { 2 } else { 1 }, Ordering::Relaxed);
+            result
+        }
+    }
+}
+
+/// Actually detect VHE by reading system register (called once).
+fn detect_vhe() -> bool {
+    let mmfr1: u64;
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        core::arch::asm!("mrs {}, id_aa64mmfr1_el1", out(reg) mmfr1);
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        mmfr1 = 0;
+    }
+    ((mmfr1 >> 8) & 0xF) != 0
+}
+
+/// Implementation of the AArch64 Generic Timer.
+/// Automatically selects between physical and virtual timer based on VHE presence.
 pub struct AArch64Timer;
 
 #[cfg(target_arch = "aarch64")]
@@ -58,7 +95,11 @@ impl Timer for AArch64Timer {
     fn read_counter(&self) -> u64 {
         let val: u64;
         unsafe {
-            core::arch::asm!("mrs {}, cntvct_el0", out(reg) val);
+            if vhe_present() {
+                core::arch::asm!("mrs {}, cntpct_el0", out(reg) val);
+            } else {
+                core::arch::asm!("mrs {}, cntvct_el0", out(reg) val);
+            }
         }
         val
     }
@@ -73,20 +114,32 @@ impl Timer for AArch64Timer {
 
     fn set_timeout(&self, ticks: u64) {
         unsafe {
-            core::arch::asm!("msr cntv_tval_el0, {}", in(reg) ticks);
+            if vhe_present() {
+                core::arch::asm!("msr cntp_tval_el0, {}", in(reg) ticks);
+            } else {
+                core::arch::asm!("msr cntv_tval_el0, {}", in(reg) ticks);
+            }
         }
     }
 
     fn configure(&self, flags: TimerCtrlFlags) {
         unsafe {
-            core::arch::asm!("msr cntv_ctl_el0, {}", in(reg) flags.bits());
+            if vhe_present() {
+                core::arch::asm!("msr cntp_ctl_el0, {}", in(reg) flags.bits());
+            } else {
+                core::arch::asm!("msr cntv_ctl_el0, {}", in(reg) flags.bits());
+            }
         }
     }
 
     fn is_pending(&self) -> bool {
         let val: u64;
         unsafe {
-            core::arch::asm!("mrs {}, cntv_ctl_el0", out(reg) val);
+            if vhe_present() {
+                core::arch::asm!("mrs {}, cntp_ctl_el0", out(reg) val);
+            } else {
+                core::arch::asm!("mrs {}, cntv_ctl_el0", out(reg) val);
+            }
         }
         TimerCtrlFlags::from_bits_truncate(val).contains(TimerCtrlFlags::ISTATUS)
     }
@@ -114,7 +167,7 @@ pub static API: AArch64Timer = AArch64Timer;
 pub fn uptime_seconds() -> u64 {
     let cnt = API.read_counter();
     let freq = API.read_frequency();
-    if freq == 0 { 0 } else { cnt / freq }  // [T1]
+    if freq == 0 { 0 } else { cnt / freq } // [T1]
 }
 
 /// Spin-wait for a certain number of cycles.
@@ -162,6 +215,6 @@ mod tests {
         assert_eq!(timer.read_counter() / timer.read_frequency(), 10);
 
         timer.counter.set(250);
-        assert_eq!(timer.read_counter() / timer.read_frequency(), 2);  // [T1]
+        assert_eq!(timer.read_counter() / timer.read_frequency(), 2); // [T1]
     }
 }
