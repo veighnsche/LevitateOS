@@ -3,6 +3,9 @@ name = "levitate-kernel"
 version = "0.1.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [features]
 default = []
 verbose = []  # Enable verbose boot messages for golden file testing

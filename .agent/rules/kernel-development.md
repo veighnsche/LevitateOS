@@ -178,3 +178,25 @@ description:
 * **Tight Coupling:** Avoid hardware or software dependencies that force specific versions of unrelated components.
 * **The "Clever" Code (The Rule of Clarity):** Clarity is better than cleverness. If the logic relies on obscure Rust tricks that are hard to explain, rewrite it for clarity.
 * **Feature Creep:** Keep drivers focused on hardware abstraction, not policy or unrelated features.
+
+## VI. Enforcement (The Rule of Automation)
+
+The rules defined in this SOP are not merely suggestions; they are enforced by the compiler and CI pipeline to ensure high-fidelity adherence to the Unix-Rust philosophy.
+
+### 23. Automated Linting
+
+* **Workspace Lints:** The root `Cargo.toml` defines a global lint suite under `[workspace.lints]` which all crates must inherit.
+* **Safety Enforcement (Rule 5):**
+  - `unsafe_code = "deny"`: Prevents unauthorized `unsafe` usage.
+  - `missing_safety_doc = "deny"`: Mandates documentation for every safety-critical block.
+* **Robustness Enforcement (Rule 6):**
+  - `unwrap_used = "deny"`, `expect_used = "deny"`, `panic = "deny"`: Forces explicit error handling via `Result`.
+* **Representation Enforcement (Rule 13):**
+  - `match_same_arms = "deny"`: Enforces clean and distinct representation logic.
+* **Economy Enforcement (Rule 21):**
+  - `clippy::pedantic` suite: Enforces highly efficient and idiomatic Rust patterns.
+
+### 24. Continuous Verification
+
+* **Pre-commit Checks:** All developers should run `cargo clippy` and `cargo test` locally before submitting code.
+* **CI Enforcement:** Every pull request is automatically checked for lint violations and behavioral regressions using `cargo xtask test`.

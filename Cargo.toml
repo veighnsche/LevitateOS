@@ -7,6 +7,27 @@ members = [
 ]
 resolver = "2"
 
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_safety_doc = "deny"
+# Rule 6: Robustness - no panics
+unconditional_panic = "deny"
+
+[workspace.lints.clippy]
+# Rule 5 & 6: Safety and Robustness
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "warn"
+unimplemented = "warn"
+# Rule 13: Representation - exhaustive matches
+match_same_arms = "deny"
+# Rule 20: Economy - efficient abstractions
+pedantic = { level = "warn", priority = -1 }
+# Overrides for pedantic
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+
 [profile.release]
 panic = "abort"
 lto = true

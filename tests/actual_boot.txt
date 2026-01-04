@@ -14,8 +14,7 @@ Initializing Input...
 VirtIO Input initialized successfully.
 Initializing Input...
 VirtIO Input initialized successfully.
-Filesystem mounted (FAT).
-Root directory contents:
+FAT32 mounted. Root contains 0 entries.
 Interrupts enabled.
 Drawing test pattern...
 Drawing complete.

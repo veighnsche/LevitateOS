@@ -75,10 +75,10 @@ pub fn mount_and_list() -> Result<Vec<String>, &'static str> {
     if let Ok(dir) = fs.read_dir("/") {
         for entry in dir {
             if let Ok(e) = entry {
-                // TEAM_032: DirEntryName doesn't impl ToString, use display()
-                let mut name = String::new();
-                write!(&mut name, "{}", e.file_name()).ok();
-                entries.push(name);
+                // TEAM_032: DirEntryName::as_str() returns Result
+                if let Ok(name) = e.file_name().as_str() {
+                    entries.push(String::from(name));
+                }
             }
         }
     }
