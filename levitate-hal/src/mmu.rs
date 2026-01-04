@@ -236,6 +236,33 @@ impl PageFlags {
         .union(PageFlags::AP_RW_EL1)
         .union(PageFlags::PXN)
         .union(PageFlags::UXN);
+
+    // TEAM_073: User-mode page flags (Phase 8: Userspace)
+    // AP_RW_ALL (bits [7:6] = 01) = R/W access at all exception levels
+
+    /// User code (executable, read-only from user perspective)
+    /// - Accessible from EL0 (user)
+    /// - PXN set (not executable in kernel mode for security)
+    pub const USER_CODE: PageFlags = PageFlags::VALID
+        .union(PageFlags::AF)
+        .union(PageFlags::SH_INNER)
+        .union(PageFlags::AP_RO_ALL) // RO from EL0/EL1
+        .union(PageFlags::NG) // Not Global (per-process)
+        .union(PageFlags::PXN); // Don't execute in kernel
+
+    /// User data (read-write, not executable)
+    /// - Accessible from EL0 (user)
+    /// - UXN and PXN set (not executable anywhere)
+    pub const USER_DATA: PageFlags = PageFlags::VALID
+        .union(PageFlags::AF)
+        .union(PageFlags::SH_INNER)
+        .union(PageFlags::AP_RW_ALL) // R/W from EL0/EL1
+        .union(PageFlags::NG) // Not Global (per-process)
+        .union(PageFlags::PXN) // Don't execute in kernel
+        .union(PageFlags::UXN); // Don't execute in user
+
+    /// User stack (same as USER_DATA, explicit name for clarity)
+    pub const USER_STACK: PageFlags = Self::USER_DATA;
 }
 
 // ============================================================================
@@ -441,6 +468,33 @@ pub unsafe fn disable_mmu() {
 #[cfg(not(target_arch = "aarch64"))]
 pub unsafe fn disable_mmu() {
     // Stub for non-aarch64 builds (test builds on host)
+}
+
+/// TEAM_073: Switch TTBR0_EL1 to a new user page table.
+///
+/// This is used during context switch to switch user address spaces.
+/// TTBR1 (kernel mappings) is not affected.
+///
+/// # Safety
+/// - `ttbr0_phys` must point to a valid page table
+#[cfg(target_arch = "aarch64")]
+pub unsafe fn switch_ttbr0(ttbr0_phys: usize) {
+    unsafe {
+        core::arch::asm!(
+            "msr ttbr0_el1, {}",
+            "isb",
+            "tlbi vmalle1",  // Invalidate all TLB entries (all ASIDs)
+            "dsb sy",
+            "isb",
+            in(reg) ttbr0_phys,
+            options(nostack)
+        );
+    }
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+pub unsafe fn switch_ttbr0(_ttbr0_phys: usize) {
+    // Stub for non-aarch64 builds
 }
 
 // ============================================================================

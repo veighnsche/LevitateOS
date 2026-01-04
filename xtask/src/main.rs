@@ -94,7 +94,102 @@ fn project_root() -> Result<PathBuf> {
     }
 }
 
+
+fn build_userspace() -> Result<()> {
+    println!("Building userspace/hello...");
+    
+    // TEAM_073: Isolate build in /tmp to avoid parent .cargo/config.toml inheritance
+    let build_dir = PathBuf::from("/tmp/levitate_hello_build");
+    if build_dir.exists() {
+        std::fs::remove_dir_all(&build_dir)?;
+    }
+    std::fs::create_dir_all(&build_dir)?;
+    
+    // Copy source
+    let status = Command::new("cp")
+        .args(["-r", "userspace/hello/.", "/tmp/levitate_hello_build/"])
+        .status()?;
+    if !status.success() {
+        bail!("Failed to copy source to tmp");
+    }
+
+    // Build in isolation
+    let status = Command::new("cargo")
+        .current_dir(&build_dir)
+        .args([
+            "build",
+            "--release",
+            "--target", "aarch64-unknown-none",
+        ])
+        .status()
+        .context("Failed to build userspace/hello")?;
+
+    if !status.success() {
+        bail!("Userspace build failed");
+    }
+
+    // Copy artifact back
+    let target_dir = PathBuf::from("userspace/hello/target/aarch64-unknown-none/release");
+    std::fs::create_dir_all(&target_dir)?;
+    std::fs::copy(
+        build_dir.join("target/aarch64-unknown-none/release/hello"),
+        target_dir.join("hello")
+    )?;
+    
+    Ok(())
+}
+
+fn create_initramfs() -> Result<()> {
+    println!("Creating initramfs...");
+    let root = PathBuf::from("initrd_root");
+    if !root.exists() {
+        std::fs::create_dir(&root)?;
+    }
+
+    // 1. Create content
+    std::fs::write(root.join("hello.txt"), "Hello from initramfs!\n")?;
+    
+    // 2. Copy userspace binary
+    let hello_src = PathBuf::from("userspace/hello/target/aarch64-unknown-none/release/hello");
+    if hello_src.exists() {
+        std::fs::copy(hello_src, root.join("hello"))?;
+        println!("  - Added 'hello' binary");
+    } else {
+        println!("  - WARNING: userspace/hello binary not found, skipping");
+    }
+
+    // 3. Create CPIO archive
+    // usage: find . | cpio -o -H newc > ../initramfs.cpio
+    let cpio_file = std::fs::File::create("initramfs.cpio")?;
+    
+    let find = Command::new("find")
+        .current_dir(&root)
+        .arg(".")
+        .stdout(Stdio::piped())
+        .spawn()
+        .context("Failed to run find")?;
+
+    let mut cpio = Command::new("cpio")
+        .current_dir(&root)
+        .args(["-o", "-H", "newc"])
+        .stdin(find.stdout.unwrap())
+        .stdout(cpio_file)
+        .spawn()
+        .context("Failed to run cpio")?;
+
+    let status = cpio.wait()?;
+    if !status.success() {
+        bail!("cpio failed");
+    }
+
+    Ok(())
+}
+
 pub fn build_kernel() -> Result<()> {
+    // TEAM_073: Build userspace first
+    build_userspace()?;
+    create_initramfs()?;
+
     build_kernel_with_features(&[])
 }
 
@@ -206,7 +301,7 @@ impl QemuProfile {
     }
 }
 
-pub fn run_qemu(profile: QemuProfile, headless: bool) -> Result<std::process::Output> {
+pub fn run_qemu(profile: QemuProfile, headless: bool) -> Result<()> {
     let kernel_bin = "kernel64_rust.bin";
 
     let machine = profile.machine();
@@ -238,8 +333,10 @@ pub fn run_qemu(profile: QemuProfile, headless: bool) -> Result<std::process::Ou
 
     Command::new("qemu-system-aarch64")
         .args(&args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .context("Failed to run QEMU")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .context("Failed to run QEMU")?;
+
+    Ok(())
 }

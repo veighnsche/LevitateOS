@@ -56,6 +56,11 @@ pub fn init(dtb: &[u8]) {
         kernel_start,
         kernel_end,
     );
+    crate::println!(
+        "[MEMORY] Reserved Kernel: 0x{:x} - 0x{:x}",
+        kernel_start,
+        kernel_end
+    );
 
     // Initrd
     if let Ok((start, end)) = fdt::get_initrd_range(dtb) {
@@ -139,6 +144,11 @@ pub fn init(dtb: &[u8]) {
         &mut res_count,
         mem_map_pa,
         mem_map_pa + mem_map_size,
+    );
+    crate::println!(
+        "[MEMORY] Allocated mem_map at PA 0x{:x} (Size {} bytes)",
+        mem_map_pa,
+        mem_map_size
     );
 
     // 3. Initialize mem_map

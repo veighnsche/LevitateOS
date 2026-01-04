@@ -46,7 +46,8 @@ SECTIONS
 
     . = ALIGN(16);
     __heap_start = .;
-    __heap_end = _kernel_virt_base + 0x41F00000;
+    . = _kernel_virt_base + 0x41F00000;
+    __heap_end = .;
     _kernel_end = .;
 
     _kernel_size = . - _kernel_virt_base - 0x40080000;

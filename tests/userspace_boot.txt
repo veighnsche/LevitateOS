@@ -1,0 +1,384 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running `target/x86_64-unknown-linux-gnu/debug/xtask run`
+Building userspace/hello...
+warning: /tmp/levitate_hello_build/Cargo.toml: unused manifest key: build
+help: build is a valid .cargo/config.toml key
+   Compiling hello v0.1.0 (/tmp/levitate_hello_build)
+    Finished `release` profile [optimized] target(s) in 0.13s
+Creating initramfs...
+  - Added 'hello' binary
+132 blocks
+Building kernel...
+warning: unknown and unstable feature specified for `-Ctarget-feature`: `strict-align`
+  |
+  = note: it is still passed through to the codegen backend, but use of this feature might be unsound and the behavior of this feature can change in the future
+  = help: consider filing a feature request
+
+warning: `levitate-utils` (lib) generated 1 warning
+warning: `levitate-hal` (lib) generated 1 warning (1 duplicate)
+warning: unused imports: `Pid` and `ProcessState`
+ --> kernel/src/task/process.rs:7:25
+  |
+7 | use crate::task::user::{Pid, ProcessState, UserTask};
+  |                         ^^^  ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `levitate_hal::mmu::PageFlags`
+ --> kernel/src/task/process.rs:9:5
+  |
+9 | use levitate_hal::mmu::PageFlags;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `TaskId`
+ --> kernel/src/task/scheduler.rs:2:37
+  |
+2 | use crate::task::{TaskControlBlock, TaskId};
+  |                                     ^^^^^^
+
+warning: unreachable expression
+   --> kernel/src/main.rs:586:17
+    |
+584 |                 task::process::run_from_initramfs("hello", &archive);
+    |                 ---------------------------------------------------- any code following this expression is unreachable
+585 |
+586 |                 true
+    |                 ^^^^ unreachable expression
+    |
+    = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `code`
+   --> kernel/src/task/user.rs:231:24
+    |
+231 |     pub fn exit(&self, code: i32) {
+    |                        ^^^^ help: if this is intentional, prefix it with an underscore: `_code`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `PF_W` is never used
+  --> kernel/src/loader/elf.rs:34:11
+   |
+34 | pub const PF_W: u32 = 2; // Write
+   |           ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `PF_R` is never used
+  --> kernel/src/loader/elf.rs:35:11
+   |
+35 | pub const PF_R: u32 = 4; // Read
+   |           ^^^^
+
+warning: variant `InvalidProgramHeader` is never constructed
+  --> kernel/src/loader/elf.rs:53:5
+   |
+39 | pub enum ElfError {
+   |          -------- variant in this enum
+...
+53 |     InvalidProgramHeader,
+   |     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `ElfError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `arg3`, `arg4`, and `arg5` are never used
+   --> kernel/src/syscall.rs:104:12
+    |
+ 77 | impl SyscallFrame {
+    | ----------------- methods in this implementation
+...
+104 |     pub fn arg3(&self) -> u64 {
+    |            ^^^^
+...
+110 |     pub fn arg4(&self) -> u64 {
+    |            ^^^^
+...
+116 |     pub fn arg5(&self) -> u64 {
+    |            ^^^^
+
+warning: constant `EINVAL` is never used
+  --> kernel/src/syscall.rs:24:15
+   |
+24 |     pub const EINVAL: i64 = -4;
+   |               ^^^^^^
+
+warning: associated function `next` is never used
+   --> kernel/src/task/mod.rs:144:12
+    |
+143 | impl TaskId {
+    | ----------- associated function in this implementation
+144 |     pub fn next() -> Self {
+    |            ^^^^
+
+warning: variants `Ready` and `Blocked` are never constructed
+   --> kernel/src/task/mod.rs:154:5
+    |
+153 | pub enum TaskState {
+    |          --------- variants in this enum
+154 |     Ready = 0,
+    |     ^^^^^
+155 |     Running = 1,
+156 |     Blocked = 2,
+    |     ^^^^^^^
+    |
+    = note: `TaskState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: constant `DEFAULT_STACK_SIZE` is never used
+   --> kernel/src/task/mod.rs:182:11
+    |
+182 | pub const DEFAULT_STACK_SIZE: usize = 65536;
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: fields `id`, `stack`, `stack_top`, `stack_size`, and `ttbr0` are never read
+   --> kernel/src/task/mod.rs:188:9
+    |
+187 | pub struct TaskControlBlock {
+    |            ---------------- fields in this struct
+188 |     pub id: TaskId,
+    |         ^^
+...
+194 |     stack: Option<Box<[u64]>>,
+    |     ^^^^^
+195 |     pub stack_top: usize,
+    |         ^^^^^^^^^
+196 |     pub stack_size: usize,
+    |         ^^^^^^^^^^
+197 |     /// Physical address of the task's L0 page table.
+198 |     pub ttbr0: usize,
+    |         ^^^^^
+
+warning: method `state` is never used
+   --> kernel/src/task/mod.rs:203:12
+    |
+201 | impl TaskControlBlock {
+    | --------------------- method in this implementation
+202 |     /// Get the current state of the task.
+203 |     pub fn state(&self) -> TaskState {
+    |            ^^^^^
+
+warning: associated function `new` is never used
+   --> kernel/src/task/mod.rs:220:12
+    |
+218 | impl TaskControlBlock {
+    | --------------------- associated function in this implementation
+219 |     /// Create a new kernel task with its own stack.
+220 |     pub fn new(entry_point: usize) -> Self {
+    |            ^^^
+
+warning: function `task_entry_trampoline` is never used
+  --> kernel/src/task/mod.rs:52:8
+   |
+52 |     fn task_entry_trampoline();
+   |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `0` is never read
+  --> kernel/src/task/process.rs:15:14
+   |
+15 |     ElfError(ElfError),
+   |     -------- ^^^^^^^^
+   |     |
+   |     field in this variant
+   |
+   = note: `SpawnError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+15 -     ElfError(ElfError),
+15 +     ElfError(()),
+   |
+
+warning: variant `NotFound` is never constructed
+  --> kernel/src/task/process.rs:21:5
+   |
+13 | pub enum SpawnError {
+   |          ---------- variant in this enum
+...
+21 |     NotFound,
+   |     ^^^^^^^^
+   |
+   = note: `SpawnError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: constant `USER_STACK_SIZE` is never used
+   --> kernel/src/task/user.rs:110:11
+    |
+110 | pub const USER_STACK_SIZE: usize = 65536;
+    |           ^^^^^^^^^^^^^^^
+
+warning: variants `Running`, `Blocked`, and `Exited` are never constructed
+   --> kernel/src/task/user.rs:147:5
+    |
+143 | pub enum ProcessState {
+    |          ------------ variants in this enum
+...
+147 |     Running = 1,
+    |     ^^^^^^^
+148 |     /// Waiting for I/O or event
+149 |     Blocked = 2,
+    |     ^^^^^^^
+150 |     /// Process has terminated
+151 |     Exited = 3,
+    |     ^^^^^^
+    |
+    = note: `ProcessState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `state`, `brk`, `exit_code`, `kernel_stack`, and `kernel_stack_top` are never read
+   --> kernel/src/task/user.rs:163:5
+    |
+158 | pub struct UserTask {
+    |            -------- fields in this struct
+...
+163 |     state: AtomicU8,
+    |     ^^^^^
+...
+175 |     pub brk: usize,
+    |         ^^^
+...
+178 |     pub exit_code: i32,
+    |         ^^^^^^^^^
+...
+181 |     kernel_stack: Box<[u64]>,
+    |     ^^^^^^^^^^^^
+...
+184 |     pub kernel_stack_top: usize,
+    |         ^^^^^^^^^^^^^^^^
+
+warning: methods `state`, `set_state`, and `exit` are never used
+   --> kernel/src/task/user.rs:216:12
+    |
+187 | impl UserTask {
+    | ------------- methods in this implementation
+...
+216 |     pub fn state(&self) -> ProcessState {
+    |            ^^^^^
+...
+226 |     pub fn set_state(&self, state: ProcessState) {
+    |            ^^^^^^^^^
+...
+231 |     pub fn exit(&self, code: i32) {
+    |            ^^^^
+
+warning: constant `USER_CODE_START` is never used
+   --> kernel/src/task/user.rs:115:15
+    |
+115 |     pub const USER_CODE_START: usize = 0x0000_0000_0001_0000; // 64KB
+    |               ^^^^^^^^^^^^^^^
+
+warning: constant `USER_STACK_TOP` is never used
+   --> kernel/src/task/user.rs:118:15
+    |
+118 |     pub const USER_STACK_TOP: usize = 0x0000_7FFF_FFFF_0000;
+    |               ^^^^^^^^^^^^^^
+
+warning: constant `USER_STACK_BOTTOM` is never used
+   --> kernel/src/task/user.rs:121:15
+    |
+121 |     pub const USER_STACK_BOTTOM: usize = USER_STACK_TOP - super::USER_STACK_SIZE;
+    |               ^^^^^^^^^^^^^^^^^
+
+warning: constant `USER_HEAP_START` is never used
+   --> kernel/src/task/user.rs:124:15
+    |
+124 |     pub const USER_HEAP_START: usize = 0x0000_0000_1000_0000; // 256MB (placeholder)
+    |               ^^^^^^^^^^^^^^^
+
+warning: function `map_user_range` is never used
+   --> kernel/src/task/user_mm.rs:103:15
+    |
+103 | pub unsafe fn map_user_range(
+    |               ^^^^^^^^^^^^^^
+
+warning: function `alloc_and_map_user_range` is never used
+   --> kernel/src/task/user_mm.rs:190:15
+    |
+190 | pub unsafe fn alloc_and_map_user_range(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `destroy_user_page_table` is never used
+   --> kernel/src/task/user_mm.rs:240:15
+    |
+240 | pub unsafe fn destroy_user_page_table(_ttbr0_phys: usize) -> Result<(), &'static str> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `NULL_GUARD_END` is never used
+  --> kernel/src/task/user_mm.rs:14:15
+   |
+14 |     pub const NULL_GUARD_END: usize = 0x0000_0000_0000_1000;
+   |               ^^^^^^^^^^^^^^
+
+warning: constant `CODE_START` is never used
+  --> kernel/src/task/user_mm.rs:17:15
+   |
+17 |     pub const CODE_START: usize = 0x0000_0000_0001_0000;
+   |               ^^^^^^^^^^
+
+warning: constant `HEAP_START_DEFAULT` is never used
+  --> kernel/src/task/user_mm.rs:20:15
+   |
+20 |     pub const HEAP_START_DEFAULT: usize = 0x0000_0000_1000_0000; // 256MB
+   |               ^^^^^^^^^^^^^^^^^^
+
+warning: constant `STACK_BOTTOM` is never used
+  --> kernel/src/task/user_mm.rs:30:15
+   |
+30 |     pub const STACK_BOTTOM: usize = STACK_TOP - STACK_SIZE;
+   |               ^^^^^^^^^^^^
+
+warning: constant `STACK_GUARD` is never used
+  --> kernel/src/task/user_mm.rs:33:15
+   |
+33 |     pub const STACK_GUARD: usize = STACK_BOTTOM - 0x1000;
+   |               ^^^^^^^^^^^
+
+warning: `levitate-kernel` (bin "levitate-kernel") generated 36 warnings (1 duplicate) (run `cargo fix --bin "levitate-kernel" -p levitate-kernel` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.11s
+Converting to raw binary...
+[BOOT] Stage 1: Early HAL (SEC)
+Heap initialized.
+[BOOT] Stage 2: Memory & MMU (PEI)
+MMU re-initialized (Higher-Half + Identity).
+Exceptions initialized.
+DTB address from x0: 0x48200000
+Detected GIC version: V2
+[MEMORY] Reserved Kernel: 0x400801e8 - 0x400c6b20
+[MEMORY] Allocated mem_map at PA 0x40200000 (Size 3145728 bytes)
+Buddy Allocator initialized with DTB memory map.
+Core drivers initialized.
+Timer initialized.
+[BOOT] Stage 3: Boot Console (DXE)
+Scanning VirtIO MMIO bus for GPU...
+GPU initialized successfully.
+[TERM] GPU resolution: 1280x800
+[TERM] Terminal::new(1280x800) -> 128x36 chars (font 10x20, spacing 2)
+[TERM] Terminal size: 128x36 characters
+[TERM] clear() - filling 1280x800 with bg color
+[TERM] clear() complete, cursor at (0, 0)
+Terminal initialized.
+[BOOT] Stage 4: Discovery & FS (DXE/BDS)
+Scanning VirtIO MMIO bus...
+Initializing Block device...
+VirtIO Block initialized successfully.
+Initializing Network device...
+VirtIO Net: MAC=52:54:00:12:34:56
+Initializing Input...
+VirtIO Input initialized successfully.
+Initializing Input...
+VirtIO Input initialized successfully.
+BOOT_REGS: x0=48200000 x1=0 x2=0 x3=0
+Detecting Initramfs...
+Initramfs found at 0x48000000 - 0x48010800 (67584 bytes)
+Files in initramfs:
+ - .
+ - hello.txt
+   Content: Hello from initramfs!
+ - test.txt
+ - hello
+[BOOT] TEAM_073: Hijacking boot for Userspace Demo...
+[SPAWN] Looking for 'hello' in initramfs...
+[SPAWN] Found 'hello' (66576 bytes)
+[SPAWN] Parsing ELF header... data len 66576
+ELF Header e_ident on stack at 0xffff8000400c3e60
+[MMU] Creating user page table...
+[BUDDY] alloc order 0
+[BUDDY] Found block at order 0 ptr 0xffff8000402c0198
+
+*** KERNEL EXCEPTION: Synchronous ***
+ESR: 0x0000000096000044
+ELR: 0xffff80004009676c

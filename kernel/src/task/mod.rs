@@ -1,4 +1,7 @@
+pub mod process;
 pub mod scheduler;
+pub mod user; // TEAM_073: Userspace support (Phase 8)
+pub mod user_mm; // TEAM_073: User memory management (Phase 8) // TEAM_073: Process spawning (Phase 8)
 
 extern crate alloc;
 use alloc::boxed::Box;

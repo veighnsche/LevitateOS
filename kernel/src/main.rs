@@ -15,7 +15,7 @@ macro_rules! verbose {
 #[cfg(not(feature = "verbose"))]
 #[macro_export]
 macro_rules! verbose {
-    ($($arg:tt)*) => {};
+    ($($arg:tt)*) => { $crate::println!($($arg)*) };
 }
 
 // use core::alloc::Layout;
@@ -28,14 +28,17 @@ mod exceptions;
 mod fs;
 mod gpu;
 mod input;
+mod loader; // TEAM_073: ELF loader (Phase 8)
 mod memory;
 mod net;
+mod syscall; // TEAM_073: Userspace syscall handler (Phase 8)
 mod task;
 mod terminal;
 mod virtio;
 
 use levitate_hal::fdt;
 use levitate_hal::gic;
+use levitate_hal::mmu;
 use levitate_hal::timer::{self, Timer};
 use levitate_hal::{print, println};
 
@@ -382,13 +385,13 @@ pub extern "C" fn kmain() -> ! {
             )
             .expect("Failed to higher-half map kernel");
 
-            // Higher-half map all boot RAM (0x4000_0000 to 0x5000_0000)
-            // to support access to DTB, initrd, and mem_map.
+            // Higher-half map all boot RAM (0x4000_0000 to 0x8000_0000)
+            // to support access to DTB, initrd, and mem_map. Use 1GB to cover QEMU default + Pixel 6 base.
             mmu::map_range(
                 root,
                 mmu::KERNEL_VIRT_START + 0x4000_0000,
                 0x4000_0000,
-                0x1000_0000, // 256 MB
+                0x4000_0000, // 1GB (was 256MB)
                 kernel_flags,
             )
             .expect("Failed to map boot RAM to higher half");
@@ -556,8 +559,10 @@ pub extern "C" fn kmain() -> ! {
                     start, end, size
                 );
 
-                // Initramfs also in identity map region
-                let initrd_slice = unsafe { core::slice::from_raw_parts(start as *const u8, size) };
+                // Initramfs access via High VA (TTBR1) for stability
+                let initrd_va = mmu::phys_to_virt(start);
+                let initrd_slice =
+                    unsafe { core::slice::from_raw_parts(initrd_va as *const u8, size) };
                 let archive = fs::initramfs::CpioArchive::new(initrd_slice);
 
                 println!("Files in initramfs:");
@@ -569,6 +574,15 @@ pub extern "C" fn kmain() -> ! {
                         }
                     }
                 }
+
+                // TEAM_073: Step 5 Verification - Run Hello World
+                println!("[BOOT] TEAM_073: Hijacking boot for Userspace Demo...");
+                // Enable interrupts (required for context switch or future syscalls handling)
+                // unsafe { levitate_hal::interrupts::enable() };
+
+                // Run "hello" from initramfs (does not return)
+                task::process::run_from_initramfs("hello", &archive);
+
                 true
             }
             Err(e) => {

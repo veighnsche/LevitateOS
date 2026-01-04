@@ -62,6 +62,7 @@ impl BuddyAllocator {
 
     /// Allocate a block of memory of the given order.
     pub fn alloc(&mut self, order: usize) -> Option<usize> {
+        crate::println!("[BUDDY] alloc order {}", order);
         if order >= MAX_ORDER {
             return None;
         }
@@ -69,6 +70,7 @@ impl BuddyAllocator {
         // 1. Find the smallest free block of order >= requested
         for i in order..MAX_ORDER {
             if let Some(mut page_ptr) = self.free_lists[i] {
+                crate::println!("[BUDDY] Found block at order {} ptr {:p}", i, page_ptr);
                 // Found a block! Remove it from the list.
                 let page = unsafe { page_ptr.as_mut() };
                 self.remove_from_list(i, page);

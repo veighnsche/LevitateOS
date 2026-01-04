@@ -1,6 +1,6 @@
 # LevitateOS Roadmap
 
-**Last Updated:** 2026-01-04 (TEAM_031)
+**Last Updated:** 2026-01-04 (TEAM_072)
 
 This document outlines the planned development phases for LevitateOS. Each completed item includes the responsible team for traceability.
 
@@ -48,9 +48,6 @@ This document outlines the planned development phases for LevitateOS. Each compl
   - [x] **Filesystem**: FAT32 filesystem using `embedded-sdmmc`. (TEAM_032)
   - [x] **Initramfs**: Load an initial ramdisk for early userspace. (TEAM_035, TEAM_036, TEAM_038, TEAM_039)
 
-> [!NOTE]
-> **Current Focus:** Phase 5 (Memory Management II). Phase 4 is complete.
-
 ---
 
 ## ✅ Phase 5: Memory Management II — Dynamic Allocator (Completed)
@@ -76,27 +73,38 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
-## 🚀 Phase 7: Multitasking & Scheduler (Current Priority)
+## ✅ Phase 7: Multitasking & Scheduler (Completed)
 
 - **Objective**: Run multiple tasks concurrently.
-- **Tasks**:
-  - [ ] **Virtual Memory Reclamation**: Implement `unmap_page()` with TLB invalidation for task cleanup.
-  - [ ] **Context Switching**: Save/Restore CPU state (registers) in assembly.
-  - [ ] **Scheduler**: Cooperative (yield) or Preemptive (timer-based) Round-Robin scheduler.
-  - [ ] **Task Primitives**: Define `Task` struct and `TaskControlBlock`.
+- **Achievements**:
+  - [x] **Virtual Memory Reclamation**: `unmap_page()` with TLB invalidation and table reclamation. (TEAM_070)
+  - [x] **Context Switching**: Assembly `cpu_switch_to` saves/restores callee-saved registers. (TEAM_070)
+  - [x] **Scheduler**: Cooperative `yield_now()` and preemptive Round-Robin via timer interrupts. (TEAM_070)
+  - [x] **Task Primitives**: `TaskControlBlock`, `Context`, `TaskId`, `TaskState` with atomic state management. (TEAM_070, TEAM_071)
+  - [x] **Idle Task**: Power-efficient `idle_loop()` with `wfi` instruction (Rule 16). (TEAM_071)
+  - [x] **Task Exit**: Proper `task_exit()` with state transition and cleanup. (TEAM_071)
+
+> [!NOTE]
+> **Demo Mode:** Build with `--features multitask-demo` to enable preemption verification tasks.
+> **Plan Docs:** See `docs/planning/multitasking-phase7/` for design decisions and UoW breakdown.
 
 ---
 
-## 🔮 Phase 8: Userspace & Syscalls
+## � Phase 8: Userspace & Syscalls (Current Priority)
 
 - **Objective**: Run unprivileged user programs.
 - **Tasks**:
   - [ ] **EL0 Transition**: Switch CPU from EL1 (Kernel) to EL0 (User).
   - [ ] **Syscall Interface**: Define `svc` (Supervisor Call) handler and ABI.
   - [ ] **ELF Loader**: Parse and load userspace binaries from the disk/initramfs.
+  - [ ] **User Task Lifecycle**: Fork/Exec/Exit syscalls with proper isolation.
   - [ ] **Coreutils Strategy**:
     - *Initial*: Custom minimalist Rust binaries (bare-metal style, no libc) for `ls`, `echo`, `cat`.
     - *Long-term*: Port `uutils` (Rust Coreutils) once a standard library interface (libc-like) is established.
+
+> [!IMPORTANT]
+> **Plan Location:** See `docs/planning/userspace-phase8/` for feature plan and UoWs.
+> **Prerequisites:** Phase 7 complete (multitasking infrastructure required for user processes).
 
 ---
 
@@ -118,5 +126,7 @@ This document outlines the planned development phases for LevitateOS. Each compl
 | 2 | 010-017 | Timer, UART, GIC, HAL Hardening |
 | 3 | 018-028 | MMU, Higher-Half Kernel, Audit |
 | 4 | 029-039 | VirtIO Block, FAT32, Initramfs |
-| 2/5 | 041-055 | Buddy/Slab Allocators, GIC Hardening, FDT Discovery |
+| 5 | 041-055 | Buddy/Slab Allocators, GIC Hardening, FDT Discovery |
 | 6 | 056-066 | VirtIO Ecosystem (Net, GPU, Input), Hybrid Boot Spec |
+| 7 | 067-071 | Multitasking, Scheduler, Context Switching |
+| 8 | 072+ | Userspace & Syscalls (In Progress) |
