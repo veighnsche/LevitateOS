@@ -142,6 +142,36 @@ mod tests {
         assert_eq!(*lock.lock(), 43); // [S6] multiple cycles
     }
 
+    /// Tests: [S2] Lock blocks until released
+    #[test]
+    fn test_spinlock_blocking() {
+        use std::sync::Arc;
+        use std::thread;
+        use std::time::Duration;
+
+        let lock = Arc::new(Spinlock::new(()));
+        let lock_clone = lock.clone();
+
+        let start = std::time::Instant::now();
+
+        // Thread takes lock and holds it for 100ms
+        let h = thread::spawn(move || {
+            let _g = lock_clone.lock();
+            thread::sleep(Duration::from_millis(100));
+        });
+
+        // Give thread time to acquire
+        thread::sleep(Duration::from_millis(10));
+
+        // This should block until thread releases (~90ms remaining)
+        let _g = lock.lock();
+
+        let elapsed = start.elapsed();
+        assert!(elapsed >= Duration::from_millis(100));
+
+        h.join().unwrap();
+    }
+
     /// Tests: [R1] new empty, [R2] push, [R3] FIFO, [R4] full, [R5] empty pop, [R7] is_empty true
     #[test]
     fn test_ring_buffer_fifo() {

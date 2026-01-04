@@ -40,20 +40,20 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
-## 🚧 Phase 4: Storage & Filesystem (Current Priority)
+## ✅ Phase 4: Storage & Filesystem (Completed)
 
 - **Objective**: Persistent storage and basic filesystem access.
 - **Tasks**:
   - [x] **VirtIO Block**: Disk driver for QEMU `virtio-blk`. (TEAM_029, TEAM_030)
   - [x] **Filesystem**: FAT32 filesystem using `embedded-sdmmc`. (TEAM_032)
-  - [ ] **Initramfs**: Load an initial ramdisk for early userspace.
+  - [x] **Initramfs**: Load an initial ramdisk for early userspace. (TEAM_035, TEAM_036, TEAM_038, TEAM_039)
 
 > [!NOTE]
-> **Current Focus:** Initramfs implementation. Block driver and filesystem are complete.
+> **Current Focus:** Phase 5 (Memory Management II). Phase 4 is complete.
 
 ---
 
-## 🔮 Phase 5: Memory Management II — Dynamic Allocator
+## � Phase 5: Memory Management II — Dynamic Allocator (Current Priority)
 
 - **Objective**: Replace the static heap with scalable kernel allocators.
 - **Tasks**:
@@ -113,4 +113,4 @@ This document outlines the planned development phases for LevitateOS. Each compl
 | 1 | 001-009 | Foundation, Workspace Refactor |
 | 2 | 010-017 | Timer, UART, GIC, HAL Hardening |
 | 3 | 018-028 | MMU, Higher-Half Kernel, Audit |
-| 4 | 029-030 | VirtIO Block, Bug Fixes |
+| 4 | 029-039 | VirtIO Block, FAT32, Initramfs |

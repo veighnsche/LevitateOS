@@ -172,9 +172,11 @@ impl<'a> Iterator for CpioIterator<'a> {
 // Unit Tests - TEAM_039
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
+    extern crate std;
     use super::*;
+    use std::vec::Vec;
 
     /// Tests: [CP1] "070701" magic, [CP2] "070702" magic
     #[test]
@@ -239,5 +241,132 @@ mod tests {
     fn test_parse_hex_invalid() {
         assert_eq!(parse_hex(b"ZZZZZZZZ"), 0); // [CP5] invalid chars
         assert_eq!(parse_hex(&[0xFF; 8]), 0); // [CP5] non-UTF8
+    }
+
+    // Helper to create a minimal CPIO entry
+    // Header (110 bytes) + name (aligned to 4) + data (aligned to 4)
+    fn make_cpio_entry(name: &str, data: &[u8]) -> Vec<u8> {
+        let namesize = name.len() + 1; // include null terminator
+        let filesize = data.len();
+
+        // Build header
+        let mut entry = Vec::new();
+        entry.extend_from_slice(b"070701"); // magic
+        entry.extend_from_slice(b"00000001"); // ino
+        entry.extend_from_slice(b"000081A4"); // mode (regular file)
+        entry.extend_from_slice(b"00000000"); // uid
+        entry.extend_from_slice(b"00000000"); // gid
+        entry.extend_from_slice(b"00000001"); // nlink
+        entry.extend_from_slice(b"00000000"); // mtime
+        entry.extend_from_slice(format!("{:08X}", filesize).as_bytes()); // filesize
+        entry.extend_from_slice(b"00000000"); // devmajor
+        entry.extend_from_slice(b"00000000"); // devminor
+        entry.extend_from_slice(b"00000000"); // rdevmajor
+        entry.extend_from_slice(b"00000000"); // rdevminor
+        entry.extend_from_slice(format!("{:08X}", namesize).as_bytes()); // namesize
+        entry.extend_from_slice(b"00000000"); // check
+
+        // Add name with null terminator
+        entry.extend_from_slice(name.as_bytes());
+        entry.push(0); // null terminator
+
+        // Pad to 4-byte alignment
+        while entry.len() % 4 != 0 {
+            entry.push(0);
+        }
+
+        // Add data
+        entry.extend_from_slice(data);
+
+        // Pad data to 4-byte alignment
+        while entry.len() % 4 != 0 {
+            entry.push(0);
+        }
+
+        entry
+    }
+
+    fn make_trailer() -> Vec<u8> {
+        make_cpio_entry("TRAILER!!!", &[])
+    }
+
+    /// Tests: [CP6] CpioArchive::iter returns entries in order
+    #[test]
+    fn test_cpio_iter_order() {
+        let mut archive_data = Vec::new();
+        archive_data.extend(make_cpio_entry("first.txt", b"first"));
+        archive_data.extend(make_cpio_entry("second.txt", b"second"));
+        archive_data.extend(make_cpio_entry("third.txt", b"third"));
+        archive_data.extend(make_trailer());
+
+        let archive = CpioArchive::new(&archive_data);
+        let entries: Vec<_> = archive.iter().collect();
+
+        assert_eq!(entries.len(), 3); // [CP6]
+        assert_eq!(entries[0].name, "first.txt"); // [CP6] order preserved
+        assert_eq!(entries[1].name, "second.txt");
+        assert_eq!(entries[2].name, "third.txt");
+    }
+
+    /// Tests: [CP7] Iterator stops at TRAILER!!!
+    #[test]
+    fn test_cpio_iter_trailer() {
+        let mut archive_data = Vec::new();
+        archive_data.extend(make_cpio_entry("file.txt", b"content"));
+        archive_data.extend(make_trailer());
+        // Add garbage after trailer - should NOT be read
+        archive_data.extend(make_cpio_entry("hidden.txt", b"hidden"));
+
+        let archive = CpioArchive::new(&archive_data);
+        let entries: Vec<_> = archive.iter().collect();
+
+        assert_eq!(entries.len(), 1); // [CP7] stops at trailer
+        assert_eq!(entries[0].name, "file.txt");
+    }
+
+    /// Tests: [CP8] CpioArchive::get_file finds existing file
+    #[test]
+    fn test_cpio_get_file_found() {
+        let mut archive_data = Vec::new();
+        archive_data.extend(make_cpio_entry("hello.txt", b"Hello World"));
+        archive_data.extend(make_cpio_entry("other.txt", b"Other"));
+        archive_data.extend(make_trailer());
+
+        let archive = CpioArchive::new(&archive_data);
+        let result = archive.get_file("hello.txt");
+
+        assert!(result.is_some()); // [CP8]
+        assert_eq!(result.unwrap(), b"Hello World");
+    }
+
+    /// Tests: [CP9] CpioArchive::get_file returns None for missing file
+    #[test]
+    fn test_cpio_get_file_missing() {
+        let mut archive_data = Vec::new();
+        archive_data.extend(make_cpio_entry("exists.txt", b"data"));
+        archive_data.extend(make_trailer());
+
+        let archive = CpioArchive::new(&archive_data);
+        let result = archive.get_file("missing.txt");
+
+        assert!(result.is_none()); // [CP9]
+    }
+
+    /// Tests: [CP10] 4-byte alignment is applied after header+name
+    #[test]
+    fn test_cpio_alignment() {
+        // Create entry with name that requires padding
+        // "ab" = 2 chars + 1 null = 3 bytes, header = 110, total = 113
+        // Needs 3 bytes padding to reach 116 (divisible by 4)
+        let mut archive_data = Vec::new();
+        archive_data.extend(make_cpio_entry("ab", b"XY")); // 2-char name
+        archive_data.extend(make_trailer());
+
+        let archive = CpioArchive::new(&archive_data);
+        let entries: Vec<_> = archive.iter().collect();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "ab");
+        assert_eq!(entries[0].data, b"XY"); // [CP10] data correctly located after alignment
     }
 }

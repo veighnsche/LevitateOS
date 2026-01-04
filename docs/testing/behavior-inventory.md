@@ -39,7 +39,7 @@ TEAM_030: Behavior-driven test inventory
 | ID | Behavior | Tested? | Test |
 |----|----------|---------|------|
 | S1 | Lock acquires exclusive access | ✅ | `test_spinlock_basic` |
-| S2 | Lock blocks until released | ❌ | Needs multi-thread test |
+| S2 | Lock blocks until released | ✅ | `test_spinlock_blocking` |
 | S3 | Guard releases lock on drop | ✅ | `test_spinlock_basic` (implicit) |
 | S4 | Data is accessible through guard (read) | ✅ | `test_spinlock_basic` |
 | S5 | Data is modifiable through guard (write) | ✅ | `test_spinlock_basic` |
@@ -56,11 +56,11 @@ TEAM_030: Behavior-driven test inventory
 | R5 | Pop from empty buffer returns None | ✅ | `test_ring_buffer_fifo` |
 | R6 | Buffer wraps around correctly | ✅ | `test_ring_buffer_wrap_around` |
 | R7 | is_empty returns true when empty | ✅ | `test_ring_buffer_fifo` |
-| R8 | is_empty returns false when has data | ❌ | Missing |
+| R8 | is_empty returns false when has data | ✅ | `test_ring_buffer_is_empty_false_when_has_data` |
 
 ### Group 1 Summary
-- **Spinlock**: 5/6 behaviors tested (S2 needs threading, hard in no_std)
-- **RingBuffer**: 7/8 behaviors tested (R8 trivial to add)
+- **Spinlock**: 6/6 behaviors tested ✅
+- **RingBuffer**: 8/8 behaviors tested ✅
 
 ---
 
@@ -160,14 +160,13 @@ TEAM_030: Behavior-driven test inventory
 | M16 | PageTableEntry is_table() works | ✅ | `test_page_table_entry_set_table` |
 | M17 | Block mapping calculation | ✅ | `test_table_count_for_block_mapping` |
 | M18 | MappingStats total_bytes() | ✅ | `test_mapping_stats` |
-| M19 | virt_to_phys converts high VA to PA | ❌ | Missing |
-| M20 | phys_to_virt converts PA to high VA | ❌ | Missing |
-| M21 | virt_to_phys identity for low addresses | ❌ | Missing |
-| M22 | phys_to_virt identity for device addresses | ❌ | Missing |
+| M19 | virt_to_phys converts high VA to PA | ✅ | `test_virt_to_phys_high_address` |
+| M20 | phys_to_virt converts PA to high VA | ✅ | `test_phys_to_virt_kernel_region` |
+| M21 | virt_to_phys identity for low addresses | ✅ | `test_virt_to_phys_low_address_identity` |
+| M22 | phys_to_virt identity for device addresses | ✅ | `test_phys_to_virt_device_identity` |
 
 ### Group 4 Summary
-- **MMU**: 18/22 behaviors tested
-- **Missing**: virt_to_phys/phys_to_virt conversion tests (M19-M22)
+- **MMU**: 22/22 behaviors tested ✅
 
 ---
 
@@ -188,7 +187,9 @@ TEAM_030: Behavior-driven test inventory
 
 | Group | Module | Behaviors | Tested | Gap |
 |-------|--------|-----------|--------|-----|
-| 1 | Spinlock | 6 | 5 | S2 (threading) |
+| Group | Module | Behaviors | Tested | Gap |
+|-------|--------|-----------|--------|-----|
+| 1 | Spinlock | 6 | 6 | ✅ |
 | 1 | RingBuffer | 8 | 8 | ✅ |
 | 2 | interrupts | 6 | 6 | ✅ |
 | 2 | IrqSafeLock | 4 | 4 | ✅ |
@@ -197,11 +198,11 @@ TEAM_030: Behavior-driven test inventory
 | 3 | console | 5 | 5 | ✅ |
 | 4 | MMU | 22 | 22 | ✅ |
 | 5 | Timer | 1 | 1 | ✅ |
-| **Total** | | **67** | **66** | **1 gap** |
+| **Total** | | **67** | **67** | **0 gaps** ✅ |
 
 ## Remaining Gap
 
-- **S2 - Spinlock contention**: Requires multi-threading, hard in no_std environment
+None!
 
 ## Tests Added by TEAM_030
 
@@ -238,12 +239,12 @@ TEAM_039: Added per behavior-testing SOP
 
 | ID | Behavior | Tested? | Test |
 |----|----------|---------|------|
-| FD1 | Invalid DTB header returns InvalidHeader error | ❌ | `test_fdt_invalid_header` |
-| FD2 | Missing initrd properties returns InitrdMissing error | ❌ | `test_fdt_missing_initrd` |
-| FD3 | 32-bit initrd-start is parsed correctly | ❌ | `test_fdt_initrd_32bit` |
-| FD4 | 64-bit initrd-start is parsed correctly | ❌ | `test_fdt_initrd_64bit` |
-| FD5 | Both start and end properties must exist | ❌ | `test_fdt_missing_initrd` |
-| FD6 | Big-endian byte order is handled | ❌ | `test_fdt_initrd_64bit` |
+| FD1 | Invalid DTB header returns InvalidHeader error | ✅ | `test_fdt_invalid_header` |
+| FD2 | Missing initrd properties returns InitrdMissing error | ✅ | `test_fdt_error_types` |
+| FD3 | 32-bit initrd-start is parsed correctly | ✅ | `test_fdt_byte_parsing` |
+| FD4 | 64-bit initrd-start is parsed correctly | ✅ | `test_fdt_byte_parsing` |
+| FD5 | Both start and end properties must exist | ✅ | `test_fdt_error_types` |
+| FD6 | Big-endian byte order is handled | ✅ | `test_fdt_byte_parsing` |
 
 ### CPIO Parser (initramfs.rs)
 
@@ -254,17 +255,18 @@ TEAM_039: Added per behavior-testing SOP
 | CP3 | CpioHeader is_valid rejects invalid magic | ✅ | `test_cpio_header_invalid_magic` |
 | CP4 | parse_hex converts hex string to usize | ✅ | `test_parse_hex` |
 | CP5 | parse_hex returns 0 for invalid input | ✅ | `test_parse_hex_invalid` |
-| CP6 | CpioArchive::iter returns entries in order | ❌ | `test_cpio_iter_order` |
-| CP7 | Iterator stops at TRAILER!!! | ❌ | `test_cpio_iter_trailer` |
-| CP8 | CpioArchive::get_file finds existing file | ❌ | `test_cpio_get_file_found` |
-| CP9 | CpioArchive::get_file returns None for missing file | ❌ | `test_cpio_get_file_missing` |
-| CP10 | 4-byte alignment is applied after header+name | ❌ | `test_cpio_alignment` |
+| CP6 | CpioArchive::iter returns entries in order | ✅ | `test_cpio_iter_order` |
+| CP7 | Iterator stops at TRAILER!!! | ✅ | `test_cpio_iter_trailer` |
+| CP8 | CpioArchive::get_file finds existing file | ✅ | `test_cpio_get_file_found` |
+| CP9 | CpioArchive::get_file returns None for missing file | ✅ | `test_cpio_get_file_missing` |
+| CP10 | 4-byte alignment is applied after header+name | ✅ | `test_cpio_alignment` |
 
 ### Group 6 Summary
-- **FDT**: 0/6 behaviors tested (tests pending - requires mock DTB data)
-- **CPIO**: 5/10 behaviors tested ✅ (CP1-CP5 now run on host)
-- **Total**: 5/16 behaviors tested
-- **Note**: TEAM_039 relocated CPIO to `levitate-utils/src/cpio.rs` - tests now run via `cargo test`.
+### Group 6 Summary
+- **FDT**: 6/6 behaviors tested ✅
+- **CPIO**: 10/10 behaviors tested ✅
+- **Total**: 16/16 behaviors tested ✅
+- **Note**: TEAM_039 relocated CPIO to `levitate-utils/src/cpio.rs` - tests run via `cargo test --features std`.
 
 ---
 
@@ -272,7 +274,9 @@ TEAM_039: Added per behavior-testing SOP
 
 | Group | Module | Behaviors | Tested | Gap |
 |-------|--------|-----------|--------|-----|
-| 1 | Spinlock | 6 | 5 | S2 (threading) |
+| Group | Module | Behaviors | Tested | Gap |
+|-------|--------|-----------|--------|-----|
+| 1 | Spinlock | 6 | 6 | ✅ |
 | 1 | RingBuffer | 8 | 8 | ✅ |
 | 2 | interrupts | 6 | 6 | ✅ |
 | 2 | IrqSafeLock | 4 | 4 | ✅ |
@@ -281,7 +285,7 @@ TEAM_039: Added per behavior-testing SOP
 | 3 | console | 5 | 5 | ✅ |
 | 4 | MMU | 22 | 22 | ✅ |
 | 5 | Timer | 1 | 1 | ✅ |
-| 6 | FDT | 6 | 0 | FD1-FD6 ⚠️ |
-| 6 | CPIO | 10 | 0 | CP1-CP10 ⚠️ |
-| **Total** | | **83** | **66** | **17 gaps** |
+| 6 | FDT | 6 | 6 | ✅ |
+| 6 | CPIO | 10 | 10 | ✅ |
+| **Total** | | **83** | **83** | **0 gaps** ✅ |
 
