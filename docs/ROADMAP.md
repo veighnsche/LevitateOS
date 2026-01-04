@@ -53,29 +53,30 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
-## � Phase 5: Memory Management II — Dynamic Allocator (Current Priority)
+## ✅ Phase 5: Memory Management II — Dynamic Allocator (Completed)
 
 - **Objective**: Replace the static heap with scalable kernel allocators.
-- **Tasks**:
+- **Achievements**:
   - [x] **Buddy Allocator**: Physical page allocator for large allocations. (TEAM_048: Dynamic Map)
   - [x] **Slab Allocator**: Fast allocation for fixed-size kernel objects (tasks, file handles). (TEAM_051: Complete)
   - [x] **Page Frame Allocator**: Integration with MMU for on-demand mapping. (TEAM_054: Complete)
 
 ---
 
-## 🚧 Phase 6: VirtIO Ecosystem Expansion (In Progress)
+## ✅ Phase 6: VirtIO Ecosystem Expansion & Hybrid Boot (Completed)
 
-- **Objective**: Expand hardware support using VirtIO.
-- **Tasks**:
+- **Objective**: Expand hardware support and formalize boot architecture.
+- **Achievements**:
   - [x] **VirtIO Net**: Basic network packet transmission/reception (`virtio-net`). (TEAM_057)
-- [x] **GPU Refinement**: Text rendering on GPU framebuffer. (TEAM_058, TEAM_059)
-  - [x] **Hybrid Boot Specification**: Formalize boot stages and interactive console behavior. (TEAM_061: PLANNING, TEAM_063: EXECUTION)
-  - [ ] **Keyboard Support**: Direct input from QEMU window via `virtio-keyboard`. (Planned: Task 6.4)
+  - [x] **GPU Refinement**: Text rendering on GPU framebuffer with ANSI support. (TEAM_058, TEAM_059, TEAM_060)
+  - [x] **Hybrid Boot Specification**: Formalized boot stages (SEC/PEI/DXE/BDS) and interactive console. (TEAM_061, TEAM_063, TEAM_065)
+  - [x] **Keyboard Support**: Direct input from QEMU window via `virtio-keyboard`. (TEAM_032, TEAM_060)
+  - [x] **Warning Fixes**: Zero-warning build on bare-metal target. (TEAM_066)
   - [ ] **9P Filesystem**: Mount host directories via `virtio-9p`. (Deferred — see `docs/planning/virtio-ecosystem-phase6/task-6.3-9p-filesystem.md`)
 
 ---
 
-## 🔮 Phase 7: Multitasking & Scheduler
+## 🚀 Phase 7: Multitasking & Scheduler (Current Priority)
 
 - **Objective**: Run multiple tasks concurrently.
 - **Tasks**:
@@ -117,4 +118,5 @@ This document outlines the planned development phases for LevitateOS. Each compl
 | 2 | 010-017 | Timer, UART, GIC, HAL Hardening |
 | 3 | 018-028 | MMU, Higher-Half Kernel, Audit |
 | 4 | 029-039 | VirtIO Block, FAT32, Initramfs |
-| 2/5 | 048 | GIC Hardening, FDT Discovery, Dynamic Memory Map |
+| 2/5 | 041-055 | Buddy/Slab Allocators, GIC Hardening, FDT Discovery |
+| 6 | 056-066 | VirtIO Ecosystem (Net, GPU, Input), Hybrid Boot Spec |
