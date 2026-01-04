@@ -1,11 +1,16 @@
-use crate::virtio::VirtioHal;
-// No imports needed
+//! VirtIO GPU Driver
+//!
+//! TEAM_032: Updated for virtio-drivers v0.12.0
+//! - Uses StaticMmioTransport for 'static lifetime compatibility
+
+use crate::virtio::{StaticMmioTransport, VirtioHal};
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use levitate_utils::Spinlock;
-use virtio_drivers::{device::gpu::VirtIOGpu, transport::mmio::MmioTransport};
+use virtio_drivers::device::gpu::VirtIOGpu;
 
+// TEAM_032: Use StaticMmioTransport (MmioTransport<'static>) for static storage
 pub struct GpuState {
-    gpu: VirtIOGpu<VirtioHal, MmioTransport>,
+    gpu: VirtIOGpu<VirtioHal, StaticMmioTransport>,
     fb_ptr: usize,
     fb_len: usize,
     width: u32,
@@ -14,8 +19,8 @@ pub struct GpuState {
 
 pub static GPU: Spinlock<Option<GpuState>> = Spinlock::new(None);
 
-pub fn init(transport: MmioTransport) {
-    match VirtIOGpu::<VirtioHal, MmioTransport>::new(transport) {
+pub fn init(transport: StaticMmioTransport) {
+    match VirtIOGpu::<VirtioHal, StaticMmioTransport>::new(transport) {
         Ok(mut gpu) => {
             match gpu.resolution() {
                 Ok((width, height)) => {
@@ -34,14 +39,14 @@ pub fn init(transport: MmioTransport) {
                             });
                         }
                         Err(_e) => {
-                            crate::println!("GPU: Failed to setup framebuffer");  // Error always prints
+                            crate::println!("GPU: Failed to setup framebuffer");
                         }
                     }
                 }
-                Err(_e) => crate::println!("GPU: Failed to get resolution"),  // Error always prints
+                Err(_e) => crate::println!("GPU: Failed to get resolution"),
             }
         }
-        Err(_e) => crate::println!("GPU: VirtIOGpu::new failed"),  // Error always prints
+        Err(_e) => crate::println!("GPU: VirtIOGpu::new failed"),
     }
 }
 

@@ -1,4 +1,12 @@
-use crate::println;
+//! VirtIO MMIO Transport and HAL Implementation
+//!
+//! TEAM_032: Updated for virtio-drivers v0.12.0
+//! - PhysAddr is now u64 (not usize)
+//! - MmioTransport::new() requires mmio_size argument
+//! - MmioTransport has lifetime parameter
+
+extern crate alloc;
+
 use core::ptr::NonNull;
 use virtio_drivers::transport::Transport;
 use virtio_drivers::{Hal, PhysAddr};
@@ -15,26 +23,27 @@ unsafe impl Hal for VirtioHal {
         _direction: virtio_drivers::BufferDirection,
     ) -> (PhysAddr, NonNull<u8>) {
         let layout = core::alloc::Layout::from_size_align(pages * 4096, 4096).unwrap();
-        // Since we are in a kernel, we can use the global allocator.
-        // However, we need zeroed memory.
         let ptr = unsafe { alloc::alloc::alloc_zeroed(layout) };
         if ptr.is_null() {
             panic!("VirtIO DMA allocation failed");
         }
         let vaddr = ptr as usize;
         let paddr = levitate_hal::mmu::virt_to_phys(vaddr);
-        (paddr, NonNull::new(ptr).unwrap())
+        // TEAM_032: PhysAddr is now u64
+        (paddr as u64, NonNull::new(ptr).unwrap())
     }
 
     unsafe fn dma_dealloc(paddr: PhysAddr, _vaddr: NonNull<u8>, pages: usize) -> i32 {
         let layout = core::alloc::Layout::from_size_align(pages * 4096, 4096).unwrap();
-        let vaddr = levitate_hal::mmu::phys_to_virt(paddr);
+        // TEAM_032: PhysAddr is now u64, convert to usize
+        let vaddr = levitate_hal::mmu::phys_to_virt(paddr as usize);
         unsafe { alloc::alloc::dealloc(vaddr as *mut u8, layout) };
         0
     }
 
     unsafe fn mmio_phys_to_virt(paddr: PhysAddr, _size: usize) -> NonNull<u8> {
-        let vaddr = levitate_hal::mmu::phys_to_virt(paddr);
+        // TEAM_032: PhysAddr is now u64, convert to usize
+        let vaddr = levitate_hal::mmu::phys_to_virt(paddr as usize);
         NonNull::new(vaddr as *mut u8).unwrap()
     }
 
@@ -43,7 +52,8 @@ unsafe impl Hal for VirtioHal {
         _direction: virtio_drivers::BufferDirection,
     ) -> PhysAddr {
         let vaddr = buffer.as_ptr() as *mut u8 as usize;
-        levitate_hal::mmu::virt_to_phys(vaddr)
+        // TEAM_032: Return u64 PhysAddr
+        levitate_hal::mmu::virt_to_phys(vaddr) as u64
     }
 
     unsafe fn unshare(
@@ -55,6 +65,10 @@ unsafe impl Hal for VirtioHal {
     }
 }
 
+/// Type alias for MmioTransport with 'static lifetime
+/// This works because MMIO addresses are fixed hardware addresses
+pub type StaticMmioTransport = virtio_drivers::transport::mmio::MmioTransport<'static>;
+
 pub fn init() {
     crate::verbose!("Scanning VirtIO MMIO bus...");
     for i in 0..VIRTIO_MMIO_COUNT {
@@ -63,7 +77,10 @@ pub fn init() {
             core::ptr::NonNull::new(addr as *mut virtio_drivers::transport::mmio::VirtIOHeader)
                 .unwrap();
 
-        match unsafe { virtio_drivers::transport::mmio::MmioTransport::new(header) } {
+        // TEAM_032: MmioTransport::new now requires mmio_size
+        match unsafe {
+            virtio_drivers::transport::mmio::MmioTransport::new(header, VIRTIO_MMIO_SIZE)
+        } {
             Ok(transport) => {
                 let device_type = transport.device_type();
                 match device_type {

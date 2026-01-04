@@ -10,40 +10,28 @@ description:
 
 ### 1. Behavior Inventory
 
-* **Guideline:** All testable behaviors must be documented in `docs/testing/behavior-inventory.md`.
-* **Structure:** Group behaviors by logical domain, not by file. Each behavior gets a unique ID.
+* **Guideline:** All testable behaviors must be documented in a central inventory (e.g., `docs/testing/behavior-inventory.md`).
+* **Structure:** Group behaviors by logical domain. Each behavior gets a unique ID.
 * **Format:**
   ```markdown
   | ID | Behavior | Tested? | Test |
   |----|----------|---------|------|
-  | R1 | New buffer is empty | ✅ | `test_ring_buffer_fifo` |
+  | P1 | Property description | ✅ | `test_function_name` |
   ```
 
 ### 2. Behavior Grouping
 
-* **Guideline:** Group files by functional domain, not alphabetically or by directory.
-* **Standard Groups:**
-  - **Core Primitives:** Spinlock, RingBuffer, basic data structures
-  - **Interrupt & Synchronization:** Interrupt control, IRQ-safe locks, GIC
-  - **Serial I/O:** UART, console, serial drivers
-  - **Memory Management:** MMU, page tables, allocators
-  - **Timer:** System timer, delays, scheduling primitives
-  - **Kernel Drivers:** VirtIO, GPU, Input (runtime-only, integration tested)
+* **Guideline:** Group behaviors by functional domain (e.g., Memory, I/O, Synchronization).
+* **Policy:** As the kernel grows, new domains should be established to maintain a clean hierarchy.
 
 ### 3. Behavior ID Format
 
-* **Guideline:** Each behavior ID uses a single-letter prefix + number.
-* **Prefixes by Group:**
-  - `S` = Spinlock
-  - `R` = RingBuffer
-  - `I` = Interrupts
-  - `L` = IrqSafeLock
-  - `G` = GIC
-  - `U` = UART/Pl011
-  - `C` = Console
-  - `M` = MMU
-  - `T` = Timer
-* **Example:** `[R4]` = RingBuffer behavior #4 (push to full buffer returns false)
+* **Guideline:** Each behavior ID uses a unique prefix + number.
+* **Extension Policy:**
+  - Prefixes must be unique across the kernel.
+  - Prefixes should reflect the subsystem or domain they describe.
+  - If a single letter is exhausted or ambiguous, use multi-letter prefixes.
+* **Example:** `[MMU1]` = MMU behavior #1
 
 ## II. Traceability
 
@@ -91,11 +79,12 @@ description:
 
 ### 7. Test Abstraction Levels
 
-* **Guideline:** Tests exist at multiple levels. Do not duplicate tests at the same level.
+* **Guideline:** Tests exist at multiple levels (Unit, Integration, System). Leverage Rust's native testing support.
 * **Levels:**
-  - **Unit Tests:** Individual functions in isolation (`cargo test`)
-  - **Integration Tests:** Kernel boot output verification (`cargo xtask test behavior`)
-  - **Static Analysis:** Source code pattern checks (`cargo xtask test regress`)
+  - **Unit Tests:** Isolated logic in `src/` modules using `#[test]`. Use mocks/fakes for hardware dependencies.
+  - **Integration Tests:** Verifying interaction between crates in the workspace.
+  - **Behavioral Verification:** Kernel boot output comparison against golden references.
+  - **Static Verification:** Enforcing rules via custom `clippy` lints or source analysis.
 * **Rule:** If a behavior is tested at one level, do not add redundant tests at the same level.
 
 ### 8. Testability Requirements
@@ -118,8 +107,8 @@ description:
 
 ### 10. Regression Test Location
 
-* **Guideline:** Regression tests live in `xtask/src/tests/regression.rs`.
-* **Format:** Static analysis of source files, not runtime execution.
+* **Guideline:** Regression tests should be centralized in the project's testing harness.
+* **Format:** Static analysis of source files or environment state, rather than just runtime execution.
 * **Example:**
   ```rust
   /// Sync: KERNEL_PHYS_END matches linker.ld __heap_end
@@ -138,14 +127,14 @@ description:
 
 ## V. Test Maintenance
 
-### 12. Golden File Updates
+### 12. Golden Reference Updates
 
-* **Guideline:** `tests/golden_boot.txt` is the canonical expected output.
+* **Guideline:** Maintain "Golden" files (expected outputs) for behavioral verification.
 * **Update Process:**
-  1. Run kernel in QEMU
-  2. Verify output is correct
-  3. Update `golden_boot.txt` with new expected output
-  4. Document what changed in commit message
+  1. Execute the system in a deterministic environment.
+  2. Verify output manually or via validated tools.
+  3. Update the reference files with the new baseline.
+  4. Document the rationale for the change in the commit history.
 
 ### 13. Test Failure Response
 
@@ -154,45 +143,26 @@ description:
   2. **Behavior test fails:** Either bug OR golden file needs update. Investigate.
   3. **Regression test fails:** Previously-fixed bug has returned. Root cause analysis required.
 
-### 14. Test Commands
+### 14. Standard Test Interface
 
-```bash
-cargo xtask test              # Run all tests (unit → behavior → regression)
-cargo xtask test unit         # Unit tests only (42 tests)
-cargo xtask test behavior     # Boot output vs golden log (uses --features verbose)
-cargo xtask test regress      # Static analysis checks
-```
+* **Guideline:** The project must provide a unified interface via `cargo` for executing tests at all levels.
+* **Standard Commands:**
+  ```bash
+  cargo test                # Run all isolated unit tests
+  cargo xtask test all      # Run full suite (unit + behavior + regression)
+  cargo xtask test behavior # System-level behavior verification
+  cargo xtask test regress  # Static analysis and regression checks
+  ```
 
-## VI. Verbose Boot & Rule 4 Compliance
+## VI. Diagnostic Output & System Silence
 
-### 15. Silence is Golden (Rule 4 Alignment)
+### 15. Silence by Default
 
-* **Guideline:** Production builds are **silent** on success. Only errors print.
-* **Implementation:** Use `verbose!()` macro instead of `println!()` for success messages.
-* **Feature Flag:** `--features verbose` enables boot messages for testing.
+* **Guideline:** Under normal operation, the system should remain silent. Output is reserved for errors or explicitly requested diagnostics.
+* **Implementation Pattern:** Use diagnostic-level macros or logging levels to separate success markers from critical errors.
+* **Verification:** Automated tests should verify that "Success" paths do not pollute the primary log buffer.
 
-### 16. verbose! Macro Usage
+### 16. Diagnostic Logging
 
-```rust
-// In kernel code:
-verbose!("Heap initialized.");      // Only prints with --features verbose
-println!("ERROR: GPU failed");      // Always prints (errors)
-```
-
-* **Success messages:** Use `verbose!()`
-* **Error messages:** Use `println!()` directly
-
-### 17. Behavior Test Builds
-
-* **Guideline:** `cargo xtask test behavior` automatically uses `--features verbose`.
-* **Production:** `cargo build --release` produces silent kernel.
-* **Rationale:** Golden file comparison requires output, but Rule 4 says silence is golden.
-
-### 18. When to Use Each
-
-| Situation | Macro | Reason |
-|-----------|-------|--------|
-| Init success | `verbose!()` | Silent in production |
-| Init failure | `println!()` | Errors always visible |
-| Debug info | `verbose!()` | Only in test builds |
-| Panic | `println!()` | Critical, always visible |
+* **Guideline:** Provide a mechanism to enable verbose output for development and verification without modifying code.
+* **Rationale:** Ensures that "Golden Reference" tests have enough data to verify behavior while maintaining production silence.
