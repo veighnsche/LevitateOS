@@ -48,8 +48,11 @@ pub fn init(dtb: &[u8]) {
     });
 
     // Add software-defined reserved regions
+    // TEAM_075: Use max of _kernel_end and __heap_end to ensure heap is reserved
     let kernel_start = mmu::virt_to_phys(unsafe { &_kernel_virt_start as *const _ as usize });
-    let kernel_end = mmu::virt_to_phys(unsafe { &_kernel_end as *const _ as usize });
+    let kernel_end_symbol = mmu::virt_to_phys(unsafe { &_kernel_end as *const _ as usize });
+    let heap_end_symbol = mmu::virt_to_phys(unsafe { &__heap_end as *const _ as usize });
+    let kernel_end = core::cmp::max(kernel_end_symbol, heap_end_symbol);
     add_reserved(
         &mut reserved_regions,
         &mut res_count,
@@ -57,9 +60,10 @@ pub fn init(dtb: &[u8]) {
         kernel_end,
     );
     crate::println!(
-        "[MEMORY] Reserved Kernel: 0x{:x} - 0x{:x}",
+        "[MEMORY] Reserved Kernel: 0x{:x} - 0x{:x} (heap_end: 0x{:x})",
         kernel_start,
-        kernel_end
+        kernel_end,
+        heap_end_symbol
     );
 
     // Initrd
@@ -243,4 +247,5 @@ fn add_range_with_holes(
 unsafe extern "C" {
     static _kernel_virt_start: u8;
     static _kernel_end: u8;
+    static __heap_end: u8;
 }
