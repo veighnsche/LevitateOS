@@ -265,20 +265,44 @@ impl Terminal {
         self.show_cursor(display);
     }
 
-    /// [TERM8] Move cursor left (no erase) - SC12.1, SC12.2
+    /// [SPEC-2] Destructive backspace (0x08)
     fn backspace(&mut self, display: &mut Display) {
         self.hide_cursor(display);
+
+        let mut changed = false;
         if self.cursor_col > 0 {
+            // [TERM8] Normal backspace
             self.cursor_col -= 1;
-            crate::println!("[TERM] backspace -> col={}", self.cursor_col);
-        } else {
-            crate::println!("[TERM] backspace at col=0, no action");
+            changed = true;
+        } else if self.cursor_row > 0 {
+            // [SPEC-2] Wrap back to previous line
+            self.cursor_row -= 1;
+            self.cursor_col = self.cols - 1;
+            changed = true;
+            crate::println!(
+                "[TERM] backspace wrap to row={}, col={}",
+                self.cursor_row,
+                self.cursor_col
+            );
         }
 
-        // TEAM_059: Force flush after backspace
-        let mut guard = GPU.lock();
-        if let Some(state) = guard.as_mut() {
-            state.flush();
+        if changed {
+            // [SPEC-2] Erase character at new position
+            let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
+            let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
+
+            let _ = Rectangle::new(
+                Point::new(x as i32, y as i32),
+                Size::new(FONT_WIDTH, FONT_HEIGHT + LINE_SPACING),
+            )
+            .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
+            .draw(display);
+
+            // TEAM_059: Force flush after erase
+            let mut guard = GPU.lock();
+            if let Some(state) = guard.as_mut() {
+                state.flush();
+            }
         }
         self.show_cursor(display);
     }
