@@ -315,6 +315,22 @@ impl<'a> Elf<'a> {
             for i in 0..num_pages {
                 let page_va = page_start + i * PAGE_SIZE;
 
+                // TEAM_079: Check if page is already mapped (segments can share pages)
+                // If already mapped, skip - keeps first mapping's flags (typically executable)
+                let l0_va = mmu::phys_to_virt(ttbr0_phys);
+                let already_mapped = mmu::walk_to_entry(
+                    unsafe { &mut *(l0_va as *mut mmu::PageTable) },
+                    page_va,
+                    3,
+                    false,
+                )
+                .map(|w| w.table.entry(w.index).is_valid())
+                .unwrap_or(false);
+
+                if already_mapped {
+                    continue; // Skip, page already mapped by earlier segment
+                }
+
                 // Allocate a physical page
                 let phys = crate::memory::FRAME_ALLOCATOR
                     .alloc_page()

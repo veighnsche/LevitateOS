@@ -37,9 +37,23 @@ pub unsafe fn enter_user_mode(entry_point: usize, user_sp: usize) -> ! {
     //   Bits [3:2] = 00 = EL0
     //   Bit  [0]   = 0  = Use SP_EL0
     //   Bits [9:6] = DAIF = 0 = Interrupts enabled
+    //
+    // TEAM_079: FIX - Use explicit register constraints to prevent the compiler
+    // from placing inputs in registers that we clear. The previous code used
+    // `in(reg)` which let the compiler choose any register, then we cleared
+    // x2-x30, potentially zeroing our inputs before using them.
     unsafe {
         asm!(
-            // Clear all general-purpose registers for clean user entry
+            // Set system registers FIRST, before clearing anything
+            // Use explicit registers x0, x1, x2 for inputs
+            "msr elr_el1, {entry}",   // ELR = entry point
+            "msr spsr_el1, xzr",      // SPSR = 0 (EL0, interrupts enabled)
+            "msr sp_el0, {sp}",       // SP_EL0 = user stack
+
+            // Now clear all general-purpose registers for clean user entry
+            // x0-x30 will all be zero when user code starts
+            "mov x0, xzr",
+            "mov x1, xzr",
             "mov x2, xzr",
             "mov x3, xzr",
             "mov x4, xzr",
@@ -70,20 +84,10 @@ pub unsafe fn enter_user_mode(entry_point: usize, user_sp: usize) -> ! {
             "mov x29, xzr",
             "mov x30, xzr",
 
-            // Set ELR_EL1 = entry point (return address for eret)
-            "msr elr_el1, {entry}",
-
-            // Set SPSR_EL1 = 0 (EL0, SP_EL0, interrupts enabled, no flags)
-            "msr spsr_el1, {spsr}",
-
-            // Set SP_EL0 = user stack pointer
-            "msr sp_el0, {sp}",
-
             // Exception return to EL0
             "eret",
 
             entry = in(reg) entry_point,
-            spsr = in(reg) 0u64,
             sp = in(reg) user_sp,
             options(noreturn)
         );
