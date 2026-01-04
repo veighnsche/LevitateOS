@@ -30,6 +30,7 @@ mod gpu;
 mod input;
 mod virtio;
 
+use levitate_hal::fdt;
 use levitate_hal::gic;
 use levitate_hal::timer::{self, Timer};
 use levitate_hal::{print, println};
@@ -43,9 +44,9 @@ global_asm!(
 _head:
     b       _start
     .long   0
-    .quad   0x0
-    .quad   _end - _head
-    .quad   0x0A
+    .quad   0x80000          /* text_offset: kernel expects RAM_BASE + 0x80000 */
+    .quad   _kernel_size     /* image_size: calculated by linker script */
+    .quad   0x0A             /* flags: LE, 4K pages */
     .quad   0
     .quad   0
     .quad   0
@@ -54,15 +55,21 @@ _head:
 
 _start:
     msr     daifset, #0xf
-    mrs     x0, mpidr_el1
-    and     x0, x0, #0xFF
-    cbz     x0, primary_cpu
+    mrs     x1, mpidr_el1
+    and     x1, x1, #0xFF
+    cbz     x1, primary_cpu
 
 secondary_halt:
     wfe
     b       secondary_halt
 
 primary_cpu:
+    /* Save x0-x3 to callee-saved registers x19-x22 */
+    mov     x19, x0
+    mov     x20, x1
+    mov     x21, x2
+    mov     x22, x3
+
     /* Enable FP/SIMD */
     mov     x0, #0x300000
     msr     cpacr_el1, x0
@@ -83,6 +90,21 @@ bss_loop:
     str     x3, [x0], #8
     b       bss_loop
 bss_done:
+
+    /* Save preserved registers to global variable BOOT_REGS */
+    ldr     x0, =BOOT_REGS
+    ldr     x1, =_kernel_virt_base
+    sub     x0, x0, x1          /* x0 = physical address of BOOT_REGS */
+    str     x19, [x0]           /* x0 */
+    str     x20, [x0, #8]       /* x1 */
+    str     x21, [x0, #16]      /* x2 */
+    str     x22, [x0, #24]      /* x3 */
+
+    /* Save DTB to BOOT_DTB_ADDR for compatibility */
+    ldr     x0, =BOOT_DTB_ADDR
+    ldr     x1, =_kernel_virt_base
+    sub     x0, x0, x1
+    str     x19, [x0]
 
     /* Setup Early Page Tables */
     /* L0_low[0] -> L1_low (ID map for first 1GB) */
@@ -175,6 +197,54 @@ use linked_list_allocator::LockedHeap;
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
+/// Physical address of the Device Tree Blob (DTB) passed by the bootloader.
+/// Saved from x0 in `_start`.
+#[unsafe(no_mangle)]
+static mut BOOT_DTB_ADDR: u64 = 0;
+
+#[unsafe(no_mangle)]
+static mut BOOT_REGS: [u64; 4] = [0; 4];
+
+/// Returns the physical address of the DTB if one was provided.
+///
+/// # TEAM_038: DTB Detection Strategy
+/// 1. Check x0 (passed by bootloader via BOOT_DTB_ADDR)
+/// 2. Scan common QEMU DTB locations (0x4000_0000 region)
+/// 3. Search for DTB magic (0xD00DFEED) in early RAM
+///
+/// On real hardware (Pixel 6), step 1 should work. Steps 2-3 are for QEMU ELF boot.
+pub fn get_dtb_phys() -> Option<usize> {
+    // Step 1: Check if bootloader passed DTB address in x0
+    let addr = unsafe { BOOT_DTB_ADDR };
+    if addr != 0 {
+        verbose!("DTB address from x0: 0x{:x}", addr);
+        return Some(addr as usize);
+    }
+
+    // Step 2: Scan likely DTB locations in early RAM (fallback for ELF boot)
+    // QEMU may place DTB at start of RAM or after kernel
+    let scan_start = 0x4000_0000usize;
+    let scan_end = 0x4900_0000usize; // Scan first ~144MB of RAM
+
+    verbose!(
+        "Scanning for DTB magic in 0x{:x}..0x{:x}",
+        scan_start,
+        scan_end
+    );
+
+    // Scan page-aligned addresses (DTB must be 8-byte aligned per spec)
+    for addr in (scan_start..scan_end).step_by(0x1000) {
+        let magic = unsafe { core::ptr::read_volatile(addr as *const u32) };
+        if u32::from_be(magic) == 0xd00d_feed {
+            verbose!("Found DTB at 0x{:x}", addr);
+            return Some(addr);
+        }
+    }
+
+    verbose!("No DTB found in scanned memory region");
+    None
+}
+
 // TEAM_015: IRQ handler functions registered via gic::register_handler
 fn timer_irq_handler() {
     // Reload timer for next interrupt (1 second)
@@ -243,12 +313,32 @@ pub extern "C" fn kmain() -> ! {
             .expect("Failed to higher-half map kernel");
 
             // Map Devices (Identity mapped for now)
-            mmu::identity_map_range_optimized(root, 0x0900_0000, 0x0900_1000, mmu::PageFlags::DEVICE)
-                .unwrap(); // UART
-            mmu::identity_map_range_optimized(root, 0x0800_0000, 0x0802_0000, mmu::PageFlags::DEVICE)
-                .unwrap(); // GIC
-            mmu::identity_map_range_optimized(root, 0x0a00_0000, 0x0a10_0000, mmu::PageFlags::DEVICE)
-                .unwrap(); // VirtIO
+            mmu::identity_map_range_optimized(
+                root,
+                0x0900_0000,
+                0x0900_1000,
+                mmu::PageFlags::DEVICE,
+            )
+            .unwrap(); // UART
+            mmu::identity_map_range_optimized(
+                root,
+                0x0800_0000,
+                0x0802_0000,
+                mmu::PageFlags::DEVICE,
+            )
+            .unwrap(); // GIC
+            mmu::identity_map_range_optimized(
+                root,
+                0x0a00_0000,
+                0x0a10_0000,
+                mmu::PageFlags::DEVICE,
+            )
+            .unwrap(); // VirtIO
+
+            // Map Boot RAM including DTB/initrd region (QEMU places DTB after kernel)
+            // DTB is at ~0x4820_0000 for a ~100KB kernel + initrd
+            mmu::identity_map_range_optimized(root, 0x4000_0000, 0x5000_0000, kernel_flags)
+                .expect("Failed to map boot RAM");
         }
 
         // Enable MMU with both TTBR0 and TTBR1
@@ -289,9 +379,64 @@ pub extern "C" fn kmain() -> ! {
     // 4. Initialize VirtIO (Phase 3)
     virtio::init();
 
+    // 4.5 Initialize Initramfs (Team 035)
+    unsafe {
+        println!(
+            "BOOT_REGS: x0={:x} x1={:x} x2={:x} x3={:x}",
+            BOOT_REGS[0], BOOT_REGS[1], BOOT_REGS[2], BOOT_REGS[3]
+        );
+    }
+    println!("Detecting Initramfs...");
+    if let Some(dtb_phys) = get_dtb_phys() {
+        // DTB is in the 1GB identity mapped region, safe to access directly
+        let dtb_ptr = dtb_phys as *const u8;
+        // Basic safety check on header magic (first 4 bytes)
+        // DTB magic is 0xD00DFEED big endian
+        let magic = unsafe { core::slice::from_raw_parts(dtb_ptr, 4) };
+        if magic == [0xd0, 0x0d, 0xfe, 0xed] {
+            // Assume reasonable size for now, e.g. 1MB for DTB header parsing
+            let dtb_slice = unsafe { core::slice::from_raw_parts(dtb_ptr, 1024 * 1024) };
+            match fdt::get_initrd_range(dtb_slice) {
+                Ok((start, end)) => {
+                    let size = end - start;
+                    println!(
+                        "Initramfs found at 0x{:x} - 0x{:x} ({} bytes)",
+                        start, end, size
+                    );
+
+                    // Initramfs also in identity map region
+                    let initrd_slice =
+                        unsafe { core::slice::from_raw_parts(start as *const u8, size) };
+                    let archive = fs::initramfs::CpioArchive::new(initrd_slice);
+
+                    println!("Files in initramfs:");
+                    for entry in archive.iter() {
+                        println!(" - {}", entry.name);
+                        if entry.name == "hello.txt" {
+                            if let Ok(s) = core::str::from_utf8(entry.data) {
+                                println!("   Content: {}", s.trim());
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    verbose!("No initramfs found in DTB: {:?}", e);
+                }
+            }
+        } else {
+            verbose!("DTB magic mismatch at 0x{:x}", dtb_phys);
+        }
+    } else {
+        verbose!("No DTB provided.");
+    }
+
     // 5. Initialize Filesystem (Phase 4)
-    if let Err(e) = fs::init() {
-        verbose!("Filesystem init skipped: {}", e);
+    // Don't panic if FS fails, just log it. Initramfs implies we might be diskless.
+    match fs::init() {
+        Ok(_) => {
+            verbose!("Filesystem initialized.");
+        }
+        Err(e) => println!("Filesystem init skipped (expected if no disk): {}", e),
     }
 
     // 6. Enable interrupts

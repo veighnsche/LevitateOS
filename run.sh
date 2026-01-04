@@ -15,18 +15,13 @@ echo "Converting to raw binary..."
 aarch64-linux-gnu-objcopy -O binary "$ELF" "$BIN"
 
 echo "Launching QEMU..."
-# Match the parameters from the C run.sh as much as possible
-# -M virt: use the 'virt' board
-# -cpu cortex-a53: ARMv8-A CPU
-# -m 512M: 512MB RAM
-# -kernel: the raw binary to load
-# -serial mon:stdio: multiplex QEMU monitor and guest serial on stdio
-# -display none: hide graphical window for now (until Phase 3)
+# TEAM_038: Use raw binary for Linux boot protocol (passes DTB in x0)
+# ELF boot does NOT pass DTB - see .teams/TEAM_038_bugfix_dtb_detection.md
 qemu-system-aarch64 \
     -M virt \
     -cpu cortex-a53 \
     -m 512M \
-    -kernel target/aarch64-unknown-none/release/levitate-kernel \
+    -kernel "$BIN" \
     -display none \
     -device virtio-gpu-device \
     -device virtio-keyboard-device \
@@ -35,6 +30,7 @@ qemu-system-aarch64 \
     -netdev user,id=net0 \
     -drive file=tinyos_disk.img,format=raw,if=none,id=hd0 \
     -device virtio-blk-device,drive=hd0 \
+    -initrd initramfs.cpio \
     -serial stdio \
     -d in_asm,int \
     -D qemu.log \

@@ -28,6 +28,8 @@ static EXT4_MOUNTED: Spinlock<bool> = Spinlock::new(false);
 ///
 /// Attempts to mount FAT32 boot partition.
 /// ext4 root partition is optional and can be mounted later.
+pub mod initramfs;
+
 pub fn init() -> Result<(), &'static str> {
     // Mount FAT32 boot partition
     match fat::mount_and_list() {

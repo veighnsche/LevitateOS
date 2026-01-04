@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod console;
+pub mod fdt;
 pub mod gic;
 pub mod interrupts;
 pub mod mmu;
@@ -25,7 +26,7 @@ impl<T> IrqSafeLock<T> {
 
     /// [L1] Disables interrupts before acquiring, [L4] data accessible through guard
     pub fn lock(&self) -> IrqSafeLockGuard<'_, T> {
-        let state = interrupts::disable();  // [L1] disable before acquire
+        let state = interrupts::disable(); // [L1] disable before acquire
         let guard = self.inner.lock();
         IrqSafeLockGuard {
             guard: ManuallyDrop::new(guard), // [L4] data access
@@ -57,7 +58,7 @@ impl<T> Drop for IrqSafeLockGuard<'_, T> {
     fn drop(&mut self) {
         // SAFETY: guard is only dropped once, here in Drop, before restoring interrupts
         unsafe { ManuallyDrop::drop(&mut self.guard) };
-        interrupts::restore(self.state);    // [L2] restore on drop
+        interrupts::restore(self.state); // [L2] restore on drop
     }
 }
 
@@ -75,17 +76,17 @@ mod tests {
     fn test_irq_safe_lock_behavior() {
         let lock = IrqSafeLock::new(10);
 
-        assert!(interrupts::is_enabled());        // [I4] initially enabled
+        assert!(interrupts::is_enabled()); // [I4] initially enabled
 
         {
-            let mut guard = lock.lock();          // [L1] disables interrupts
-            assert_eq!(*guard, 10);               // [L4] read access
-            *guard = 20;                          // [L4] write access
+            let mut guard = lock.lock(); // [L1] disables interrupts
+            assert_eq!(*guard, 10); // [L4] read access
+            *guard = 20; // [L4] write access
 
-            assert!(!interrupts::is_enabled());   // [I5] disabled while held
+            assert!(!interrupts::is_enabled()); // [I5] disabled while held
         } // [L2] restore on drop
 
-        assert!(interrupts::is_enabled());        // [I4] restored
+        assert!(interrupts::is_enabled()); // [I4] restored
         assert_eq!(*lock.lock(), 20);
     }
 
@@ -97,14 +98,14 @@ mod tests {
 
         assert!(interrupts::is_enabled());
         {
-            let _g1 = lock1.lock();               // [L3] first lock
+            let _g1 = lock1.lock(); // [L3] first lock
             assert!(!interrupts::is_enabled());
             {
-                let _g2 = lock2.lock();           // [L3] nested lock
+                let _g2 = lock2.lock(); // [L3] nested lock
                 assert!(!interrupts::is_enabled());
             }
-            assert!(!interrupts::is_enabled());   // [L3] still disabled after inner drop
+            assert!(!interrupts::is_enabled()); // [L3] still disabled after inner drop
         }
-        assert!(interrupts::is_enabled());        // [I6] finally restored
+        assert!(interrupts::is_enabled()); // [I6] finally restored
     }
 }
