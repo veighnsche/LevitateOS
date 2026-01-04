@@ -10,11 +10,20 @@
         "**/.external-kernels/**": true,
         "**/target/**": true
     },
+    // Kernel Target Configuration
     "rust-analyzer.cargo.target": "aarch64-unknown-none",
-    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.cargo.buildStd": [
+        "core",
+        "alloc"
+    ],
     "rust-analyzer.check.allTargets": false,
+    // EXCLUDE xtask from diagnostics to avoid host/target (std/no_std) conflicts
+    "rust-analyzer.check.extraArgs": [
+        "--exclude",
+        "xtask"
+    ],
+    // Global Toolchain
     "rust-analyzer.server.extraEnv": {
         "RUSTUP_TOOLCHAIN": "nightly"
-    },
-    "rust-analyzer.cargo.sysrootSrc": "/home/vince/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library"
+    }
 }

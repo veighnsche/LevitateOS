@@ -5,13 +5,12 @@ members = [
     "levitate-utils",
     "xtask",
 ]
+default-members = ["levitate-hal", "levitate-utils", "xtask"]
 resolver = "2"
 
 [workspace.lints.rust]
-# Note: unsafe_code is NOT denied - this is an OS kernel, unsafe is required for HAL/MMU/interrupts
-# Instead, we enforce safety documentation for all unsafe blocks
 unsafe_op_in_unsafe_fn = "deny"
-# Rule 6: Robustness - no panics
+missing_safety_doc = "deny"
 unconditional_panic = "deny"
 
 [workspace.lints.clippy]
@@ -25,9 +24,18 @@ unimplemented = "warn"
 match_same_arms = "deny"
 # Rule 20: Economy - efficient abstractions
 pedantic = { level = "warn", priority = -1 }
-# Overrides for pedantic
+# Overrides to reduce noise in bare-metal kernel development
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+ptr_as_ptr = "allow"
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+
+[profile.dev]
+panic = "abort"
 
 [profile.release]
 panic = "abort"

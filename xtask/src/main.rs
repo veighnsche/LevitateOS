@@ -92,6 +92,7 @@ fn build_kernel_with_features(features: &[&str]) -> Result<()> {
     println!("Building kernel...");
     let mut args = vec![
         "build".to_string(),
+        "-Z".to_string(), "build-std=core,alloc".to_string(),
         "--release".to_string(),
         "--target".to_string(), "aarch64-unknown-none".to_string(),
         "-p".to_string(), "levitate-kernel".to_string(),

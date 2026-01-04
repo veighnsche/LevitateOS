@@ -1,14 +1,8 @@
-[build]
-target = "aarch64-unknown-none"
-
 [target.aarch64-unknown-none]
 rustflags = [
     "-C", "link-arg=-Tlinker.ld",
     "-C", "target-feature=+strict-align",
 ]
-
-[unstable]
-build-std = ["core", "alloc"]
 
 [alias]
 xtask = "run --package xtask --target x86_64-unknown-linux-gnu --"
