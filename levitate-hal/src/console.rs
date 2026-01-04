@@ -2,10 +2,17 @@ use crate::IrqSafeLock;
 use crate::mmu;
 use crate::uart_pl011::Pl011Uart;
 use core::fmt::{self, Write};
+use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use levitate_utils::RingBuffer;
 
 // TEAM_039: Re-export hex utilities from levitate-utils
 pub use levitate_utils::hex::{format_hex, nibble_to_hex};
+
+// TEAM_081: Secondary output callback for dual console (GPU terminal)
+// This is a function pointer that the kernel can register after GPU init
+type SecondaryOutputFn = fn(&str);
+static SECONDARY_OUTPUT: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
+static SECONDARY_OUTPUT_ENABLED: AtomicBool = AtomicBool::new(false);
 
 // TEAM_078: Use high VA for UART (accessible via TTBR1 regardless of TTBR0 state)
 pub const UART0_BASE: usize = mmu::UART_VA;
@@ -31,9 +38,46 @@ pub fn read_byte() -> Option<u8> {
     RX_BUFFER.lock().pop()
 }
 
+// TEAM_081: Register a secondary output function (e.g., GPU terminal)
+/// Register a callback function that will receive all console output.
+/// This is used to mirror output to the GPU terminal after Stage 3.
+/// 
+/// # Safety
+/// The callback function must be valid for the lifetime of the kernel.
+pub fn set_secondary_output(callback: SecondaryOutputFn) {
+    SECONDARY_OUTPUT.store(callback as *mut (), Ordering::SeqCst);
+    SECONDARY_OUTPUT_ENABLED.store(true, Ordering::SeqCst);
+}
+
+// TEAM_081: Disable secondary output (e.g., when switching to userspace)
+#[allow(dead_code)]
+pub fn disable_secondary_output() {
+    SECONDARY_OUTPUT_ENABLED.store(false, Ordering::SeqCst);
+}
+
 pub fn _print(args: fmt::Arguments) {
-    // write_fmt cannot fail for Pl011Uart (write_str always returns Ok)
+    // TEAM_081: Write to UART (primary)
     let _ = WRITER.lock().write_fmt(args);
+    
+    // TEAM_081: Write to secondary output (GPU terminal) if registered
+    if SECONDARY_OUTPUT_ENABLED.load(Ordering::SeqCst) {
+        let ptr = SECONDARY_OUTPUT.load(Ordering::SeqCst);
+        if !ptr.is_null() {
+            // Format the string for the callback
+            // We use a small static buffer to avoid allocation
+            let callback: SecondaryOutputFn = unsafe { core::mem::transmute(ptr) };
+            
+            // Use a formatting adapter to call the callback
+            struct CallbackWriter(SecondaryOutputFn);
+            impl Write for CallbackWriter {
+                fn write_str(&mut self, s: &str) -> fmt::Result {
+                    (self.0)(s);
+                    Ok(())
+                }
+            }
+            let _ = CallbackWriter(callback).write_fmt(args);
+        }
+    }
 }
 
 impl Write for Pl011Uart {

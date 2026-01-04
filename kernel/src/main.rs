@@ -23,6 +23,7 @@ use core::arch::global_asm;
 use core::panic::PanicInfo;
 
 mod block;
+mod console_gpu; // TEAM_081: GPU terminal integration for dual console
 mod cursor;
 mod exceptions;
 mod fs;
@@ -535,19 +536,23 @@ pub extern "C" fn kmain() -> ! {
         }
     };
 
-    // SC3.3: Create terminal
-    let mut term = terminal::Terminal::new(width, height);
-    let (cols, rows) = term.size();
+    // TEAM_081: Initialize global GPU terminal for dual console output
+    console_gpu::init(width, height);
+    
+    // TEAM_081: Register GPU terminal as secondary console output
+    // After this point, all println! calls will go to BOTH UART and GPU
+    if gpu_available {
+        levitate_hal::console::set_secondary_output(console_gpu::write_str);
+        println!("[BOOT] Dual console enabled (UART + GPU)");
+    }
+    
+    // SC14.2: Print dimensions to UART (and now GPU too!)
+    if let Some((cols, rows)) = console_gpu::size() {
+        println!("[TERM] Terminal size: {}x{} characters", cols, rows);
+    }
 
-    // SC14.2: Print dimensions to UART
-    println!("[TERM] Terminal size: {}x{} characters", cols, rows);
-
-    // SC10.1-SC10.5, SC14.1: Clear and show boot banner
-    term.clear(&mut display);
-    term.write_str(&mut display, "LevitateOS Terminal v0.1\n");
-    term.write_str(&mut display, "========================\n\n");
-    term.write_str(&mut display, "Boot Stage: CONSOLE_READY\n");
-    term.write_str(&mut display, "Hybrid Kernel Initialization Starting...\n\n");
+    // TEAM_081: Clear terminal - boot log will appear naturally via println!
+    console_gpu::clear();
     verbose!("Terminal initialized.");
 
     transition_to(BootStage::Discovery);
@@ -588,12 +593,22 @@ pub extern "C" fn kmain() -> ! {
                     }
                 }
 
+                // TEAM_081 BREADCRUMB: CONFIRMED - THIS IS THE BOOT HIJACK
+                // ================================================================
+                // THIS CODE PREVENTS THE SYSTEM FROM BEING INTERACTIVE!
+                // It jumps to userspace before the main loop runs.
+                // 
+                // TO FIX: Comment out or remove the run_from_initramfs call below.
+                // The system should continue to the main loop which handles
+                // keyboard input and displays the interactive prompt.
+                // ================================================================
                 // TEAM_073: Step 5 Verification - Run Hello World
                 println!("[BOOT] TEAM_073: Hijacking boot for Userspace Demo...");
                 // Enable interrupts (required for context switch or future syscalls handling)
                 // unsafe { levitate_hal::interrupts::enable() };
 
                 // Run "hello" from initramfs (does not return)
+                // TODO(TEAM_081): Remove this hijack for interactive shell to work
                 task::process::run_from_initramfs("hello", &archive);
 
                 true
@@ -610,11 +625,12 @@ pub extern "C" fn kmain() -> ! {
 
     // TEAM_065: SPEC-4 enforcement per Rule 14 (Fail Loud, Fail Fast)
     // If initrd is required but missing, drop to maintenance shell
+    // TEAM_081: SPEC-4 enforcement - use println! for dual console
     #[cfg(not(feature = "diskless"))]
     if !initrd_found {
         println!("[BOOT] SPEC-4: Initrd required but not found.");
-        term.write_str(&mut display, "\n[ERROR] Initramfs not found!\n");
-        term.write_str(&mut display, "Dropping to maintenance shell...\n");
+        println!("\n[ERROR] Initramfs not found!");
+        println!("Dropping to maintenance shell...");
         maintenance_shell();
     }
 
@@ -637,48 +653,41 @@ pub extern "C" fn kmain() -> ! {
     verbose!("Interrupts enabled.");
 
     transition_to(BootStage::SteadyState);
-    term.write_str(&mut display, "Boot Stage: SYSTEM_READY\n\n");
-    term.write_str(&mut display, "Type to interact with the Boot Console.\n");
-    term.write_str(&mut display, "--------------------------------------\n\n");
+    // TEAM_081: Use println! for dual console output (UART + GPU)
+    println!("Boot Stage: SYSTEM_READY\n");
+    println!("Type to interact with the Boot Console.");
+    println!("--------------------------------------\n");
 
     loop {
-        // [TEAM_060] Blinking cursor feedback
-        term.check_blink(&mut display);
+        // TEAM_081: Blinking cursor feedback via global terminal
+        console_gpu::check_blink();
 
         // SC14.6: Keep existing cursor tracking
         if input::poll() {
             cursor::draw(&mut display);
         }
 
-        // SC14.3, SC14.4, SC14.5: Echo UART input to both serial AND GPU terminal
+        // TEAM_081: Echo UART input - println! now handles both UART and GPU
         if let Some(c) = levitate_hal::console::read_byte() {
             let ch = c as char;
             match ch {
-                '\r' => {
-                    print!("\r\n"); // Serial needs CRLF
-                    term.write_char(&mut display, '\n');
-                }
-                '\n' => {
-                    print!("\r\n");
-                    term.write_char(&mut display, '\n');
+                '\r' | '\n' => {
+                    println!(); // Dual console newline
                 }
                 _ => {
-                    print!("{}", ch); // Echo to UART
-                    term.write_char(&mut display, ch); // Echo to GPU
+                    print!("{}", ch); // Dual console character
                 }
             }
         }
 
-        // TEAM_060: Echo VirtIO Keyboard input to terminal
+        // TEAM_081: Echo VirtIO Keyboard input - println! now handles both
         if let Some(ch) = input::read_char() {
             match ch {
                 '\n' => {
-                    print!("\r\n"); // Serial needs CRLF
-                    term.write_char(&mut display, '\n');
+                    println!(); // Dual console newline
                 }
                 _ => {
-                    print!("{}", ch); // Echo to UART
-                    term.write_char(&mut display, ch); // Echo to GPU
+                    print!("{}", ch); // Dual console character
                 }
             }
         }

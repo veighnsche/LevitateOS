@@ -1,0 +1,13 @@
+[package]
+name = "shell"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = false

@@ -1,5 +1,10 @@
 [build]
 target = "aarch64-unknown-none"
 
+# TEAM_082: Override root config completely - DO NOT inherit kernel linker script
+# The root config adds -Tlinker.ld (kernel) which conflicts with userspace
 [target.aarch64-unknown-none]
-rustflags = ["-C", "link-arg=-Tlink.ld"]
+rustflags = [
+    "-C", "link-arg=-Tlink.ld",
+    "-C", "link-arg=--no-rosegment",
+]

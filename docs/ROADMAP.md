@@ -90,21 +90,34 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
-## � Phase 8: Userspace & Syscalls (Current Priority)
+## ✅ Phase 8a: Userspace Foundation (Completed)
 
 - **Objective**: Run unprivileged user programs.
+- **Achievements**:
+  - [x] **EL0 Transition**: Switch CPU from EL1 (Kernel) to EL0 (User). (TEAM_073)
+  - [x] **Syscall Interface**: `svc` handler with custom ABI (x8=nr, x0-x5=args). (TEAM_073)
+  - [x] **ELF Loader**: Parse and load ELF64 binaries from initramfs. (TEAM_073, TEAM_079)
+  - [x] **Device MMIO via TTBR1**: Devices accessible after TTBR0 switch. (TEAM_078)
+  - [x] **Basic Syscalls**: `write`, `exit`, `getpid`. (TEAM_073)
+
+> [!NOTE]
+> **Milestone:** "Hello from userspace!" executes successfully.
+
+---
+
+## 🚀 Phase 8b: Interactive Shell (Current Priority)
+
+- **Objective**: Boot to an interactive shell prompt with basic coreutils.
 - **Tasks**:
-  - [ ] **EL0 Transition**: Switch CPU from EL1 (Kernel) to EL0 (User).
-  - [ ] **Syscall Interface**: Define `svc` (Supervisor Call) handler and ABI.
-  - [ ] **ELF Loader**: Parse and load userspace binaries from the disk/initramfs.
-  - [ ] **User Task Lifecycle**: Fork/Exec/Exit syscalls with proper isolation.
-  - [ ] **Coreutils Strategy**:
-    - *Initial*: Custom minimalist Rust binaries (bare-metal style, no libc) for `ls`, `echo`, `cat`.
-    - *Long-term*: Port `uutils` (Rust Coreutils) once a standard library interface (libc-like) is established.
+  - [ ] **GPU Terminal Fix**: Resolve newline rendering bug (TEAM_058 blocker).
+  - [ ] **Read Syscall**: Implement `read(fd, buf, len)` for stdin/keyboard input.
+  - [ ] **Shell Binary**: Userspace `sh` or `lsh` with prompt, line editing, command parsing.
+  - [ ] **Coreutils**: `echo`, `cat`, `ls`, `clear`, `help`.
+  - [ ] **Spawn Syscall**: Execute external programs from initramfs.
 
 > [!IMPORTANT]
-> **Plan Location:** See `docs/planning/userspace-phase8/` for feature plan and UoWs.
-> **Prerequisites:** Phase 7 complete (multitasking infrastructure required for user processes).
+> **Plan Location:** See `docs/planning/interactive-shell-phase8b/EPIC.md` for full epic.
+> **End Goal:** Boot → see log on GPU → get `# ` prompt → run commands.
 
 ---
 
@@ -129,4 +142,5 @@ This document outlines the planned development phases for LevitateOS. Each compl
 | 5 | 041-055 | Buddy/Slab Allocators, GIC Hardening, FDT Discovery |
 | 6 | 056-066 | VirtIO Ecosystem (Net, GPU, Input), Hybrid Boot Spec |
 | 7 | 067-071 | Multitasking, Scheduler, Context Switching |
-| 8 | 072+ | Userspace & Syscalls (In Progress) |
+| 8a | 072-079 | Userspace Foundation (EL0, Syscalls, ELF) |
+| 8b | 080+ | Interactive Shell & Coreutils (Current) |

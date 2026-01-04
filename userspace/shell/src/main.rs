@@ -1,6 +1,6 @@
 //! TEAM_081: LevitateOS Shell (lsh)
 //!
-//! Interactive shell for LevitateOS Phase 8b.
+//! A minimal interactive shell for LevitateOS.
 //! Supports builtin commands: echo, help, clear, exit
 
 #![no_std]
@@ -78,17 +78,22 @@ fn println(s: &str) {
 /// Read a line from stdin into buffer. Returns number of bytes read.
 fn read_line(buf: &mut [u8]) -> usize {
     let n = syscall::read(0, buf);
-    if n < 0 { 0 } else { n as usize }
+    if n < 0 {
+        0
+    } else {
+        n as usize
+    }
 }
 
-/// Trim whitespace from both ends of a byte slice.
+/// Trim whitespace from both ends of a string slice.
 fn trim(s: &[u8]) -> &[u8] {
     let mut start = 0;
     let mut end = s.len();
-    while start < end && matches!(s[start], b' ' | b'\t' | b'\n' | b'\r') {
+    
+    while start < end && (s[start] == b' ' || s[start] == b'\t' || s[start] == b'\n' || s[start] == b'\r') {
         start += 1;
     }
-    while end > start && matches!(s[end - 1], b' ' | b'\t' | b'\n' | b'\r') {
+    while end > start && (s[end - 1] == b' ' || s[end - 1] == b'\t' || s[end - 1] == b'\n' || s[end - 1] == b'\r') {
         end -= 1;
     }
     &s[start..end]
@@ -96,22 +101,32 @@ fn trim(s: &[u8]) -> &[u8] {
 
 /// Check if two byte slices are equal.
 fn bytes_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() { return false; }
+    if a.len() != b.len() {
+        return false;
+    }
     for i in 0..a.len() {
-        if a[i] != b[i] { return false; }
+        if a[i] != b[i] {
+            return false;
+        }
     }
     true
 }
 
 /// Check if slice starts with prefix.
 fn starts_with(s: &[u8], prefix: &[u8]) -> bool {
-    s.len() >= prefix.len() && bytes_eq(&s[..prefix.len()], prefix)
+    if s.len() < prefix.len() {
+        return false;
+    }
+    bytes_eq(&s[..prefix.len()], prefix)
 }
 
 /// Execute a command.
 fn execute(line: &[u8]) {
     let cmd = trim(line);
-    if cmd.is_empty() { return; }
+    
+    if cmd.is_empty() {
+        return;
+    }
 
     // Builtin: exit
     if bytes_eq(cmd, b"exit") {
@@ -122,52 +137,69 @@ fn execute(line: &[u8]) {
     // Builtin: help
     if bytes_eq(cmd, b"help") {
         println("LevitateOS Shell (lsh) v0.1");
-        println("Commands: echo <text>, help, clear, exit");
+        println("Available commands:");
+        println("  echo <text>  - Print text to console");
+        println("  help         - Show this help message");
+        println("  clear        - Clear the screen");
+        println("  exit         - Exit the shell");
         return;
     }
 
-    // Builtin: clear (ANSI escape)
+    // Builtin: clear (ANSI escape code)
     if bytes_eq(cmd, b"clear") {
-        print("\x1b[2J\x1b[H");
+        print("\x1b[2J\x1b[H"); // Clear screen and move cursor to home
         return;
     }
 
     // Builtin: echo
     if starts_with(cmd, b"echo ") {
-        if let Ok(s) = core::str::from_utf8(&cmd[5..]) {
+        // Print everything after "echo "
+        let text = &cmd[5..];
+        if let Ok(s) = core::str::from_utf8(text) {
             println(s);
         }
         return;
     }
     if bytes_eq(cmd, b"echo") {
-        println("");
+        println(""); // Empty echo
         return;
     }
 
     // Unknown command
-    print("Unknown: ");
+    print("Unknown command: ");
     if let Ok(s) = core::str::from_utf8(cmd) {
         println(s);
+    } else {
+        println("<invalid utf8>");
     }
+    println("Type 'help' for available commands.");
 }
 
 /// Entry point for the shell.
 #[no_mangle]
 #[link_section = ".text._start"]
 pub extern "C" fn _start() -> ! {
+    // Print banner
     println("");
     println("LevitateOS Shell (lsh) v0.1");
-    println("Type 'help' for commands.");
+    println("Type 'help' for available commands.");
     println("");
 
+    // Input buffer
     let mut buf = [0u8; 256];
 
     loop {
+        // Print prompt
         print("# ");
+
+        // Read line
         let n = read_line(&mut buf);
-        if n > 0 {
-            execute(&buf[..n]);
+        if n == 0 {
+            continue;
         }
+
+        // Execute command
+        execute(&buf[..n]);
     }
 }
 

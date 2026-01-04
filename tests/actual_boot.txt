@@ -47,14 +47,9 @@ ELF Header e_ident on stack at 0xffff8000400c3e50
 [ELF] Copying segment: src[0]=20 to VA 10000
 [ELF] Resolved PA 48012000 -> Kernel VA ffff800048012000
 [ELF] Copying segment: src[0]=48 to VA 10040
-[ELF] Resolved PA 48016040 -> Kernel VA ffff800048016040
+[ELF] Resolved PA 48012040 -> Kernel VA ffff800048012040
 [SPAWN] Created user process PID=1 entry=0x10000 sp=0x7fffffff0000
 [SPAWN] Starting user process...
-
-*** USER EXCEPTION ***
-Exception Class: 0x20
-ESR: 0x0000000082000007
-ELR (fault address): 0x0000000000000000
-Type: Instruction Abort
-Terminating user process.
-
+Hello from userspace!
+LevitateOS Phase 8: Userspace support working!
+[SYSCALL] exit(0)

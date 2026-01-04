@@ -164,17 +164,79 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
 // Syscall Implementations
 // ============================================================================
 
-/// TEAM_073: sys_read - Read from a file descriptor.
+/// TEAM_081: sys_read - Read from a file descriptor.
 ///
-/// Currently only supports fd 0 (stdin) which is not implemented.
-fn sys_read(_fd: usize, _buf: usize, _len: usize) -> i64 {
-    // TODO(TEAM_073): Implement stdin reading
-    // For now, return 0 (EOF)
-    println!(
-        "[SYSCALL] read({}, 0x{:x}, {}) - not implemented",
-        _fd, _buf, _len
-    );
-    0
+/// Supports:
+/// - fd 0 (stdin) -> Keyboard input (VirtIO keyboard + UART)
+///
+/// This is a blocking read that waits for at least one character.
+fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
+    // Only stdin (fd 0) is supported
+    if fd != 0 {
+        return errno::EBADF;
+    }
+
+    // Validate buffer pointer (must be in user address space)
+    if buf >= 0x0000_8000_0000_0000 {
+        return errno::EFAULT;
+    }
+
+    if len == 0 {
+        return 0;
+    }
+
+    // TEAM_081: Read from keyboard buffer
+    // Try VirtIO keyboard first, then UART
+    // Block until at least one character is available
+    let mut bytes_read = 0usize;
+    let max_read = len.min(4096); // Safety limit
+
+    // SAFETY: We've validated the buffer is in user address space.
+    let user_buf = unsafe { core::slice::from_raw_parts_mut(buf as *mut u8, max_read) };
+
+    // Block until we get at least one character
+    while bytes_read == 0 {
+        // Poll VirtIO input devices to process any pending events
+        crate::input::poll();
+
+        // Try to read from VirtIO keyboard buffer
+        while bytes_read < max_read {
+            if let Some(ch) = crate::input::read_char() {
+                user_buf[bytes_read] = ch as u8;
+                bytes_read += 1;
+                // For line-buffered input, break on newline
+                if ch == '\n' {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Also check UART input
+        if bytes_read < max_read {
+            while let Some(byte) = levitate_hal::console::read_byte() {
+                // Convert CR to LF for consistency
+                let byte = if byte == b'\r' { b'\n' } else { byte };
+                user_buf[bytes_read] = byte;
+                bytes_read += 1;
+                // For line-buffered input, break on newline
+                if byte == b'\n' {
+                    break;
+                }
+                if bytes_read >= max_read {
+                    break;
+                }
+            }
+        }
+
+        // If no input yet, yield CPU briefly
+        if bytes_read == 0 {
+            core::hint::spin_loop();
+        }
+    }
+
+    bytes_read as i64
 }
 
 /// TEAM_073: sys_write - Write to a file descriptor.

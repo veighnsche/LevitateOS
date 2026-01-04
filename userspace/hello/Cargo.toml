@@ -7,8 +7,8 @@ edition = "2021"
 
 [profile.release]
 panic = "abort"
-lto = true
-opt-level = "s"
+lto = false
+opt-level = 1
 
 # Keep this package out of the kernel workspace
 [workspace]
