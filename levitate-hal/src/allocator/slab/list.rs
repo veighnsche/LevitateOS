@@ -110,6 +110,7 @@ impl<T: ListNode> SlabList<T> {
     }
 
     /// Get the number of nodes in the list.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.count
     }

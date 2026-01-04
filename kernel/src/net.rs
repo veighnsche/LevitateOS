@@ -20,8 +20,8 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use crate::virtio::{StaticMmioTransport, VirtioHal};
+use alloc::vec::Vec;
 use levitate_utils::Spinlock;
 use virtio_drivers::device::net::VirtIONet;
 
@@ -32,6 +32,7 @@ static NET_DEVICE: Spinlock<Option<VirtIONet<VirtioHal, StaticMmioTransport, QUE
     Spinlock::new(None);
 
 /// Network driver error types
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum NetError {
     /// Device not initialized
@@ -49,10 +50,16 @@ pub fn init(transport: StaticMmioTransport) {
     match VirtIONet::<VirtioHal, StaticMmioTransport, QUEUE_SIZE>::new(transport, RX_BUFFER_LEN) {
         Ok(net) => {
             // [NET2] Read MAC address from device config
+            #[allow(unused_variables)]
             let mac = net.mac_address();
             crate::verbose!(
                 "VirtIO Net: MAC={:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+                mac[0],
+                mac[1],
+                mac[2],
+                mac[3],
+                mac[4],
+                mac[5]
             );
             // [NET1] Store initialized device
             *NET_DEVICE.lock() = Some(net);
@@ -63,12 +70,14 @@ pub fn init(transport: StaticMmioTransport) {
 
 /// [NET3] Returns MAC address when initialized
 /// [NET4] Returns None when not initialized
+#[allow(dead_code)]
 pub fn mac_address() -> Option<[u8; 6]> {
     NET_DEVICE.lock().as_ref().map(|net| net.mac_address()) // [NET3], [NET4]
 }
 
 /// [NET5] Returns true when TX queue has space
 /// [NET6] Returns false when not initialized
+#[allow(dead_code)]
 pub fn can_send() -> bool {
     NET_DEVICE
         .lock()
@@ -78,6 +87,7 @@ pub fn can_send() -> bool {
 
 /// [NET7] Returns true when RX packet available
 /// [NET8] Returns false when not initialized
+#[allow(dead_code)]
 pub fn can_recv() -> bool {
     NET_DEVICE
         .lock()
@@ -88,6 +98,7 @@ pub fn can_recv() -> bool {
 /// [NET9] Transmits packet when device ready
 /// [NET10] Returns NotInitialized when device missing
 /// [NET11] Returns DeviceBusy when queue full
+#[allow(dead_code)]
 pub fn send(data: &[u8]) -> Result<(), NetError> {
     let mut dev = NET_DEVICE.lock();
     let net = dev.as_mut().ok_or(NetError::NotInitialized)?; // [NET10]
@@ -106,6 +117,7 @@ pub fn send(data: &[u8]) -> Result<(), NetError> {
 /// [NET12] Returns packet data when available
 /// [NET13] Returns None when no packet
 /// [NET14] Recycles RX buffer after read
+#[allow(dead_code)]
 pub fn receive() -> Option<Vec<u8>> {
     let mut dev = NET_DEVICE.lock();
     let net = dev.as_mut()?; // [NET13] implicit None if not initialized

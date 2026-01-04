@@ -10,13 +10,13 @@ resolver = "2"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
-missing_safety_doc = "deny"
 unconditional_panic = "deny"
 
 [workspace.lints.clippy]
 # Rule 5 & 6: Safety and Robustness
 unwrap_used = "deny"
 expect_used = "deny"
+missing_safety_doc = "deny"
 panic = "deny"
 todo = "warn"
 unimplemented = "warn"

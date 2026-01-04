@@ -1,0 +1,11 @@
+warning: unknown and unstable feature specified for `-Ctarget-feature`: `strict-align`
+  |
+  = note: it is still passed through to the codegen backend, but use of this feature might be unsound and the behavior of this feature can change in the future
+  = help: consider filing a feature request
+
+warning: `levitate-utils` (lib) generated 1 warning
+   Compiling levitate-hal v0.1.0 (/home/vince/Projects/LevitateOS/levitate-hal)
+warning: `levitate-hal` (lib) generated 1 warning (1 duplicate)
+   Compiling levitate-kernel v0.1.0 (/home/vince/Projects/LevitateOS/kernel)
+warning: `levitate-kernel` (bin "levitate-kernel") generated 1 warning (1 duplicate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.63s

@@ -1,0 +1,96 @@
+   Compiling levitate-utils v0.1.0 (/home/vince/Projects/LevitateOS/levitate-utils)
+warning: unknown and unstable feature specified for `-Ctarget-feature`: `strict-align`
+  |
+  = note: it is still passed through to the codegen backend, but use of this feature might be unsound and the behavior of this feature can change in the future
+  = help: consider filing a feature request
+
+   Compiling levitate-hal v0.1.0 (/home/vince/Projects/LevitateOS/levitate-hal)
+warning: `levitate-utils` (lib) generated 1 warning
+warning: method `len` is never used
+   --> levitate-hal/src/allocator/slab/list.rs:113:12
+    |
+ 26 | impl<T: ListNode> SlabList<T> {
+    | ----------------------------- method in this implementation
+...
+113 |     pub fn len(&self) -> usize {
+    |            ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `levitate-hal` (lib) generated 2 warnings (1 duplicate)
+   Compiling levitate-kernel v0.1.0 (/home/vince/Projects/LevitateOS/kernel)
+warning: unused variable: `mac`
+  --> kernel/src/net.rs:52:17
+   |
+52 |             let mac = net.mac_address();
+   |                 ^^^ help: if this is intentional, prefix it with an underscore: `_mac`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: enum `NetError` is never used
+  --> kernel/src/net.rs:36:10
+   |
+36 | pub enum NetError {
+   |          ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `mac_address` is never used
+  --> kernel/src/net.rs:66:8
+   |
+66 | pub fn mac_address() -> Option<[u8; 6]> {
+   |        ^^^^^^^^^^^
+
+warning: function `can_send` is never used
+  --> kernel/src/net.rs:72:8
+   |
+72 | pub fn can_send() -> bool {
+   |        ^^^^^^^^
+
+warning: function `can_recv` is never used
+  --> kernel/src/net.rs:81:8
+   |
+81 | pub fn can_recv() -> bool {
+   |        ^^^^^^^^
+
+warning: function `send` is never used
+  --> kernel/src/net.rs:91:8
+   |
+91 | pub fn send(data: &[u8]) -> Result<(), NetError> {
+   |        ^^^^
+
+warning: function `receive` is never used
+   --> kernel/src/net.rs:109:8
+    |
+109 | pub fn receive() -> Option<Vec<u8>> {
+    |        ^^^^^^^
+
+warning: fields `font_width`, `font_height`, and `line_spacing` are never read
+  --> kernel/src/terminal.rs:37:9
+   |
+36 | pub struct TerminalConfig {
+   |            -------------- fields in this struct
+37 |     pub font_width: u32,
+   |         ^^^^^^^^^^
+38 |     pub font_height: u32,
+   |         ^^^^^^^^^^^
+39 |     pub line_spacing: u32,
+   |         ^^^^^^^^^^^^
+
+warning: methods `cursor`, `set_fg`, and `set_bg` are never used
+   --> kernel/src/terminal.rs:121:12
+    |
+ 79 | impl Terminal {
+    | ------------- methods in this implementation
+...
+121 |     pub fn cursor(&self) -> (u32, u32) {
+    |            ^^^^^^
+...
+382 |     pub fn set_fg(&mut self, color: Rgb888) {
+    |            ^^^^^^
+...
+387 |     pub fn set_bg(&mut self, color: Rgb888) {
+    |            ^^^^^^
+
+warning: `levitate-kernel` (bin "levitate-kernel") generated 10 warnings (1 duplicate) (run `cargo fix --bin "levitate-kernel" -p levitate-kernel` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.44s

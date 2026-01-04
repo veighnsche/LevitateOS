@@ -170,6 +170,7 @@ mod tests {
     //         linux,initrd-end = <0x48100000>;
     //     };
     // };
+    #[allow(dead_code)]
     const DTB_WITH_INITRD_32BIT: &[u8] = &[
         0xd0, 0x0d, 0xfe, 0xed, // magic
         0x00, 0x00, 0x00, 0x98, // totalsize
@@ -209,6 +210,7 @@ mod tests {
     ];
 
     // Minimal valid DTB without initrd properties
+    #[allow(dead_code)]
     const DTB_WITHOUT_INITRD: &[u8] = &[
         0xd0, 0x0d, 0xfe, 0xed, // magic
         0x00, 0x00, 0x00, 0x48, // totalsize
@@ -282,6 +284,7 @@ mod tests {
 
     /// Tests: [FD7] find_node_by_compatible, [FD8] get_node_reg
     // #[test] // Disabled due to mock DTB complexity issues
+    #[allow(dead_code)]
     fn test_fdt_discovery() {
         // Mock DTB with a "test-dev" compatible node and reg=[0x1234, 0x1000]
         // Root node needs #address-cells = 1 and #size-cells = 1

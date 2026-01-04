@@ -34,8 +34,11 @@ pub const DEFAULT_BG: Rgb888 = Rgb888::new(0, 0, 0); // Black
 
 /// Terminal configuration (compile-time or runtime)
 pub struct TerminalConfig {
+    #[allow(dead_code)]
     pub font_width: u32,
+    #[allow(dead_code)]
     pub font_height: u32,
+    #[allow(dead_code)]
     pub line_spacing: u32,
     pub fg_color: Rgb888,
     pub bg_color: Rgb888,
@@ -118,6 +121,7 @@ impl Terminal {
     }
 
     /// Get cursor position (column, row)
+    #[allow(dead_code)]
     pub fn cursor(&self) -> (u32, u32) {
         (self.cursor_col, self.cursor_row)
     }
@@ -379,11 +383,13 @@ impl Terminal {
     }
 
     /// Set foreground color
+    #[allow(dead_code)]
     pub fn set_fg(&mut self, color: Rgb888) {
         self.config.fg_color = color;
     }
 
     /// Set background color
+    #[allow(dead_code)]
     pub fn set_bg(&mut self, color: Rgb888) {
         self.config.bg_color = color;
     }

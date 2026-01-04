@@ -930,6 +930,7 @@ mod tests {
     fn test_set_page_allocator_signature() {
         // This test verifies the function signature compiles correctly
         // We cannot safely test runtime behavior due to static mut
+        #[allow(dead_code)]
         fn assert_signature<T: PageAllocator + 'static>(_: &'static T) {
             // If this compiles, set_page_allocator can accept &'static T
         }

@@ -274,13 +274,13 @@ pub fn set_active_api(gic: &'static Gic) {
 pub fn get_api(fdt: Option<&fdt::Fdt>) -> &'static Gic {
     let api = if let Some(fdt) = fdt {
         // TEAM_048: Try to find GICv3 node first
-        if let Some(node) = crate::fdt::find_node_by_compatible(fdt, "arm,gic-v3") {
+        if let Some(_node) = crate::fdt::find_node_by_compatible(fdt, "arm,gic-v3") {
             // Found GICv3! Try to read register addresses
             // reg: <dist_base size redist_base size ...>
             // Note: GICv3 reg property usually has Distributor then Redistributors.
             // We need to parse robustly. For now we just detect presence.
             &API_V3
-        } else if let Some(node) = crate::fdt::find_node_by_compatible(fdt, "arm,cortex-a15-gic") {
+        } else if let Some(_node) = crate::fdt::find_node_by_compatible(fdt, "arm,cortex-a15-gic") {
             // Found GICv2!
             &API
         } else {

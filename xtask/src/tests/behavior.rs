@@ -22,6 +22,7 @@ pub fn run() -> Result<()> {
 }
 
 /// Run behavior test with Pixel 6 profile (8GB, 8 cores)
+#[allow(dead_code)]
 pub fn run_pixel6() -> Result<()> {
     run_with_profile(QemuProfile::Pixel6)
 }
