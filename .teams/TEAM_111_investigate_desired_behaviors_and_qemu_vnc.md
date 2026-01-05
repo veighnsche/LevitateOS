@@ -201,8 +201,9 @@ Create `cargo xtask test gpu-visual` that:
 - [x] Visual verification performed: **GPU is BROKEN**
 - [x] xtask robustness fixes applied
 - [x] Future team handoff documented
+- [x] Tests updated for desired baseline (golden log + behavior checks)
 - [ ] GPU driver fixed (for next team)
-- [ ] Golden log updated (after GPU is fixed)
+- [x] Golden log updated (to include shell prompt)
 
 ## 8. Added Tooling
 

@@ -518,47 +518,61 @@ fn test_boot_stage_enum(results: &mut TestResults) {
 // TEAM_109: GPU Display Verification (catches false positives!)
 // =============================================================================
 
-/// TEAM_109: Verify GPU actually displays something, not just initializes
+/// TEAM_111: Verify GPU driver implements required VirtIO GPU commands
 /// 
-/// ⚠️ THIS TEST IS EXPECTED TO FAIL until GPU is properly fixed!
+/// ⚠️ THIS TEST VERIFIES CODE PATTERNS, NOT ACTUAL DISPLAY OUTPUT!
 /// 
-/// The current `levitate-gpu` (virtio-drivers) gives FALSE POSITIVE tests:
-/// - Driver initializes without error
-/// - Serial output says "GPU initialized successfully"
-/// - BUT the QEMU display shows nothing / "Display output is not active"
+/// To verify actual display: `cargo xtask run-vnc` and check browser
 /// 
-/// This test catches that false positive by checking if the GPU driver
-/// actually implements the required VirtIO GPU scanout sequence.
+/// The VirtIO GPU spec requires these commands for display:
+/// - SET_SCANOUT: Connect framebuffer to display
+/// - RESOURCE_FLUSH: Refresh display after drawing
+/// - TRANSFER_TO_HOST_2D: Copy pixels to host
 fn test_gpu_display_actually_works(results: &mut TestResults) {
-    println!("TEAM_109: GPU display ACTUALLY works (not false positive)");
+    println!("TEAM_111: GPU display - VirtIO command verification");
 
-    // Check 1: levitate-gpu must implement SET_SCANOUT command
-    let levitate_gpu = fs::read_to_string("levitate-gpu/src/gpu.rs").unwrap_or_default();
+    // TEAM_111: Updated to check levitate-drivers-gpu (levitate-gpu was deleted)
+    let driver_rs = fs::read_to_string("levitate-drivers-gpu/src/driver.rs").unwrap_or_default();
+    let device_rs = fs::read_to_string("levitate-drivers-gpu/src/device.rs").unwrap_or_default();
+    let drivers_code = format!("{}{}", driver_rs, device_rs);
     
-    // The VirtIO GPU spec requires SET_SCANOUT to actually display anything.
-    // If this command isn't being sent, the display will be blank.
-    let has_set_scanout = levitate_gpu.contains("SET_SCANOUT") 
-        || levitate_gpu.contains("set_scanout")
-        || levitate_gpu.contains("VIRTIO_GPU_CMD_SET_SCANOUT");
+    // Check 1: Must implement SET_SCANOUT command
+    let has_set_scanout = drivers_code.contains("SET_SCANOUT") 
+        || drivers_code.contains("set_scanout")
+        || drivers_code.contains("SetScanout")
+        || drivers_code.contains("VIRTIO_GPU_CMD_SET_SCANOUT");
     
     if has_set_scanout {
-        results.pass("levitate-gpu sends SET_SCANOUT command");
+        results.pass("levitate-drivers-gpu implements SET_SCANOUT");
     } else {
-        results.fail("levitate-gpu MISSING SET_SCANOUT - display will be blank!");
+        results.fail("levitate-drivers-gpu MISSING SET_SCANOUT - display will be blank!");
     }
 
     // Check 2: Must have RESOURCE_FLUSH for display updates
-    let has_flush = levitate_gpu.contains("RESOURCE_FLUSH")
-        || levitate_gpu.contains("resource_flush")
-        || levitate_gpu.contains("VIRTIO_GPU_CMD_RESOURCE_FLUSH");
+    let has_flush = drivers_code.contains("RESOURCE_FLUSH")
+        || drivers_code.contains("resource_flush")
+        || drivers_code.contains("ResourceFlush")
+        || drivers_code.contains("VIRTIO_GPU_CMD_RESOURCE_FLUSH");
     
     if has_flush {
-        results.pass("levitate-gpu sends RESOURCE_FLUSH command");
+        results.pass("levitate-drivers-gpu implements RESOURCE_FLUSH");
     } else {
-        results.fail("levitate-gpu MISSING RESOURCE_FLUSH - display won't update!");
+        results.fail("levitate-drivers-gpu MISSING RESOURCE_FLUSH - display won't update!");
     }
 
-    // Check 3: Kernel must actually call flush() after drawing
+    // Check 3: Must have TRANSFER_TO_HOST for pixel data transfer
+    let has_transfer = drivers_code.contains("TRANSFER_TO_HOST")
+        || drivers_code.contains("transfer_to_host")
+        || drivers_code.contains("TransferToHost")
+        || drivers_code.contains("VIRTIO_GPU_CMD_TRANSFER_TO_HOST_2D");
+    
+    if has_transfer {
+        results.pass("levitate-drivers-gpu implements TRANSFER_TO_HOST_2D");
+    } else {
+        results.fail("levitate-drivers-gpu MISSING TRANSFER_TO_HOST - pixels won't reach host!");
+    }
+
+    // Check 4: Kernel must call flush() after drawing
     let kernel_gpu = fs::read_to_string("kernel/src/gpu.rs").unwrap_or_default();
     let terminal_rs = fs::read_to_string("kernel/src/terminal.rs").unwrap_or_default();
     
@@ -572,8 +586,7 @@ fn test_gpu_display_actually_works(results: &mut TestResults) {
         results.fail("Kernel NOT calling flush() - display won't update!");
     }
 
-    // Check 4: Verify we're NOT silently swallowing GPU errors
-    // If GpuState::new() returns Ok but display doesn't work, that's a false positive
+    // Check 5: Verify we're NOT silently swallowing GPU errors
     let swallows_errors = kernel_gpu.contains("Ok(())") 
         && !kernel_gpu.contains("Err(")
         && kernel_gpu.contains("fn init");
@@ -583,5 +596,9 @@ fn test_gpu_display_actually_works(results: &mut TestResults) {
     } else {
         results.pass("GPU init propagates errors properly");
     }
+    
+    // Note for future teams
+    println!("    ℹ️  To verify ACTUAL display: cargo xtask run-vnc + check browser");
 }
+
 

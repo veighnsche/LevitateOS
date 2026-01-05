@@ -4,7 +4,7 @@ Heap initialized.
 MMU re-initialized (Higher-Half + Identity).
 Exceptions initialized.
 DTB address from x0: 0x48200000
-Detected GIC version: V2
+Detected GIC version: V3
 Buddy Allocator initialized with DTB memory map.
 Core drivers initialized.
 Timer initialized.
@@ -34,4 +34,19 @@ Files in initramfs:
  - test.txt
  - hello
 [BOOT] Starting shell from initramfs...
-[TICK] count=0
+[SPAWN] Looking for 'hello' in initramfs...
+[SPAWN] Found 'hello' (77328 bytes)
+[SPAWN] Parsing ELF header... data len 77328
+ELF Header e_ident on stack at 0xffff8000400c27a0
+[MMU] Creating user page table...
+[MMU] Allocated L0 table at phys 0x48014000
+[MMU] Zeroing L0 table at va 0xffff800048014000
+[ELF] Copying segment: src[0]=ff to VA 10000
+[ELF] Resolved PA 48015000 -> Kernel VA ffff800048015000
+[SPAWN] Created user process PID=1 entry=0x10000 sp=0x7fffffff0000
+[SPAWN] Starting user process...
+
+LevitateOS Shell (lsh) v0.1
+Type 'help' for commands.
+
+# 

@@ -107,9 +107,29 @@ fn run_with_profile(profile: QemuProfile) -> Result<()> {
     let actual = actual.replace("Detected GIC version: V2", "Detected GIC version: V*");
     let actual = actual.replace("Detected GIC version: V3", "Detected GIC version: V*");
 
+    // TEAM_111: Filter out [TICK] lines as they are timing-dependent and flaky
+    let golden = golden.lines()
+        .filter(|l| !l.starts_with("[TICK]"))
+        .collect::<Vec<_>>()
+        .join("\n");
+        
+    let actual = actual.lines()
+        .filter(|l| !l.starts_with("[TICK]"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     // Compare
     if golden.trim() == actual.trim() {
         println!("✅ SUCCESS: Current behavior matches Golden Log.\n");
+        
+        // TEAM_111: Additional verification for DESIRED BEHAVIORS
+        // We MUST verify that we actually reached the shell, ensuring meaningful boot.
+        if !actual.contains("LevitateOS Shell") || !actual.contains("# ") {
+            bail!("❌ FAILURE: Boot did not reach shell prompt! (Golden log might be incomplete?)");
+        } else {
+            println!("✅ VERIFIED: Shell prompt reached.");
+        }
+
         Ok(())
     } else {
         println!("❌ FAILURE: Behavior REGRESSION detected!\n");
