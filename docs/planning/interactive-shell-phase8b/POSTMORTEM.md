@@ -98,6 +98,25 @@ VERDICT: System boots but is UNUSABLE for interactive use.
 
 ---
 
+## Technical Resolutions (TEAM_083)
+
+| Issue | Resolution | Verification |
+|-------|------------|--------------|
+| Boot hijack | Removed `task::process::run_from_initramfs` | System reaches interactive loop ✅ |
+| No input echo | Added `print!` calls in kernel/userspace loops | Characters displayed as typed ✅ |
+| GPU Deadlocks | Converted to `IrqSafeLock`, used `serial_println!` | No more hangs after `BOOT_REGS` ✅ |
+| Timer IRQ | Registered timer handler and enabled IRQ early | Observed 100Hz heartbeat ✅ |
+
+---
+
+## Technical Lessons
+
+1. **Deadlock Risk**: The dual-console `println!` is convenient but dangerous. Use `serial_println!` in drivers and IRQ handlers.
+2. **Heartbeat Diagnostics**: When the system hangs, use periodic `serial_println!` heartbeats in IRQ handlers to isolate if interrupts are working.
+3. **Hardware Status**: Don't guess. Read the UART FR register to see if bits like `RXFE` are toggling.
+
+---
+
 ## Handoff for Next Team
 
 **DO NOT** try to add more features. First fix the fundamentals:

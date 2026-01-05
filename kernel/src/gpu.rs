@@ -9,7 +9,7 @@
 
 use crate::virtio::{StaticMmioTransport, VirtioHal};
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
-use levitate_utils::Spinlock;
+use levitate_hal::IrqSafeLock;
 use virtio_drivers::device::gpu::VirtIOGpu;
 
 /// TEAM_065: GPU error type for proper error propagation (Rule 6)
@@ -30,7 +30,7 @@ pub struct GpuState {
     height: u32,
 }
 
-pub static GPU: Spinlock<Option<GpuState>> = Spinlock::new(None);
+pub static GPU: IrqSafeLock<Option<GpuState>> = IrqSafeLock::new(None);
 
 pub fn init(transport: StaticMmioTransport) {
     match VirtIOGpu::<VirtioHal, StaticMmioTransport>::new(transport) {
@@ -79,7 +79,8 @@ impl GpuState {
     pub fn flush(&mut self) {
         if let Err(_e) = self.gpu.flush() {
             // Rule 14: Fail Loud - log GPU errors
-            crate::println!("[GPU] ERROR: Flush failed");
+            // TEAM_083: Use serial_println! to avoid recursive deadlock
+            levitate_hal::serial_println!("[GPU] ERROR: Flush failed");
         }
     }
 }
@@ -111,8 +112,7 @@ impl DrawTarget for Display {
 
         let mut updated = false;
         for Pixel(point, color) in pixels {
-            if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32
-            {
+            if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32 {
                 let idx = (point.y as usize * width as usize + point.x as usize) * 4;
                 if idx + 3 < fb.len() {
                     fb[idx] = color.r();
@@ -123,12 +123,8 @@ impl DrawTarget for Display {
                 }
             }
         }
-        // Flush only if we actually drew something
-        if updated {
-            if state.gpu.flush().is_err() {
-                return Err(GpuError::FlushFailed);
-            }
-        }
+        // TEAM_083: Removed automatic flush in draw_iter to improve performance.
+        // Callers must call GPU.lock().unwrap().flush() explicitly.
         Ok(())
     }
 }

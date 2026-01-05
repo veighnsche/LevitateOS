@@ -3,12 +3,13 @@
 //! Provides a global terminal instance that can be used by the console
 //! callback to mirror output to the GPU terminal.
 
-use crate::gpu::Display;
+use crate::gpu::{Display, GPU};
 use crate::terminal::Terminal;
-use levitate_utils::Spinlock;
+use levitate_hal::IrqSafeLock;
 
 // TEAM_081: Global terminal state for dual console output
-static GPU_TERMINAL: Spinlock<Option<Terminal>> = Spinlock::new(None);
+// TEAM_083: Changed to IrqSafeLock to prevent deadlocks when printing from interrupts
+static GPU_TERMINAL: IrqSafeLock<Option<Terminal>> = IrqSafeLock::new(None);
 
 /// Initialize the global GPU terminal with the given screen dimensions.
 /// Called once during boot after GPU initialization.
@@ -26,7 +27,17 @@ pub fn write_str(s: &str) {
         for c in s.chars() {
             term.write_char(&mut display, c);
         }
+        // TEAM_083: Explicit flush after writing the whole string
+        let mut gpu = GPU.lock();
+        if let Some(state) = gpu.as_mut() {
+            state.flush();
+        }
     }
+}
+
+/// TEAM_083: Dummy callback for debugging
+pub fn dummy_write_str(_s: &str) {
+    levitate_hal::serial_println!("DUMMY_CALLBACK");
 }
 
 /// Clear the GPU terminal and reset cursor.
@@ -36,6 +47,11 @@ pub fn clear() {
     if let Some(term) = guard.as_mut() {
         let mut display = Display;
         term.clear(&mut display);
+        // TEAM_083: Explicit flush after clear
+        let mut gpu = GPU.lock();
+        if let Some(state) = gpu.as_mut() {
+            state.flush();
+        }
     }
 }
 

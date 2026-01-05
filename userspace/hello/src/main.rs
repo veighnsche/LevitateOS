@@ -78,7 +78,11 @@ fn println(s: &str) {
 /// Read a line from stdin into buffer. Returns number of bytes read.
 fn read_line(buf: &mut [u8]) -> usize {
     let n = syscall::read(0, buf);
-    if n < 0 { 0 } else { n as usize }
+    if n < 0 {
+        0
+    } else {
+        n as usize
+    }
 }
 
 /// Trim whitespace from both ends of a byte slice.
@@ -96,9 +100,13 @@ fn trim(s: &[u8]) -> &[u8] {
 
 /// Check if two byte slices are equal.
 fn bytes_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() { return false; }
+    if a.len() != b.len() {
+        return false;
+    }
     for i in 0..a.len() {
-        if a[i] != b[i] { return false; }
+        if a[i] != b[i] {
+            return false;
+        }
     }
     true
 }
@@ -111,7 +119,9 @@ fn starts_with(s: &[u8], prefix: &[u8]) -> bool {
 /// Execute a command.
 fn execute(line: &[u8]) {
     let cmd = trim(line);
-    if cmd.is_empty() { return; }
+    if cmd.is_empty() {
+        return;
+    }
 
     // Builtin: exit
     if bytes_eq(cmd, b"exit") {
@@ -164,9 +174,33 @@ pub extern "C" fn _start() -> ! {
 
     loop {
         print("# ");
-        let n = read_line(&mut buf);
-        if n > 0 {
-            execute(&buf[..n]);
+        let mut line_len = 0;
+        loop {
+            let mut c_buf = [0u8; 1];
+            let n = syscall::read(0, &mut c_buf);
+            if n > 0 {
+                let bytes = &c_buf[..n as usize];
+                // Echo back to user
+                syscall::write(1, bytes);
+
+                for &b in bytes {
+                    if b == b'\n' || b == b'\r' {
+                        if line_len > 0 {
+                            execute(&buf[..line_len]);
+                        }
+                        line_len = 0;
+                        print("# ");
+                    } else if b == 0x08 || b == 0x7f {
+                        // Backspace
+                        if line_len > 0 {
+                            line_len -= 1;
+                        }
+                    } else if line_len < buf.len() {
+                        buf[line_len] = b;
+                        line_len += 1;
+                    }
+                }
+            }
         }
     }
 }

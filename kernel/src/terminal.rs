@@ -88,7 +88,7 @@ impl Terminal {
         let rows = screen_height / (FONT_HEIGHT + LINE_SPACING);
 
         // SC2.5: Log resolution to UART for verification
-        crate::println!(
+        levitate_hal::serial_println!(
             "[TERM] Terminal::new({}x{}) -> {}x{} chars (font {}x{}, spacing {})",
             screen_width,
             screen_height,
@@ -163,12 +163,6 @@ impl Terminal {
             '\n' => {
                 // [TERM3] - SC6.1, SC6.2
                 self.newline(display);
-
-                // TEAM_059: Force flush after newline
-                let mut guard = GPU.lock();
-                if let Some(state) = guard.as_mut() {
-                    state.flush();
-                }
             }
             '\r' => {
                 // [TERM5] - SC7.1, SC7.2
@@ -201,12 +195,6 @@ impl Terminal {
                 // Text baseline is at bottom of character
                 let _ = Text::new(s, Point::new(x, y + FONT_HEIGHT as i32), style).draw(display);
 
-                // TEAM_059: Explicitly flush after writing a character
-                let mut guard = GPU.lock();
-                if let Some(state) = guard.as_mut() {
-                    state.flush();
-                }
-
                 // [TERM2] Advance cursor - SC5.3
                 self.cursor_col += 1;
             }
@@ -230,11 +218,6 @@ impl Terminal {
 
         // [TERM4] Scroll if we've exceeded screen - SC11.2
         if self.cursor_row >= self.rows {
-            crate::println!(
-                "[TERM] scroll_up triggered: row={} >= rows={}",
-                self.cursor_row,
-                self.rows
-            );
             self.scroll_up(display);
             self.cursor_row = self.rows - 1; // SC11.6
         }
@@ -243,18 +226,7 @@ impl Terminal {
     // [TERM5] - SC7.1, SC7.2
     pub fn carriage_return(&mut self, _display: &mut Display) {
         self.hide_cursor(_display);
-        crate::println!(
-            "[TERM] carriage_return at col={}, row={} -> col=0",
-            self.cursor_col,
-            self.cursor_row
-        );
         self.cursor_col = 0;
-
-        // TEAM_059: Force flush after carriage return
-        let mut guard = GPU.lock();
-        if let Some(state) = guard.as_mut() {
-            state.flush();
-        }
         self.show_cursor(_display);
     }
 
@@ -269,12 +241,6 @@ impl Terminal {
             self.newline(display);
         } else {
             self.cursor_col = next_tab;
-        }
-
-        // TEAM_059: Force flush after tab
-        let mut guard = GPU.lock();
-        if let Some(state) = guard.as_mut() {
-            state.flush();
         }
         self.show_cursor(display);
     }
@@ -306,12 +272,6 @@ impl Terminal {
             )
             .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
             .draw(display);
-
-            // TEAM_059: Force flush after erase
-            let mut guard = GPU.lock();
-            if let Some(state) = guard.as_mut() {
-                state.flush();
-            }
         }
         self.show_cursor(display);
     }
@@ -319,11 +279,6 @@ impl Terminal {
     /// [TERM7] Clear screen and reset cursor - SC10.1-SC10.5
     pub fn clear(&mut self, display: &mut Display) {
         self.hide_cursor(display);
-        crate::println!(
-            "[TERM] clear() - filling {}x{} with bg color",
-            self.screen_width,
-            self.screen_height
-        );
 
         let _ = Rectangle::new(
             Point::zero(),
@@ -335,7 +290,6 @@ impl Terminal {
         self.cursor_col = 0;
         self.cursor_row = 0;
 
-        crate::println!("[TERM] clear() complete, cursor at (0, 0)");
         self.show_cursor(display);
     }
 
@@ -343,11 +297,6 @@ impl Terminal {
     fn scroll_up(&mut self, _display: &mut Display) {
         self.hide_cursor(_display);
         let line_height = FONT_HEIGHT + LINE_SPACING;
-
-        crate::println!(
-            "[TERM] scroll_up: moving content up by {} pixels",
-            line_height
-        );
 
         // Access framebuffer directly for efficient scroll
         let mut guard = GPU.lock();
@@ -369,15 +318,7 @@ impl Terminal {
                     fb[i + 2] = self.config.bg_color.b();
                     fb[i + 3] = 255;
                 }
-
-                crate::println!(
-                    "[TERM] scroll_up complete: copied {} bytes, cleared bottom line",
-                    fb.len() - scroll_bytes
-                );
             }
-
-            // TEAM_058: Use public flush method
-            state.flush();
         }
         self.show_cursor(_display);
     }

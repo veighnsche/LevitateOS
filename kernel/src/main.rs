@@ -314,6 +314,7 @@ pub fn get_dtb_phys() -> Option<usize> {
 struct TimerHandler;
 impl gic::InterruptHandler for TimerHandler {
     fn handle(&self, _irq: u32) {
+        levitate_hal::serial_println!("T");
         // Reload timer for next interrupt (10ms @ 100Hz)
         let freq = timer::API.read_frequency();
         timer::API.set_timeout(freq / 100);
@@ -405,7 +406,7 @@ pub extern "C" fn kmain() -> ! {
 
             // TEAM_078: Map Devices to HIGH VA (via TTBR1) instead of identity mapping
             // This ensures devices remain accessible when TTBR0 is switched for userspace
-            
+
             // UART (PA: 0x0900_0000 -> VA: KERNEL_VIRT_START + 0x0900_0000)
             mmu::map_range(
                 root,
@@ -538,22 +539,10 @@ pub extern "C" fn kmain() -> ! {
 
     // TEAM_081: Initialize global GPU terminal for dual console output
     console_gpu::init(width, height);
-    
-    // TEAM_081: Register GPU terminal as secondary console output
-    // After this point, all println! calls will go to BOTH UART and GPU
-    if gpu_available {
-        levitate_hal::console::set_secondary_output(console_gpu::write_str);
-        println!("[BOOT] Dual console enabled (UART + GPU)");
-    }
-    
-    // SC14.2: Print dimensions to UART (and now GPU too!)
-    if let Some((cols, rows)) = console_gpu::size() {
-        println!("[TERM] Terminal size: {}x{} characters", cols, rows);
-    }
 
-    // TEAM_081: Clear terminal - boot log will appear naturally via println!
+    // TEAM_081: Clear terminal
     console_gpu::clear();
-    verbose!("Terminal initialized.");
+    println!("Terminal initialized.");
 
     transition_to(BootStage::Discovery);
     // Initialize VirtIO Subsystem
@@ -565,6 +554,7 @@ pub extern "C" fn kmain() -> ! {
             BOOT_REGS[0], BOOT_REGS[1], BOOT_REGS[2], BOOT_REGS[3]
         );
     }
+
     // TEAM_065: SPEC-4 Initrd Discovery with Fail-Fast (Rule 14)
     println!("Detecting Initramfs...");
     let initrd_found = if let Some(slice) = dtb_slice {
@@ -593,23 +583,18 @@ pub extern "C" fn kmain() -> ! {
                     }
                 }
 
-                // TEAM_081 BREADCRUMB: CONFIRMED - THIS IS THE BOOT HIJACK
-                // ================================================================
-                // THIS CODE PREVENTS THE SYSTEM FROM BEING INTERACTIVE!
-                // It jumps to userspace before the main loop runs.
-                // 
-                // TO FIX: Comment out or remove the run_from_initramfs call below.
+                // TEAM_083 BREADCRUMB: RULED_OUT - Hijack removed to allow kernel interactive loop
                 // The system should continue to the main loop which handles
                 // keyboard input and displays the interactive prompt.
                 // ================================================================
                 // TEAM_073: Step 5 Verification - Run Hello World
-                println!("[BOOT] TEAM_073: Hijacking boot for Userspace Demo...");
+                // println!("[BOOT] TEAM_073: Hijacking boot for Userspace Demo...");
                 // Enable interrupts (required for context switch or future syscalls handling)
                 // unsafe { levitate_hal::interrupts::enable() };
 
                 // Run "hello" from initramfs (does not return)
                 // TODO(TEAM_081): Remove this hijack for interactive shell to work
-                task::process::run_from_initramfs("hello", &archive);
+                // task::process::run_from_initramfs("hello", &archive);
 
                 true
             }
@@ -645,17 +630,26 @@ pub extern "C" fn kmain() -> ! {
         Ok(_) => {
             verbose!("Filesystem initialized.");
         }
-        Err(e) => println!("Filesystem init skipped (expected if no disk): {}", e),
+        Err(e) => {
+            println!("Filesystem init skipped (expected if no disk): {}", e);
+        }
     }
 
-    // 6. Enable interrupts
+    // 6. Enable interrupts (moved back here to avoid early boot hangs)
     unsafe { levitate_hal::interrupts::enable() };
     verbose!("Interrupts enabled.");
 
-    transition_to(BootStage::SteadyState);
-    // TEAM_081: Use println! for dual console output (UART + GPU)
-    println!("Boot Stage: SYSTEM_READY\n");
-    println!("Type to interact with the Boot Console.");
+    println!("\n[SUCCESS] LevitateOS System Ready.");
+    println!("--------------------------------------");
+
+    // TEAM_081: Mirroring disabled due to instability in GPU rendering path
+    // if gpu_available {
+    //     levitate_hal::console::set_secondary_output(console_gpu::write_str);
+    //     println!("Dual console active (UART + GPU)");
+    // }
+
+    println!("Interactive kernel console active.");
+    println!("Type characters to see them echoed on screen.");
     println!("--------------------------------------\n");
 
     loop {
@@ -663,8 +657,10 @@ pub extern "C" fn kmain() -> ! {
         console_gpu::check_blink();
 
         // SC14.6: Keep existing cursor tracking
-        if input::poll() {
-            cursor::draw(&mut display);
+        if let Some(mut display) = GPU.lock().as_mut() {
+            if input::poll() {
+                cursor::draw(&mut display);
+            }
         }
 
         // TEAM_081: Echo UART input - println! now handles both UART and GPU

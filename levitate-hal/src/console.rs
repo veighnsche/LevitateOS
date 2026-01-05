@@ -41,7 +41,7 @@ pub fn read_byte() -> Option<u8> {
 // TEAM_081: Register a secondary output function (e.g., GPU terminal)
 /// Register a callback function that will receive all console output.
 /// This is used to mirror output to the GPU terminal after Stage 3.
-/// 
+///
 /// # Safety
 /// The callback function must be valid for the lifetime of the kernel.
 pub fn set_secondary_output(callback: SecondaryOutputFn) {
@@ -58,7 +58,7 @@ pub fn disable_secondary_output() {
 pub fn _print(args: fmt::Arguments) {
     // TEAM_081: Write to UART (primary)
     let _ = WRITER.lock().write_fmt(args);
-    
+
     // TEAM_081: Write to secondary output (GPU terminal) if registered
     if SECONDARY_OUTPUT_ENABLED.load(Ordering::SeqCst) {
         let ptr = SECONDARY_OUTPUT.load(Ordering::SeqCst);
@@ -66,7 +66,7 @@ pub fn _print(args: fmt::Arguments) {
             // Format the string for the callback
             // We use a small static buffer to avoid allocation
             let callback: SecondaryOutputFn = unsafe { core::mem::transmute(ptr) };
-            
+
             // Use a formatting adapter to call the callback
             struct CallbackWriter(SecondaryOutputFn);
             impl Write for CallbackWriter {
@@ -89,11 +89,15 @@ impl Write for Pl011Uart {
     }
 }
 
+/// [D1] Standard print macro that mirrors output to dual console (UART + GPU).
+/// WARNING: Do not use in IRQ handlers or low-level driver flushes as it can deadlock
+/// with the secondary output lock.
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
 }
 
+/// [D2] Standard println macro (mirrored). See [D1] for safety warnings.
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
@@ -107,4 +111,27 @@ pub fn print_hex(val: u64) {
     let hex_str = format_hex(val, &mut buf);
     let mut writer = WRITER.lock();
     let _ = writer.write_str(hex_str);
+}
+
+/// [D3] Direct serial print macro (UART only).
+/// Safe for use in IRQ handlers and low-level drivers to avoid recursive deadlocks
+/// with the mirrored GPU terminal.
+/// TEAM_083: Added for boot stability and debug robustness.
+#[macro_export]
+macro_rules! serial_print {
+    ($($arg:tt)*) => {
+        let _ = core::fmt::Write::write_fmt(&mut *$crate::console::WRITER.lock(), format_args!($($arg)*));
+    };
+}
+
+/// [D4] Direct serial println macro (UART only). See [D3] for safety notes.
+/// TEAM_083: Added for boot stability and debug robustness.
+#[macro_export]
+macro_rules! serial_println {
+    () => {
+        $crate::serial_print!("\n")
+    };
+    ($($arg:tt)*) => {
+        $crate::serial_print!("{}\n", format_args!($($arg)*))
+    };
 }
