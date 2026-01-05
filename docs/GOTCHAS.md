@@ -42,15 +42,14 @@ This document captures non-obvious issues that future teams should know about.
 
 ---
 
-### 4. GPU Display API Pattern (RESOLVED by TEAM_086)
+### 4. GPU Display API Pattern (PARTIAL FIX by TEAM_086)
 
 **Location:** `kernel/src/gpu.rs` - `Display` struct
 
-**Status:** ✅ FIXED
+**Status:** ⚠️ API FIXED, but GPU display still not working
 
-**Original Problem:** The `Display` struct locked `GPU` internally on every draw operation, causing deadlock when flush was called afterward.
-
-**Solution:** TEAM_086 refactored `Display` to accept `&mut GpuState` instead of locking internally:
+**What TEAM_086 Fixed:**
+The `Display` struct was refactored to accept `&mut GpuState` instead of locking internally. This eliminates the internal deadlock:
 
 ```rust
 // CORRECT PATTERN:
@@ -62,10 +61,27 @@ if let Some(gpu_state) = gpu_guard.as_mut() {
 }
 ```
 
-**Key Points:**
-- `Display::new()` now requires `&mut GpuState`
-- All draw operations and flush happen within the same lock scope
-- No more deadlock potential
+**What's STILL BROKEN:**
+The QEMU window shows "Display output is not active". This means the VirtIO GPU display mode was never properly activated. The kernel:
+- Initializes VirtIO GPU driver ✓
+- Creates framebuffer ✓  
+- Writes pixels to framebuffer ✓
+- Calls flush() ✓
+- **But display scanout is never configured**
+
+**Root Cause (Unresolved):**
+The VirtIO GPU requires `VIRTIO_GPU_CMD_SET_SCANOUT` to activate the display, mapping the framebuffer resource to the display output. This may be missing or misconfigured in `virtio-drivers` usage.
+
+**TEAM_087 Additional Findings:**
+- Dual console callback was never re-enabled after TEAM_083 disabled it
+- Per-println GPU flush causes kernel hang
+- Serial console works fine; GPU window does not
+
+**For Future Teams:**
+1. Check if `set_scanout()` or equivalent is called in GPU init
+2. The virtio-drivers crate may need explicit scanout configuration
+3. Serial console (`cargo xtask run` terminal) is the working interface
+4. QEMU graphical window requires proper VirtIO GPU scanout setup
 
 ---
 
@@ -129,6 +145,30 @@ There are TWO keyboard input sources:
 2. **VirtIO Keyboard** - GPU keyboard via `input::read_char()`
 
 Both need to be checked for full input coverage.
+
+---
+
+### 6. Serial Console is the Working Interface (TEAM_087)
+
+**Status:** This is the current state, not a bug
+
+**Working Interface:**
+```bash
+cargo xtask run
+# Type directly in THIS terminal - that's the serial console
+```
+
+**NOT Working:**
+- QEMU graphical window (shows "Display output is not active")
+- Mouse/keyboard input in QEMU window
+
+**Why:** VirtIO GPU display scanout is not configured. See issue #4 above.
+
+**What Works via Serial:**
+- Full boot messages
+- Interactive prompt (`# `)
+- Keyboard input (VirtIO keyboard echoes to serial)
+- All kernel functionality
 
 ---
 

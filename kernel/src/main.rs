@@ -542,6 +542,11 @@ pub extern "C" fn kmain() -> ! {
 
     // TEAM_081: Clear terminal
     console_gpu::clear();
+    
+    // TEAM_087: Re-enable dual console now that GPU deadlock is fixed (TEAM_086)
+    // This mirrors all println! output to the GPU terminal
+    levitate_hal::console::set_secondary_output(console_gpu::write_str);
+    
     println!("Terminal initialized.");
 
     transition_to(BootStage::Discovery);
@@ -669,6 +674,9 @@ pub extern "C" fn kmain() -> ! {
     
     levitate_hal::serial_print!("\n# ");
 
+    // TEAM_087: Counter for periodic GPU flush
+    let mut flush_counter: u32 = 0;
+    
     loop {
         // Poll VirtIO input devices
         input::poll();
@@ -687,6 +695,15 @@ pub extern "C" fn kmain() -> ! {
             levitate_hal::serial_print!("{}", ch);
             if ch == '\r' || ch == '\n' {
                 levitate_hal::serial_print!("\n# ");
+            }
+        }
+
+        // TEAM_087: Periodic GPU flush to update display
+        flush_counter = flush_counter.wrapping_add(1);
+        if flush_counter % 10000 == 0 {
+            let mut gpu_guard = gpu::GPU.lock();
+            if let Some(gpu_state) = gpu_guard.as_mut() {
+                gpu_state.flush();
             }
         }
 

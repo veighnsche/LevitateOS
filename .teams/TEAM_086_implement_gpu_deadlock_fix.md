@@ -3,7 +3,7 @@
 ## Goal
 Implement the GPU Display Deadlock Fix plan (`docs/planning/gpu-display-deadlock-fix/`)
 
-## Status: ✅ COMPLETE
+## Status: ⚠️ API FIX COMPLETE (but GPU display was never working)
 
 ## Pre-Implementation Checklist
 - [x] Team registered (TEAM_086)
@@ -59,3 +59,7 @@ Implement the GPU Display Deadlock Fix plan (`docs/planning/gpu-display-deadlock
 - `cursor::draw()` has no callers currently - mouse cursor feature incomplete
 - Dual console re-enable is tracked as separate TODO item
 
+## Important Clarification (Added by TEAM_087)
+The GPU display was **never working**. The deadlock fix addressed an internal API issue, but the fundamental problem is that VirtIO GPU scanout is not configured. QEMU shows "Display output is not active" because the framebuffer is never mapped to the display output.
+
+**Serial console works.** Type in the terminal where you ran `cargo xtask run`.

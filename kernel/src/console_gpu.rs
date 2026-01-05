@@ -75,10 +75,11 @@ pub fn write_str(s: &str) {
             }
         }
         
-        // Flush once at end
-        if let Err(_) = gpu_state.gpu.flush() {
-            levitate_hal::serial_println!("[GPU] flush error");
-        }
+        // TEAM_087: Removed flush per-call - was causing performance issues
+        // Flush is batched or done by caller if needed
+        // if let Err(_) = gpu_state.gpu.flush() {
+        //     levitate_hal::serial_println!("[GPU] flush error");
+        // }
     }
 }
 
