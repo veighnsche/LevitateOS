@@ -1,55 +1,59 @@
 # Phase 4 — Implementation and Tests
 
-**TEAM_131 → TEAM_132** | Reduce Unsafe Code via Safe Abstractions
+**TEAM_131 → TEAM_132 → TEAM_133** | Reduce Unsafe Code via Safe Abstractions
 
 ## Implementation Steps
 
-### Step 1: Add Dependencies (Low complexity)
+### Step 1: Add Dependencies (Low complexity) ✅ COMPLETED
 
 **Files:** `levitate-hal/Cargo.toml`, `kernel/Cargo.toml`
 
 **Tasks:**
-1. Add `aarch64-cpu = "11.2"` to levitate-hal
-2. Add `intrusive-collections = "0.10"` to levitate-hal
-3. Verify `safe-mmio` is available
-4. Run `cargo check --all-targets`
+1. ✅ Add `aarch64-cpu = "11.2"` to levitate-hal — TEAM_132
+2. ✅ Add `intrusive-collections = "0.10"` to levitate-hal — TEAM_133
+3. ✅ Verify `safe-mmio` is available
+4. ✅ Run `cargo check --all-targets`
 
 **UoW Size:** ~10 lines, 1 session
 
 ---
 
-### Step 2: Migrate Barriers (Low complexity)
+### Step 2: Migrate Barriers (Low complexity) ✅ COMPLETED
 
-**Files:** `levitate-hal/src/gic.rs`, `levitate-virtio/src/queue.rs`, `kernel/src/task/mod.rs`
+**Files:** `levitate-hal/src/gic.rs`, `levitate-hal/src/mmu.rs`, `kernel/src/exceptions.rs`
 
-**Tasks:**
-1. Replace `asm!("dsb sy")` with `aarch64_cpu::asm::barrier::dsb(SY)`
-2. Replace `asm!("dmb sy")` with `aarch64_cpu::asm::barrier::dmb(SY)`
-3. Replace `asm!("isb")` with `aarch64_cpu::asm::barrier::isb(SY)`
-4. Replace `asm!("wfi")` with `aarch64_cpu::asm::wfi()`
-5. Run `cargo check --all-targets`
+**Tasks:** — All completed by TEAM_132
+1. ✅ Replace `asm!("dsb sy")` with `barrier::dsb(SY)` in mmu.rs
+2. ✅ Replace `asm!("isb")` with `barrier::isb(SY)` in mmu.rs, gic.rs
+3. ✅ Replace `asm!("wfi")` with `aarch64_cpu::asm::wfi()` in exceptions.rs
+4. ✅ Run `cargo check --all-targets`
 
 **UoW Size:** ~20 lines changed, 1 session
 
 ---
 
-### Step 3: Migrate System Registers (Medium complexity)
+### Step 3: Migrate System Registers (Medium complexity) 🔄 PARTIAL
 
 **Files:** Multiple in levitate-hal and kernel
 
 **Tasks:**
-1. Migrate `levitate-hal/src/interrupts.rs` (DAIF)
-2. Migrate `levitate-hal/src/mmu.rs` (TTBR, SCTLR, TCR, MAIR, TLB)
-3. Migrate `levitate-hal/src/timer.rs` (CNT* registers)
-4. Migrate `levitate-hal/src/gic.rs` (ICC_* registers)
-5. Migrate `kernel/src/exceptions.rs` (ESR, ELR, VBAR)
-6. Run full test suite
+1. ✅ Migrate `levitate-hal/src/interrupts.rs` (DAIF) — TEAM_132
+2. ⏸️ `levitate-hal/src/mmu.rs` — Inherently unsafe, sequence-critical (TTBR+ISB atomic)
+3. ⏸️ `levitate-hal/src/timer.rs` — Future work
+4. ⏸️ `levitate-hal/src/gic.rs` (ICC_* registers) — Not in aarch64-cpu
+5. ✅ `kernel/src/exceptions.rs` (ESR_EL1, ELR_EL1, VBAR_EL1) — TEAM_133
+6. ✅ Run full test suite
+
+**Notes:**
+- TTBR/SCTLR operations are inherently unsafe (sequence-critical with ISB)
+- ICC_* GICv3 system registers are not in aarch64-cpu crate
+- Timer registers (CNT*) are future work
 
 **UoW Size:** ~100 lines changed, 2-3 sessions
 
 ---
 
-### Step 4: Migrate Intrusive Lists (Medium complexity)
+### Step 4: Migrate Intrusive Lists (Medium complexity) ⏸️ DEFERRED
 
 **Files:** `levitate-hal/src/allocator/buddy.rs`, `levitate-hal/src/allocator/slab/list.rs`
 
@@ -60,6 +64,12 @@
 4. Run allocator unit tests
 
 **UoW Size:** ~150 lines changed, 2 sessions
+
+**⚠️ TEAM_133 Finding:** This step is more complex than estimated:
+- `LinkedList::new()` with `UnsafeRef` adapters has const initialization issues
+- Pages live in static memory map, not owned via Box
+- Requires complete rewrite of add_to_list/remove_from_list operations
+- **Recommendation:** Needs dedicated session, consider lazy initialization pattern
 
 ---
 
@@ -102,6 +112,8 @@ grep -rn "unsafe {" kernel/ levitate-hal/ levitate-virtio/ --include="*.rs" | wc
 ```
 
 Track reduction from baseline of 148.
+
+**Progress:** 135 → 133 (as of TEAM_133)
 
 ---
 

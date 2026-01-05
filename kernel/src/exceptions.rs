@@ -246,10 +246,9 @@ irq_entry:
 #[unsafe(no_mangle)]
 pub extern "C" fn handle_sync_lower_el(frame: *mut SyscallFrame) {
     // Read ESR to determine exception type
-    let esr: u64;
-    unsafe {
-        core::arch::asm!("mrs {}, esr_el1", out(reg) esr);
-    }
+    // TEAM_133: Migrate ESR_EL1 to aarch64-cpu
+    use aarch64_cpu::registers::{Readable, ESR_EL1};
+    let esr: u64 = ESR_EL1.get();
 
     if syscall::is_svc_exception(esr) {
         // SVC exception - this is a syscall
@@ -258,10 +257,9 @@ pub extern "C" fn handle_sync_lower_el(frame: *mut SyscallFrame) {
     } else {
         // Other exception from user mode - kill process
         // Per Phase 2 decision: Option A (print error and kill)
-        let elr: u64;
-        unsafe {
-            core::arch::asm!("mrs {}, elr_el1", out(reg) elr);
-        }
+        // TEAM_133: Migrate ELR_EL1 to aarch64-cpu
+        use aarch64_cpu::registers::ELR_EL1;
+        let elr: u64 = ELR_EL1.get();
 
         let ec = syscall::esr_exception_class(esr);
         println!("\n*** USER EXCEPTION ***");
@@ -334,8 +332,8 @@ pub fn init() {
     unsafe extern "C" {
         static vectors: u8;
     }
-    unsafe {
-        let vectors_ptr = &vectors as *const u8 as u64;
-        core::arch::asm!("msr vbar_el1, {}", in(reg) vectors_ptr);
-    }
+    // TEAM_133: Migrate VBAR_EL1 to aarch64-cpu
+    use aarch64_cpu::registers::{Writeable, VBAR_EL1};
+    let vectors_ptr = unsafe { &vectors as *const u8 as u64 };
+    VBAR_EL1.set(vectors_ptr);
 }
