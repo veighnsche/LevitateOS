@@ -633,7 +633,7 @@ pub extern "C" fn kmain() -> ! {
                 unsafe { levitate_hal::interrupts::enable() };
 
                 // Run "hello" (demo shell) from initramfs - does not return
-                task::process::run_from_initramfs("hello", &archive);
+                task::process::run_from_initramfs("shell", &archive);
 
                 // This line should never be reached
             }

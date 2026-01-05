@@ -121,6 +121,17 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
+## ✅ Phase 8c: Userspace Refactor (Completed)
+
+- **Objective**: Eliminate code duplication and establish a modular userspace architecture.
+- **Achievements**:
+  - [x] **Workspace**: Converted `userspace/` to a Cargo workspace. (TEAM_118)
+  - [x] **libsyscall**: Created shared library for syscall wrappers and panic handling. (TEAM_118)
+  - [x] **Migration**: Refactored `shell` to use `libsyscall` and cleaned up legacy `hello`. (TEAM_118)
+  - [x] **Linker Scripts**: Fixed conflict using per-crate build scripts. (TEAM_118)
+
+---
+
 ## 📱 Phase 9: Hardware Targets
 
 - **Current**: QEMU (`virt` machine, AArch64).
@@ -144,3 +155,4 @@ This document outlines the planned development phases for LevitateOS. Each compl
 | 7 | 067-071 | Multitasking, Scheduler, Context Switching |
 | 8a | 072-079 | Userspace Foundation (EL0, Syscalls, ELF) |
 | 8b | 080+ | Interactive Shell & Coreutils (Current) |
+| 8c | 118+ | Userspace Architecture Refactor |

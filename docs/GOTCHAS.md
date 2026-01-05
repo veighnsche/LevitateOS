@@ -22,13 +22,14 @@ This document captures non-obvious issues that future teams should know about.
 
 ---
 
-### 2. Userspace Linker Script Conflict (TEAM_082)
+### Gotcha #2: Userspace Linker Script Conflict (TEAM_082) **[RESOLVED]**
 
-**Location:** `userspace/hello/linker.ld`
+**Status:** Fixed by TEAM_118 (Userspace Refactor)
+**Resolution:** Userspace crates now use per-crate `build.rs` to add linker arguments, avoiding global config conflicts. `userspace/` is now a separate workspace.
 
-**Problem:** Root `.cargo/config.toml` adds `-Tlinker.ld` for all aarch64 builds. This conflicts with userspace's `link.ld`. Cargo merges configs, so both scripts are used, causing "Cannot allocate memory" errors.
-
-**Fix:** Userspace directories need an empty `linker.ld` stub file to satisfy the root config without adding conflicting sections.
+> **Old Description (for reference):**
+> You cannot just add `-Tlink.ld` to `.cargo/config.toml` in the root workspace...
+atisfy the root config without adding conflicting sections.
 
 ---
 

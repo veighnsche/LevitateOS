@@ -2,12 +2,15 @@
 name = "shell"
 version = "0.1.0"
 edition = "2021"
+description = "Interactive shell for LevitateOS"
 
-[workspace]
+[lints]
+workspace = true
+
+[[bin]]
+name = "shell"
+path = "src/main.rs"
 
 [dependencies]
+libsyscall = { path = "../libsyscall" }
 
-[profile.release]
-panic = "abort"
-opt-level = "z"
-lto = false

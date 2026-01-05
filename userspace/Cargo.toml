@@ -1,20 +1,5 @@
 [workspace]
-members = [
-    "kernel",
-    "levitate-hal",
-    "levitate-utils",
-    "levitate-terminal",
-    "levitate-virtio",
-    # TEAM_114: PCI and GPU as separate crates
-    "levitate-pci",
-    "levitate-gpu",
-    "xtask",
-]
-exclude = [
-    "userspace",
-    "levitate-drivers", # Legacy, moving to levitate-hal traits
-]
-default-members = ["levitate-hal", "levitate-utils", "xtask"]
+members = ["libsyscall", "shell"]
 resolver = "2"
 
 [workspace.lints.rust]
@@ -43,10 +28,7 @@ ptr_as_ptr = "allow"
 missing_panics_doc = "allow"
 missing_errors_doc = "allow"
 
-[profile.dev]
-panic = "abort"
-
 [profile.release]
 panic = "abort"
-lto = true
-codegen-units = 1
+opt-level = "z"
+lto = false

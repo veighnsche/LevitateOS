@@ -1,0 +1,5 @@
+[build]
+target = "aarch64-unknown-none"
+
+# NOTE: Linker args are handled by per-crate build.rs, NOT here
+# This avoids issues with libsyscall (library) looking for a linker script

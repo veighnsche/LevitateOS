@@ -31,24 +31,26 @@ Initializing Input...
 VirtIO Input initialized successfully.
 BOOT_REGS: x0=48200000 x1=0 x2=0 x3=0
 Detecting Initramfs...
-Initramfs found at 0x48000000 - 0x48013200 (78336 bytes)
+Initramfs found at 0x48000000 - 0x48013c00 (80896 bytes)
 Files in initramfs:
  - .
  - hello.txt
    Content: Hello from initramfs!
  - test.txt
- - hello
+ - shell
 [BOOT] Starting shell from initramfs...
 [TICK] count=0
-[SPAWN] Looking for 'hello' in initramfs...
-[SPAWN] Found 'hello' (77328 bytes)
-[SPAWN] Parsing ELF header... data len 77328
-ELF Header e_ident on stack at 0xffff8000400c53d0
+[SPAWN] Looking for 'shell' in initramfs...
+[SPAWN] Found 'shell' (80232 bytes)
+[SPAWN] Parsing ELF header... data len 80232
+ELF Header e_ident on stack at 0x<STACK_ADDR>
 [MMU] Creating user page table...
 [MMU] Allocated L0 table at phys 0x48014000
 [MMU] Zeroing L0 table at va 0xffff800048014000
 [ELF] Copying segment: src[0]=ff to VA 10000
 [ELF] Resolved PA 48015000 -> Kernel VA ffff800048015000
+[ELF] Copying segment: src[0]=c0 to VA 11f30
+[ELF] Resolved PA 48019f30 -> Kernel VA ffff800048019f30
 [SPAWN] Created user process PID=1 entry=0x10000 sp=0x7fffffff0000
 [SPAWN] Starting user process...
 

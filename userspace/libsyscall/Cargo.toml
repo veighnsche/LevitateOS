@@ -1,0 +1,10 @@
+[package]
+name = "libsyscall"
+version = "0.1.0"
+edition = "2021"
+description = "Userspace syscall library for LevitateOS"
+
+[lints]
+workspace = true
+
+[lib]
