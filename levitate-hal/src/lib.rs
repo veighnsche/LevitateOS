@@ -11,7 +11,9 @@ pub mod timer;
 pub mod uart_pl011;
 pub mod virtio;
 
-pub use virtio::{LevitateVirtioHal, StaticMmioTransport, VirtioHal};
+// TEAM_103: LevitateVirtioHal moved to levitate-virtio/src/hal_impl.rs
+// Only VirtioHal (for virtio-drivers) and StaticMmioTransport remain here
+pub use virtio::{StaticMmioTransport, VirtioHal};
 
 use core::mem::ManuallyDrop;
 use levitate_utils::{Spinlock, SpinlockGuard};

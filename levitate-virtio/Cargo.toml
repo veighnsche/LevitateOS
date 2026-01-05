@@ -6,6 +6,13 @@ description = "VirtIO transport layer for LevitateOS"
 
 [dependencies]
 bitflags = "2.10.0"
+# TEAM_103: Added for HAL implementation (DMA primitives, address translation)
+levitate-hal = { path = "../levitate-hal", optional = true }
+
+[features]
+default = []
+# TEAM_103: Enable HAL implementation for use in kernel
+hal-impl = ["levitate-hal"]
 
 [lints]
 workspace = true

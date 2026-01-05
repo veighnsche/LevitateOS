@@ -103,6 +103,26 @@ let device_used_idx = unsafe {
 };
 ```
 
+### Solution 5: Async-Ready API Design
+
+**Per user requirement (Q4 in TEAM_094 questions): Design API to be async-first.**
+
+- Use polling/completion pattern instead of blocking waits
+- Return `Poll<Result<T, E>>` or similar async-compatible type
+- Avoid spin-waits in hot paths
+- Design for future waker integration
+
+Example pattern:
+```rust
+pub fn poll_command(&mut self) -> Poll<Result<Response, VirtQueueError>> {
+    if self.is_complete() {
+        Poll::Ready(self.take_response())
+    } else {
+        Poll::Pending
+    }
+}
+```
+
 ---
 
 ## Tasks
@@ -128,6 +148,19 @@ let device_used_idx = unsafe {
 - Run GPU init with fixed queue
 - Verify GET_DISPLAY_INFO completes
 - Run full boot test
+
+---
+
+## Fallback Plan
+
+If VirtQueue DMA fix proves infeasible within 1 week of effort:
+
+1. **Revisit Option B:** Keep `levitate-gpu` as canonical driver
+2. **Delete `levitate-virtio-gpu`** instead of fixing it
+3. **Focus remaining effort** on HAL cleanup and driver extraction only
+4. **Document learnings** for future VirtIO implementation attempts
+
+This ensures the reorganization can still proceed even if our custom VirtQueue has fundamental issues.
 
 ---
 

@@ -38,7 +38,9 @@ bitflags! {
 /// A single descriptor in the descriptor table.
 ///
 /// Per VirtIO 1.1 spec section 2.6.5.
-#[repr(C)]
+// TEAM_106: Added align(16) per VirtIO 1.1 spec section 2.6 requirement.
+// Reference: virtio-drivers, Tock OS both use #[repr(C, align(16))]
+#[repr(C, align(16))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Descriptor {
     /// Physical address of the buffer.
@@ -63,6 +65,9 @@ struct UsedRingEntry {
 ///
 /// TEAM_098: This is a simplified implementation focused on correctness
 /// and debuggability over performance.
+// TEAM_106: Added align(16) to ensure descriptor table is 16-byte aligned.
+// Queue memory should be allocated via HAL's dma_alloc for DMA safety.
+#[repr(C, align(16))]
 pub struct VirtQueue<const SIZE: usize> {
     /// Descriptor table.
     descriptors: [Descriptor; SIZE],
@@ -85,6 +90,9 @@ pub struct VirtQueue<const SIZE: usize> {
     /// Last seen used index.
     last_used_idx: u16,
 }
+
+// TEAM_106: Compile-time alignment verification per VirtIO 1.1 spec
+const _: () = assert!(core::mem::align_of::<Descriptor>() >= 16);
 
 impl<const SIZE: usize> VirtQueue<SIZE> {
     /// Create a new VirtQueue.

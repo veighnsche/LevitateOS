@@ -1,0 +1,15 @@
+[package]
+# TEAM_103: Renamed from levitate-virtio-gpu to follow naming convention
+name = "levitate-drivers-gpu"
+version = "0.1.0"
+edition = "2024"
+description = "VirtIO GPU driver for LevitateOS"
+
+[dependencies]
+# TEAM_103: Enable hal-impl feature to get LevitateVirtioHal
+levitate-virtio = { path = "../levitate-virtio", features = ["hal-impl"] }
+bitflags = "2.10.0"
+embedded-graphics = "0.8.1"
+
+[lints]
+workspace = true

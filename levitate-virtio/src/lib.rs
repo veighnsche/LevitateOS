@@ -17,6 +17,13 @@ pub mod hal;
 mod queue;
 mod transport;
 
+// TEAM_103: HAL implementation moved from levitate-hal
+// Only available when hal-impl feature is enabled (to avoid circular deps)
+#[cfg(feature = "hal-impl")]
+mod hal_impl;
+#[cfg(feature = "hal-impl")]
+pub use hal_impl::LevitateVirtioHal;
+
 pub use hal::{BufferDirection, VirtioHal, PAGE_SIZE, pages_for};
 pub use queue::{Descriptor, DescriptorFlags, VirtQueue, VirtQueueError};
 pub use transport::{DeviceType, MmioTransport, Transport, TransportError};

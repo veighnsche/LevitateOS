@@ -2,7 +2,8 @@
 //! TEAM_100: Reverted to levitate-gpu (virtio-drivers) for working terminal
 //! The new levitate-virtio-gpu driver needs VirtQueue fixes - see docs/planning/virtio-gpu-scanout/
 
-pub use levitate_gpu::{Display, GpuError, GpuState};
+// TEAM_103: GpuError removed (unused), Display/GpuState still needed
+pub use levitate_gpu::{Display, GpuState};
 use levitate_hal::{IrqSafeLock, StaticMmioTransport};
 
 pub static GPU: IrqSafeLock<Option<GpuState>> = IrqSafeLock::new(None);

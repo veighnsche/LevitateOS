@@ -7,6 +7,8 @@
 //! - Uses VirtQueue for command/response handling
 //! - Uses GpuDriver for protocol state machine
 
+extern crate alloc;
+
 use core::ptr::NonNull;
 
 use levitate_virtio::{
@@ -25,11 +27,17 @@ const CONTROLQ: u16 = 0;
 const QUEUE_SIZE: usize = 16;
 
 /// VirtIO GPU device with full transport integration.
+/// TEAM_106: VirtQueue allocated via HAL's dma_alloc for DMA-safe memory.
 pub struct VirtioGpu<H: VirtioHal> {
     /// MMIO transport for device registers
     transport: MmioTransport,
-    /// Control virtqueue for GPU commands
-    control_queue: VirtQueue<QUEUE_SIZE>,
+    /// Control virtqueue pointer (DMA-allocated)
+    /// TEAM_106: Changed from Box to raw pointer for DMA allocation
+    control_queue_ptr: NonNull<VirtQueue<QUEUE_SIZE>>,
+    /// Control queue physical address (for cleanup)
+    control_queue_paddr: u64,
+    /// Control queue allocation size in pages
+    control_queue_pages: usize,
     /// Protocol state machine driver
     driver: GpuDriver,
     /// Framebuffer physical address
@@ -113,20 +121,33 @@ impl<H: VirtioHal> VirtioGpu<H> {
             return Err(GpuError::TransportError);
         }
 
-        // Setup control queue
-        let mut control_queue = VirtQueue::new();
-        control_queue.init();
+        // TEAM_106: Allocate control queue via HAL's dma_alloc for DMA-safe memory
+        // This ensures 16-byte alignment and DMA-accessible memory per VirtIO spec.
+        let queue_size = core::mem::size_of::<VirtQueue<QUEUE_SIZE>>();
+        let control_queue_pages = levitate_virtio::pages_for(queue_size);
+        let (control_queue_paddr, queue_vptr) = H::dma_alloc(control_queue_pages, BufferDirection::Both);
+
+        // Initialize queue in DMA memory
+        let control_queue_ptr = unsafe {
+            let ptr = queue_vptr.as_ptr() as *mut VirtQueue<QUEUE_SIZE>;
+            ptr.write(VirtQueue::new());
+            NonNull::new_unchecked(ptr)
+        };
+
+        // Initialize the free list
+        unsafe { control_queue_ptr.as_ptr().as_mut().unwrap().init() };
 
         let max_queue_size = transport.max_queue_size(CONTROLQ);
         if max_queue_size == 0 {
             return Err(GpuError::TransportError);
         }
 
-        // TEAM_100: Convert virtual addresses to physical for MMIO transport
-        let (desc_vaddr, avail_vaddr, used_vaddr) = control_queue.addresses();
+        // TEAM_106: Get addresses from DMA-allocated queue
+        let (desc_vaddr, avail_vaddr, used_vaddr) = unsafe { control_queue_ptr.as_ref() }.addresses();
         let desc_paddr = H::virt_to_phys(desc_vaddr);
         let avail_paddr = H::virt_to_phys(avail_vaddr);
         let used_paddr = H::virt_to_phys(used_vaddr);
+        
         transport.queue_set(
             CONTROLQ,
             QUEUE_SIZE as u16,
@@ -144,13 +165,21 @@ impl<H: VirtioHal> VirtioGpu<H> {
 
         Ok(Self {
             transport,
-            control_queue,
+            control_queue_ptr,
+            control_queue_paddr,
+            control_queue_pages,
             driver,
             fb_paddr: 0,
             fb_ptr: None,
             fb_size: 0,
             _hal: core::marker::PhantomData,
         })
+    }
+
+    /// TEAM_106: Helper to access control queue safely
+    fn control_queue(&mut self) -> &mut VirtQueue<QUEUE_SIZE> {
+        // SAFETY: control_queue_ptr is valid for the lifetime of VirtioGpu
+        unsafe { self.control_queue_ptr.as_mut() }
     }
 
     /// Initialize the GPU: get display info, create resource, attach backing, set scanout.
@@ -261,8 +290,8 @@ impl<H: VirtioHal> VirtioGpu<H> {
         // Allocate response buffer
         let mut resp = vec![0u8; resp_size];
 
-        // Add to virtqueue with physical address translation
-        let _head = self.control_queue
+        // TEAM_106: Add to virtqueue with physical address translation
+        let _head = self.control_queue()
             .add_buffer(&[cmd], &mut [resp.as_mut_slice()], H::virt_to_phys)
             .map_err(|e| match e {
                 VirtQueueError::QueueFull => GpuError::TransportError,
@@ -275,7 +304,7 @@ impl<H: VirtioHal> VirtioGpu<H> {
         // Poll for completion (busy wait)
         // In a real async implementation, we'd use interrupts
         let mut timeout = 1_000_000u32;
-        while !self.control_queue.has_used() && timeout > 0 {
+        while !self.control_queue().has_used() && timeout > 0 {
             timeout -= 1;
             core::hint::spin_loop();
         }
@@ -285,7 +314,7 @@ impl<H: VirtioHal> VirtioGpu<H> {
         }
 
         // Pop the used buffer
-        let _ = self.control_queue.pop_used();
+        let _ = self.control_queue().pop_used();
 
         Ok(resp)
     }
@@ -293,8 +322,17 @@ impl<H: VirtioHal> VirtioGpu<H> {
 
 impl<H: VirtioHal> Drop for VirtioGpu<H> {
     fn drop(&mut self) {
-        // Reset device
+        // Reset device first
         self.transport.reset();
+
+        // TEAM_106: Deallocate DMA control queue memory
+        unsafe {
+            H::dma_dealloc(
+                self.control_queue_paddr,
+                self.control_queue_ptr.cast(),
+                self.control_queue_pages,
+            );
+        }
 
         // Free framebuffer if allocated
         if let Some(ptr) = self.fb_ptr.take() {

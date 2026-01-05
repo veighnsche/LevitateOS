@@ -13,7 +13,7 @@ std = ["levitate-utils/std"]
 
 [dependencies]
 levitate-utils = { path = "../levitate-utils" }
-levitate-virtio = { path = "../levitate-virtio" }
+# TEAM_103: Removed levitate-virtio dependency - LevitateVirtioHal moved there
 bitflags = "2.4"
 fdt = { version = "0.1.5", default-features = false }
 virtio-drivers = "0.12"

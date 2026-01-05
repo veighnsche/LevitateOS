@@ -121,10 +121,12 @@ Tasks:
 
 ---
 
-### Step 5: Extract Net Driver
+### Step 5: Extract Net Driver (OPTIONAL - defer if needed)
 **File:** `phase-2-step-5.md`
 
 Create `levitate-drivers-net` from `kernel/src/net.rs`
+
+> **Note:** This step can be deferred. Net driver is minimally used and not blocking core goals.
 
 Tasks:
 1. Create new crate with Cargo.toml
@@ -134,10 +136,12 @@ Tasks:
 
 ---
 
-### Step 6: Extract Input Driver
+### Step 6: Extract Input Driver (OPTIONAL - defer if needed)
 **File:** `phase-2-step-6.md`
 
 Create `levitate-drivers-input` from `kernel/src/input.rs`
+
+> **Note:** This step can be deferred. Input driver works fine embedded in kernel.
 
 Tasks:
 1. Create new crate with Cargo.toml
@@ -147,10 +151,12 @@ Tasks:
 
 ---
 
-### Step 7: Create Filesystem Crate
+### Step 7: Create Filesystem Crate (OPTIONAL - defer if needed)
 **File:** `phase-2-step-7.md`
 
 Create `levitate-fs` to wrap filesystem abstractions
+
+> **Note:** This step can be deferred. Filesystem abstraction is nice-to-have, not blocking GPU fix.
 
 Tasks:
 1. Create new crate with Cargo.toml
