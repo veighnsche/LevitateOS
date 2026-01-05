@@ -118,6 +118,15 @@ fn run_with_profile(profile: QemuProfile) -> Result<()> {
         .collect::<Vec<_>>()
         .join("\n");
 
+    // TEAM_115: Normalize ELF stack addresses (vary with code changes)
+    // The on-stack ELF header address depends on kernel stack layout
+    let normalize_stack_addr = |s: String| {
+        let re = regex::Regex::new(r"ELF Header e_ident on stack at 0x[0-9a-fA-F]+").unwrap();
+        re.replace_all(&s, "ELF Header e_ident on stack at 0x<STACK_ADDR>").to_string()
+    };
+    let golden = normalize_stack_addr(golden);
+    let actual = normalize_stack_addr(actual);
+
     // Compare
     if golden.trim() == actual.trim() {
         println!("✅ SUCCESS: Current behavior matches Golden Log.\n");

@@ -18,7 +18,13 @@ pub fn init() {
             // TEAM_100: Log for golden file compatibility
             crate::println!(
                 "[TERM] Terminal::new({}x{}) -> {}x{} chars (font {}x{}, spacing {})",
-                width, height, term.cols, term.rows, 10, 20, 2
+                width,
+                height,
+                term.cols,
+                term.rows,
+                10,
+                20,
+                2
             );
             *TERMINAL.lock() = Some(term);
         }
@@ -27,16 +33,18 @@ pub fn init() {
 
 /// Mirror console output to the GPU terminal.
 /// Called via the secondary output callback in levitate-hal.
+/// TEAM_115: Changed from try_lock to lock to ensure output is never lost.
+/// Added explicit flush to make output immediately visible.
 pub fn write_str(s: &str) {
-    if let Some(mut term_guard) = TERMINAL.try_lock() {
-        if let Some(term) = term_guard.as_mut() {
-            if let Some(mut gpu_guard) = crate::gpu::GPU.try_lock() {
-                if let Some(gpu_state) = gpu_guard.as_mut() {
-                    // TEAM_100: Use Display wrapper for DrawTarget
-                    let mut display = crate::gpu::Display::new(gpu_state);
-                    term.write_str(&mut display, s);
-                }
-            }
+    let mut term_guard = TERMINAL.lock();
+    if let Some(term) = term_guard.as_mut() {
+        let mut gpu_guard = crate::gpu::GPU.lock();
+        if let Some(gpu_state) = gpu_guard.as_mut() {
+            // TEAM_100: Use Display wrapper for DrawTarget
+            let mut display = crate::gpu::Display::new(gpu_state);
+            term.write_str(&mut display, s);
+            // TEAM_115: Flush immediately so output is visible
+            let _ = gpu_state.flush();
         }
     }
 }

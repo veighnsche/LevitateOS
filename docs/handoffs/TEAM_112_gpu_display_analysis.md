@@ -19,7 +19,7 @@ We identified that the original driver relied on `dsb sy` which is insufficient 
 **Fix Implemented:**
 - Added `levitate_hal::cache_clean_range` using `dc cvac` (Clean to Point of Coherency).
 - Applied flush to:
-  - Command Buffers (Payload).
+  - Command Buffers (Payload).i
   - Control Queue Memory (Descriptors + Avail/Used Rings).
   - Framebuffer Memory (Content).
 

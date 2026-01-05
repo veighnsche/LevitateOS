@@ -14,8 +14,8 @@ use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use levitate_hal::serial_println;
 use levitate_pci::PciTransport;
-use virtio_drivers::device::gpu::VirtIOGpu;
 use virtio_drivers::Hal;
+use virtio_drivers::device::gpu::VirtIOGpu;
 
 /// GPU error type
 #[derive(Debug)]
@@ -54,11 +54,11 @@ impl<H: Hal> Gpu<H> {
         let fb_ptr = fb.as_mut_ptr();
         let fb_size = fb.len();
 
-        // Draw purple test pattern
+        // TEAM_116: Clear to black for terminal background
         for i in (0..fb_size).step_by(4) {
-            fb[i] = 0xFF;     // B
+            fb[i] = 0x00; // B
             fb[i + 1] = 0x00; // G
-            fb[i + 2] = 0xFF; // R
+            fb[i + 2] = 0x00; // R
             fb[i + 3] = 0xFF; // A
         }
 
@@ -119,11 +119,7 @@ impl<H: Hal> DrawTarget for Display<'_, H> {
         let fb = self.gpu.framebuffer();
 
         for Pixel(point, color) in pixels {
-            if point.x >= 0
-                && point.x < width as i32
-                && point.y >= 0
-                && point.y < height as i32
-            {
+            if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32 {
                 let idx = (point.y as usize * width as usize + point.x as usize) * 4;
                 if idx + 3 < fb.len() {
                     fb[idx] = color.b();

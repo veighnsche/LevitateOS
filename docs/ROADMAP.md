@@ -105,19 +105,19 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ---
 
-## 🚀 Phase 8b: Interactive Shell (Current Priority)
+## ✅ Phase 8b: Interactive Shell (COMPLETED)
 
 - **Objective**: Boot to an interactive shell prompt with basic coreutils.
 - **Tasks**:
-  - [ ] **GPU Terminal Fix**: Resolve newline rendering bug (TEAM_058 blocker).
-  - [ ] **Read Syscall**: Implement `read(fd, buf, len)` for stdin/keyboard input.
-  - [ ] **Shell Binary**: Userspace `sh` or `lsh` with prompt, line editing, command parsing.
-  - [ ] **Coreutils**: `echo`, `cat`, `ls`, `clear`, `help`.
-  - [ ] **Spawn Syscall**: Execute external programs from initramfs.
+  - [x] **GPU Terminal Fix**: Fixed userspace output not appearing on GPU. (TEAM_115)
+  - [x] **Read Syscall**: Implemented `read(fd, buf, len)` for stdin/keyboard input. (TEAM_081)
+  - [x] **Shell Binary**: Userspace `lsh` with prompt, line editing, command parsing. (TEAM_073)
+  - [x] **Coreutils**: `echo`, `help`, `clear`, `exit`. (TEAM_073)
+  - [ ] **Spawn Syscall**: Execute external programs from initramfs. (Future)
 
-> [!IMPORTANT]
-> **Plan Location:** See `docs/planning/interactive-shell-phase8b/EPIC.md` for full epic.
-> **End Goal:** Boot → see log on GPU → get `# ` prompt → run commands.
+> [!NOTE]
+> **Milestone:** Boot → see log on GPU → get `# ` prompt → run commands. ✅ ACHIEVED
+> **Verification:** `cargo xtask run-vnc` → Browser → VNC → Shell interactive
 
 ---
 

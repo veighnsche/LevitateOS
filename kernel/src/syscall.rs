@@ -9,7 +9,7 @@
 //! - Return value in `x0`
 //! - Invoked via `svc #0` instruction from EL0
 
-use levitate_hal::println;
+use levitate_hal::{print, println};
 
 /// TEAM_073: Error codes for syscalls.
 /// Using negative values like POSIX, but custom numbering.
@@ -273,14 +273,13 @@ fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
 
     // Convert to string if valid UTF-8, otherwise print as hex
     if let Ok(s) = core::str::from_utf8(slice) {
-        // Print to console (both UART and GPU per Phase 2 decision)
-        use core::fmt::Write;
-        let _ = levitate_hal::console::WRITER.lock().write_str(s);
+        // TEAM_115: Use print! macro to go through dual console path (UART + GPU)
+        // Previous code used WRITER.lock().write_str() which bypassed GPU output
+        print!("{}", s);
     } else {
         // Binary data - print hex
         for byte in slice {
-            use core::fmt::Write;
-            let _ = write!(levitate_hal::console::WRITER.lock(), "{:02x}", byte);
+            print!("{:02x}", byte);
         }
     }
 

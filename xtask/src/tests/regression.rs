@@ -518,58 +518,49 @@ fn test_boot_stage_enum(results: &mut TestResults) {
 // TEAM_109: GPU Display Verification (catches false positives!)
 // =============================================================================
 
-/// TEAM_111: Verify GPU driver implements required VirtIO GPU commands
+/// TEAM_111: Verify GPU driver implements required display setup
 /// 
 /// ⚠️ THIS TEST VERIFIES CODE PATTERNS, NOT ACTUAL DISPLAY OUTPUT!
 /// 
 /// To verify actual display: `cargo xtask run-vnc` and check browser
 /// 
-/// The VirtIO GPU spec requires these commands for display:
-/// - SET_SCANOUT: Connect framebuffer to display
-/// - RESOURCE_FLUSH: Refresh display after drawing
-/// - TRANSFER_TO_HOST_2D: Copy pixels to host
+/// TEAM_115: Updated for crate reorganization. The GPU now uses virtio-drivers
+/// crate which handles VirtIO GPU commands internally. We verify:
+/// - levitate-gpu wraps VirtIOGpu correctly
+/// - setup_framebuffer is called
+/// - flush is called to update display
 fn test_gpu_display_actually_works(results: &mut TestResults) {
     println!("TEAM_111: GPU display - VirtIO command verification");
 
-    // TEAM_111: Updated to check levitate-drivers-gpu (levitate-gpu was deleted)
-    let driver_rs = fs::read_to_string("levitate-drivers-gpu/src/driver.rs").unwrap_or_default();
-    let device_rs = fs::read_to_string("levitate-drivers-gpu/src/device.rs").unwrap_or_default();
-    let drivers_code = format!("{}{}", driver_rs, device_rs);
+    // TEAM_115: Check levitate-gpu (replaces levitate-drivers-gpu)
+    let gpu_lib = fs::read_to_string("levitate-gpu/src/lib.rs").unwrap_or_default();
     
-    // Check 1: Must implement SET_SCANOUT command
-    let has_set_scanout = drivers_code.contains("SET_SCANOUT") 
-        || drivers_code.contains("set_scanout")
-        || drivers_code.contains("SetScanout")
-        || drivers_code.contains("VIRTIO_GPU_CMD_SET_SCANOUT");
+    // Check 1: Must use virtio-drivers VirtIOGpu
+    let uses_virtio_drivers = gpu_lib.contains("virtio_drivers::device::gpu::VirtIOGpu")
+        || gpu_lib.contains("VirtIOGpu");
     
-    if has_set_scanout {
-        results.pass("levitate-drivers-gpu implements SET_SCANOUT");
+    if uses_virtio_drivers {
+        results.pass("levitate-gpu uses virtio-drivers VirtIOGpu");
     } else {
-        results.fail("levitate-drivers-gpu MISSING SET_SCANOUT - display will be blank!");
+        results.fail("levitate-gpu NOT using virtio-drivers VirtIOGpu!");
     }
 
-    // Check 2: Must have RESOURCE_FLUSH for display updates
-    let has_flush = drivers_code.contains("RESOURCE_FLUSH")
-        || drivers_code.contains("resource_flush")
-        || drivers_code.contains("ResourceFlush")
-        || drivers_code.contains("VIRTIO_GPU_CMD_RESOURCE_FLUSH");
+    // Check 2: Must call setup_framebuffer (replaces manual SET_SCANOUT)
+    let has_setup_fb = gpu_lib.contains("setup_framebuffer");
+    
+    if has_setup_fb {
+        results.pass("levitate-gpu calls setup_framebuffer");
+    } else {
+        results.fail("levitate-gpu MISSING setup_framebuffer - display will be blank!");
+    }
+
+    // Check 3: Must have flush method (triggers RESOURCE_FLUSH internally)
+    let has_flush = gpu_lib.contains("fn flush") || gpu_lib.contains(".flush()");
     
     if has_flush {
-        results.pass("levitate-drivers-gpu implements RESOURCE_FLUSH");
+        results.pass("levitate-gpu implements flush()");
     } else {
-        results.fail("levitate-drivers-gpu MISSING RESOURCE_FLUSH - display won't update!");
-    }
-
-    // Check 3: Must have TRANSFER_TO_HOST for pixel data transfer
-    let has_transfer = drivers_code.contains("TRANSFER_TO_HOST")
-        || drivers_code.contains("transfer_to_host")
-        || drivers_code.contains("TransferToHost")
-        || drivers_code.contains("VIRTIO_GPU_CMD_TRANSFER_TO_HOST_2D");
-    
-    if has_transfer {
-        results.pass("levitate-drivers-gpu implements TRANSFER_TO_HOST_2D");
-    } else {
-        results.fail("levitate-drivers-gpu MISSING TRANSFER_TO_HOST - pixels won't reach host!");
+        results.fail("levitate-gpu MISSING flush() - display won't update!");
     }
 
     // Check 4: Kernel must call flush() after drawing

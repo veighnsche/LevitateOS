@@ -1,10 +1,16 @@
 //! Platform-agnostic Terminal Emulator
 //! TEAM_092: Extracted from kernel/src/terminal.rs
+//! TEAM_116: Added text buffer for proper scrolling support (heap-allocated)
 
 #![no_std]
 
+extern crate alloc;
+
+use alloc::vec;
+use alloc::vec::Vec;
+
 use embedded_graphics::{
-    mono_font::{ascii::FONT_10X20, MonoTextStyle},
+    mono_font::{MonoTextStyle, ascii::FONT_10X20},
     pixelcolor::Rgb888,
     prelude::*,
     primitives::{PrimitiveStyle, Rectangle},
@@ -48,6 +54,8 @@ enum AnsiState {
     CSI,
 }
 
+/// TEAM_116: Text buffer for scrolling support
+/// Uses heap allocation to avoid stack overflow
 pub struct Terminal {
     pub cursor_col: u32,
     pub cursor_row: u32,
@@ -58,12 +66,18 @@ pub struct Terminal {
     screen_height: u32,
     cursor_visible: bool,
     ansi_state: AnsiState,
+    /// Character buffer: flattened [row * cols + col]
+    buffer: Vec<char>,
 }
 
 impl Terminal {
     pub fn new(screen_width: u32, screen_height: u32) -> Self {
         let cols = screen_width / FONT_WIDTH;
         let rows = screen_height / (FONT_HEIGHT + LINE_SPACING);
+
+        // Allocate buffer on heap
+        let buffer_size = (cols * rows) as usize;
+        let buffer = vec![' '; buffer_size];
 
         Self {
             cursor_col: 0,
@@ -75,6 +89,27 @@ impl Terminal {
             screen_height,
             cursor_visible: false,
             ansi_state: AnsiState::None,
+            buffer,
+        }
+    }
+
+    /// Get character at position (bounds-checked)
+    fn get_char(&self, col: u32, row: u32) -> char {
+        if col < self.cols && row < self.rows {
+            let idx = (row * self.cols + col) as usize;
+            self.buffer.get(idx).copied().unwrap_or(' ')
+        } else {
+            ' '
+        }
+    }
+
+    /// Set character at position (bounds-checked)
+    fn set_char(&mut self, col: u32, row: u32, c: char) {
+        if col < self.cols && row < self.rows {
+            let idx = (row * self.cols + col) as usize;
+            if let Some(cell) = self.buffer.get_mut(idx) {
+                *cell = c;
+            }
         }
     }
 
@@ -120,19 +155,39 @@ impl Terminal {
                     self.newline(target);
                 }
 
-                let x = (self.cursor_col * FONT_WIDTH) as i32;
-                let y = (self.cursor_row * (FONT_HEIGHT + LINE_SPACING)) as i32;
+                // Store in buffer
+                self.set_char(self.cursor_col, self.cursor_row, c);
 
-                let style = MonoTextStyle::new(&FONT_10X20, self.config.fg_color);
-                let mut buf = [0u8; 4];
-                let s = c.encode_utf8(&mut buf);
-
-                let _ = Text::new(s, Point::new(x, y + FONT_HEIGHT as i32), style).draw(target);
+                // Draw the character
+                self.draw_char_at(target, c, self.cursor_col, self.cursor_row);
                 self.cursor_col += 1;
             }
             _ => {}
         }
         self.show_cursor(target);
+    }
+
+    /// Draw a single character at the specified grid position
+    fn draw_char_at<D>(&self, target: &mut D, c: char, col: u32, row: u32)
+    where
+        D: DrawTarget<Color = Rgb888>,
+    {
+        let x = (col * FONT_WIDTH) as i32;
+        let y = (row * (FONT_HEIGHT + LINE_SPACING)) as i32;
+
+        // Clear background first
+        let _ = Rectangle::new(
+            Point::new(x, y),
+            Size::new(FONT_WIDTH, FONT_HEIGHT + LINE_SPACING),
+        )
+        .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
+        .draw(target);
+
+        // Draw character
+        let style = MonoTextStyle::new(&FONT_10X20, self.config.fg_color);
+        let mut buf = [0u8; 4];
+        let s = c.encode_utf8(&mut buf);
+        let _ = Text::new(s, Point::new(x, y + FONT_HEIGHT as i32), style).draw(target);
     }
 
     pub fn write_str<D>(&mut self, target: &mut D, s: &str)
@@ -198,6 +253,9 @@ impl Terminal {
         }
 
         if changed {
+            // Clear character from buffer
+            self.set_char(self.cursor_col, self.cursor_row, ' ');
+
             let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
             let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
 
@@ -216,6 +274,12 @@ impl Terminal {
         D: DrawTarget<Color = Rgb888>,
     {
         self.hide_cursor(target);
+
+        // Clear buffer
+        for cell in self.buffer.iter_mut() {
+            *cell = ' ';
+        }
+
         let _ = Rectangle::new(
             Point::zero(),
             Size::new(self.screen_width, self.screen_height),
@@ -227,12 +291,52 @@ impl Terminal {
         self.show_cursor(target);
     }
 
-    fn scroll_up<D>(&mut self, _target: &mut D)
+    /// TEAM_116: Scroll up by shifting buffer contents and redrawing
+    fn scroll_up<D>(&mut self, target: &mut D)
     where
         D: DrawTarget<Color = Rgb888>,
     {
-        // TODO: Scrolling is hardware-specific (requires copy_within or similar)
-        // For a generic DrawTarget, we might need a DrawTarget + Flushable + Scrollable trait
+        let rows = self.rows as usize;
+        let cols = self.cols as usize;
+
+        // Shift buffer up by one row (copy row N to row N-1)
+        for row in 1..rows {
+            for col in 0..cols {
+                let src_idx = row * cols + col;
+                let dst_idx = (row - 1) * cols + col;
+                if let Some(&c) = self.buffer.get(src_idx) {
+                    if let Some(cell) = self.buffer.get_mut(dst_idx) {
+                        *cell = c;
+                    }
+                }
+            }
+        }
+
+        // Clear the last row in buffer
+        let last_row_start = (rows - 1) * cols;
+        for col in 0..cols {
+            if let Some(cell) = self.buffer.get_mut(last_row_start + col) {
+                *cell = ' ';
+            }
+        }
+
+        // Clear screen and redraw from buffer
+        let _ = Rectangle::new(
+            Point::zero(),
+            Size::new(self.screen_width, self.screen_height),
+        )
+        .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
+        .draw(target);
+
+        // Redraw all characters from buffer
+        for row in 0..rows {
+            for col in 0..cols {
+                let c = self.get_char(col as u32, row as u32);
+                if c != ' ' {
+                    self.draw_char_at(target, c, col as u32, row as u32);
+                }
+            }
+        }
     }
 
     fn show_cursor<D>(&mut self, target: &mut D)
@@ -246,8 +350,6 @@ impl Terminal {
         let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
         let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
 
-        // TODO: Cursor saving logic also needs direct framebuffer access or a ReadTarget trait
-        // For now, we just draw the block
         let _ = Rectangle::new(Point::new(x as i32, y as i32), Size::new(10, 20))
             .into_styled(PrimitiveStyle::with_fill(self.config.fg_color))
             .draw(target);
@@ -264,10 +366,16 @@ impl Terminal {
         let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
         let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
 
-        // Just erase with background for now
-        let _ = Rectangle::new(Point::new(x as i32, y as i32), Size::new(10, 20))
-            .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
-            .draw(target);
+        // Redraw the character under the cursor (or space if empty)
+        let c = self.get_char(self.cursor_col, self.cursor_row);
+
+        if c != ' ' {
+            self.draw_char_at(target, c, self.cursor_col, self.cursor_row);
+        } else {
+            let _ = Rectangle::new(Point::new(x as i32, y as i32), Size::new(10, 20))
+                .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
+                .draw(target);
+        }
 
         self.cursor_visible = false;
     }
