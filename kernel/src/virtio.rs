@@ -45,7 +45,7 @@ pub fn init_gpu() -> bool {
         } {
             Ok(transport) => {
                 if transport.device_type() == virtio_drivers::transport::DeviceType::GPU {
-                    crate::gpu::init(transport);
+                    crate::gpu::init(addr);
                     return true;
                 }
             }

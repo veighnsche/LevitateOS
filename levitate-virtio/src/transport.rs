@@ -120,6 +120,7 @@ mod mmio_regs {
     pub const QUEUE_SEL: usize = 0x030;
     pub const QUEUE_NUM_MAX: usize = 0x034;
     pub const QUEUE_NUM: usize = 0x038;
+    // Version 2 only
     pub const QUEUE_READY: usize = 0x044;
     pub const QUEUE_NOTIFY: usize = 0x050;
     pub const INTERRUPT_STATUS: usize = 0x060;
@@ -131,6 +132,11 @@ mod mmio_regs {
     pub const QUEUE_AVAIL_HIGH: usize = 0x094;
     pub const QUEUE_USED_LOW: usize = 0x0a0;
     pub const QUEUE_USED_HIGH: usize = 0x0a4;
+    // Version 1 only
+    pub const GUEST_PAGE_SIZE: usize = 0x028;
+    pub const QUEUE_ALIGN: usize = 0x03c;
+    pub const QUEUE_PFN: usize = 0x040;
+
     pub const CONFIG: usize = 0x100;
 }
 
@@ -140,6 +146,7 @@ const VIRTIO_MAGIC: u32 = 0x7472_6976; // "virt" in little-endian
 /// VirtIO MMIO transport implementation.
 pub struct MmioTransport {
     base: usize,
+    version: u32,
 }
 
 impl MmioTransport {
@@ -149,7 +156,7 @@ impl MmioTransport {
     ///
     /// `base` must be a valid MMIO address for a VirtIO device.
     pub unsafe fn new(base: usize) -> Result<Self, TransportError> {
-        let transport = Self { base };
+        let mut transport = Self { base, version: 0 };
 
         // Verify magic value
         let magic = transport.read_reg(mmio_regs::MAGIC);
@@ -163,6 +170,7 @@ impl MmioTransport {
         if version == 0 || version > 2 {
             return Err(TransportError::InvalidConfig);
         }
+        transport.version = version;
 
         Ok(transport)
     }
@@ -222,14 +230,24 @@ impl Transport for MmioTransport {
         used_addr: usize,
     ) {
         self.write_reg(mmio_regs::QUEUE_SEL, queue_idx as u32);
-        self.write_reg(mmio_regs::QUEUE_NUM, queue_size as u32);
-        self.write_reg(mmio_regs::QUEUE_DESC_LOW, desc_addr as u32);
-        self.write_reg(mmio_regs::QUEUE_DESC_HIGH, (desc_addr >> 32) as u32);
-        self.write_reg(mmio_regs::QUEUE_AVAIL_LOW, avail_addr as u32);
-        self.write_reg(mmio_regs::QUEUE_AVAIL_HIGH, (avail_addr >> 32) as u32);
-        self.write_reg(mmio_regs::QUEUE_USED_LOW, used_addr as u32);
-        self.write_reg(mmio_regs::QUEUE_USED_HIGH, (used_addr >> 32) as u32);
-        self.write_reg(mmio_regs::QUEUE_READY, 1);
+
+        if self.version == 2 {
+            self.write_reg(mmio_regs::QUEUE_NUM, queue_size as u32);
+            self.write_reg(mmio_regs::QUEUE_DESC_LOW, desc_addr as u32);
+            self.write_reg(mmio_regs::QUEUE_DESC_HIGH, (desc_addr >> 32) as u32);
+            self.write_reg(mmio_regs::QUEUE_AVAIL_LOW, avail_addr as u32);
+            self.write_reg(mmio_regs::QUEUE_AVAIL_HIGH, (avail_addr >> 32) as u32);
+            self.write_reg(mmio_regs::QUEUE_USED_LOW, used_addr as u32);
+            self.write_reg(mmio_regs::QUEUE_USED_HIGH, (used_addr >> 32) as u32);
+            self.write_reg(mmio_regs::QUEUE_READY, 1);
+        } else {
+            // Version 1 (Legacy) support
+            self.write_reg(mmio_regs::QUEUE_NUM, queue_size as u32);
+            // We use a single struct for everything, so alignment is minimal (4 bytes for Used ring)
+            self.write_reg(mmio_regs::QUEUE_ALIGN, 4);
+            self.write_reg(mmio_regs::GUEST_PAGE_SIZE, 4096);
+            self.write_reg(mmio_regs::QUEUE_PFN, (desc_addr / 4096) as u32);
+        }
     }
 
     fn queue_notify(&mut self, queue_idx: u16) {

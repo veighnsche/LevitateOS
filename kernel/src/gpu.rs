@@ -32,25 +32,79 @@
 //! See: `docs/GOTCHAS.md` section 16
 //! See: `docs/VIRTIO_IMPLEMENTATION.md`
 
-// FIXME(GPU): This uses levitate-gpu which gives FALSE POSITIVES!
-// The display doesn't actually work. Replace with levitate-drivers-gpu
-// once VirtQueue issues are fixed. DO NOT KEEP THIS AS A "WORKING" SOLUTION.
-pub use levitate_gpu::{Display, GpuState};
-use levitate_hal::{IrqSafeLock, StaticMmioTransport};
+use levitate_drivers_gpu::{GpuError, VirtioGpu};
+use levitate_hal::IrqSafeLock;
+use levitate_virtio::LevitateVirtioHal;
+
+pub struct GpuState {
+    pub inner: VirtioGpu<LevitateVirtioHal>,
+}
+
+impl GpuState {
+    pub fn new(mmio_base: usize) -> Result<Self, GpuError> {
+        let mut inner = unsafe { VirtioGpu::<LevitateVirtioHal>::new(mmio_base)? };
+        inner.init()?;
+        Ok(Self { inner })
+    }
+
+    pub fn flush(&mut self) -> Result<(), GpuError> {
+        self.inner.flush()
+    }
+
+    pub fn dimensions(&self) -> (u32, u32) {
+        self.inner.resolution()
+    }
+
+    pub fn framebuffer(&mut self) -> &mut [u8] {
+        self.inner.framebuffer().unwrap_or(&mut [])
+    }
+}
 
 pub static GPU: IrqSafeLock<Option<GpuState>> = IrqSafeLock::new(None);
 
-pub fn init(transport: StaticMmioTransport) {
-    match GpuState::new(transport) {
+pub fn init(mmio_base: usize) {
+    match GpuState::new(mmio_base) {
         Ok(state) => {
             *GPU.lock() = Some(state);
         }
         Err(e) => {
-            levitate_hal::serial_println!("[GPU] Init failed: {}", e);
+            levitate_hal::serial_println!("[GPU] Init failed: {:?}", e);
         }
     }
 }
 
 pub fn get_resolution() -> Option<(u32, u32)> {
-    GPU.lock().as_ref().map(|s| (s.width, s.height))
+    GPU.lock().as_ref().map(|s| s.dimensions())
+}
+
+pub struct Display<'a> {
+    pub state: &'a mut GpuState,
+}
+
+impl<'a> Display<'a> {
+    pub fn new(state: &'a mut GpuState) -> Self {
+        Self { state }
+    }
+}
+
+use embedded_graphics::pixelcolor::Rgb888;
+use embedded_graphics::prelude::*;
+
+impl<'a> DrawTarget for Display<'a> {
+    type Color = Rgb888;
+    type Error = core::convert::Infallible;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        self.state.inner.draw_iter(pixels)
+    }
+}
+
+impl<'a> OriginDimensions for Display<'a> {
+    fn size(&self) -> Size {
+        let (w, h) = self.state.dimensions();
+        Size::new(w, h)
+    }
 }

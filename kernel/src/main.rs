@@ -610,8 +610,8 @@ pub extern "C" fn kmain() -> ! {
                 // Enable interrupts (required for syscall handling)
                 unsafe { levitate_hal::interrupts::enable() };
 
-                // Run "lsh" (shell) from initramfs - does not return
-                task::process::run_from_initramfs("lsh", &archive);
+                // Run "hello" (demo shell) from initramfs - does not return
+                task::process::run_from_initramfs("hello", &archive);
 
                 // This line should never be reached
             }
@@ -669,7 +669,7 @@ pub extern "C" fn kmain() -> ! {
         if let Some(gpu_state) = gpu_guard.as_mut() {
             // TEAM_100: Use dimensions() for old GpuState API
             let (width, _height) = gpu_state.dimensions();
-            
+
             // TEAM_100: framebuffer() returns &mut [u8] directly
             let fb = gpu_state.framebuffer();
             // Draw a simple "READY" indicator - white pixels at top

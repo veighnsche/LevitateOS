@@ -3,7 +3,6 @@ members = [
     "kernel",
     "levitate-hal",
     "levitate-utils",
-    "levitate-gpu",
     "levitate-terminal",
     "levitate-virtio",
     # TEAM_103: Renamed from levitate-virtio-gpu

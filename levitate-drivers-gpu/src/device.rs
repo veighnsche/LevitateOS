@@ -12,8 +12,8 @@ extern crate alloc;
 use core::ptr::NonNull;
 
 use levitate_virtio::{
-    BufferDirection, MmioTransport, Transport, VirtQueue, VirtQueueError, VirtioHal,
-    status, features,
+    BufferDirection, MmioTransport, Transport, VirtQueue, VirtQueueError, VirtioHal, features,
+    status,
 };
 
 use crate::driver::{DriverTelemetry, GpuDriver};
@@ -73,7 +73,8 @@ impl<H: VirtioHal> DrawTarget for VirtioGpu<H> {
         if let Some(ptr) = self.fb_ptr {
             let fb = unsafe { core::slice::from_raw_parts_mut(ptr.as_ptr(), fb_size) };
             for Pixel(point, color) in pixels {
-                if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32 {
+                if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32
+                {
                     let idx = (point.y as usize * width as usize + point.x as usize) * 4;
                     if idx + 3 < fb.len() {
                         fb[idx] = color.b();
@@ -103,8 +104,8 @@ impl<H: VirtioHal> VirtioGpu<H> {
     /// `mmio_base` must be a valid VirtIO MMIO address.
     pub unsafe fn new(mmio_base: usize) -> Result<Self, GpuError> {
         // Create transport
-        let mut transport = unsafe { MmioTransport::new(mmio_base) }
-            .map_err(|_| GpuError::TransportError)?;
+        let mut transport =
+            unsafe { MmioTransport::new(mmio_base) }.map_err(|_| GpuError::TransportError)?;
 
         // Reset device
         transport.reset();
@@ -132,7 +133,8 @@ impl<H: VirtioHal> VirtioGpu<H> {
         // This ensures 16-byte alignment and DMA-accessible memory per VirtIO spec.
         let queue_size = core::mem::size_of::<VirtQueue<QUEUE_SIZE>>();
         let control_queue_pages = levitate_virtio::pages_for(queue_size);
-        let (control_queue_paddr, queue_vptr) = H::dma_alloc(control_queue_pages, BufferDirection::Both);
+        let (control_queue_paddr, queue_vptr) =
+            H::dma_alloc(control_queue_pages, BufferDirection::Both);
 
         // TEAM_109: Allocate DMA buffers for commands and responses
         // Device needs to DMA read commands and DMA write responses - regular heap won't work!
@@ -155,17 +157,12 @@ impl<H: VirtioHal> VirtioGpu<H> {
         }
 
         // TEAM_106: Get addresses from DMA-allocated queue
-        let (desc_vaddr, avail_vaddr, used_vaddr) = unsafe { control_queue_ptr.as_ref() }.addresses();
+        let (desc_vaddr, avail_vaddr, used_vaddr) =
+            unsafe { control_queue_ptr.as_ref() }.addresses();
         let desc_paddr = H::virt_to_phys(desc_vaddr);
         let avail_paddr = H::virt_to_phys(avail_vaddr);
         let used_paddr = H::virt_to_phys(used_vaddr);
-        
-        // TEAM_109: Debug - trace queue addresses
-        levitate_hal::serial_println!("[GPU-DBG] Queue setup:");
-        levitate_hal::serial_println!("[GPU-DBG]   desc:  v={:#x} p={:#x}", desc_vaddr, desc_paddr);
-        levitate_hal::serial_println!("[GPU-DBG]   avail: v={:#x} p={:#x}", avail_vaddr, avail_paddr);
-        levitate_hal::serial_println!("[GPU-DBG]   used:  v={:#x} p={:#x}", used_vaddr, used_paddr);
-        
+
         transport.queue_set(
             CONTROLQ,
             QUEUE_SIZE as u16,
@@ -306,7 +303,11 @@ impl<H: VirtioHal> VirtioGpu<H> {
 
     /// Send a command and wait for response.
     /// TEAM_109: Uses DMA-allocated buffers - device can't DMA to/from regular heap!
-    fn send_command(&mut self, cmd: &[u8], resp_size: usize) -> Result<alloc::vec::Vec<u8>, GpuError> {
+    fn send_command(
+        &mut self,
+        cmd: &[u8],
+        resp_size: usize,
+    ) -> Result<alloc::vec::Vec<u8>, GpuError> {
         extern crate alloc;
         use alloc::vec;
         use levitate_virtio::PAGE_SIZE;
@@ -317,37 +318,25 @@ impl<H: VirtioHal> VirtioGpu<H> {
         }
 
         // TEAM_109: Copy command to DMA buffer
-        let cmd_buf = unsafe {
-            core::slice::from_raw_parts_mut(self.cmd_buf_ptr.as_ptr(), PAGE_SIZE)
-        };
+        let cmd_buf =
+            unsafe { core::slice::from_raw_parts_mut(self.cmd_buf_ptr.as_ptr(), PAGE_SIZE) };
         cmd_buf[..cmd.len()].copy_from_slice(cmd);
 
         // TEAM_109: Zero the response DMA buffer
-        let resp_buf = unsafe {
-            core::slice::from_raw_parts_mut(self.resp_buf_ptr.as_ptr(), PAGE_SIZE)
-        };
+        let resp_buf =
+            unsafe { core::slice::from_raw_parts_mut(self.resp_buf_ptr.as_ptr(), PAGE_SIZE) };
         resp_buf[..resp_size].fill(0);
 
-        // TEAM_109: Use physical addresses of DMA buffers directly
         let cmd_slice = &cmd_buf[..cmd.len()];
         let resp_slice = &mut resp_buf[..resp_size];
 
-        // TEAM_109: Debug - trace addresses
-        let cmd_vaddr = cmd_slice.as_ptr() as usize;
-        let cmd_paddr = H::virt_to_phys(cmd_vaddr);
-        let resp_vaddr = resp_slice.as_ptr() as usize;
-        let resp_paddr = H::virt_to_phys(resp_vaddr);
-        levitate_hal::serial_println!("[GPU-DBG] cmd: v={:#x} p={:#x} len={}", cmd_vaddr, cmd_paddr, cmd.len());
-        levitate_hal::serial_println!("[GPU-DBG] resp: v={:#x} p={:#x} len={}", resp_vaddr, resp_paddr, resp_size);
-
-        let _head = self.control_queue()
+        let _head = self
+            .control_queue()
             .add_buffer(&[cmd_slice], &mut [resp_slice], H::virt_to_phys)
             .map_err(|e| match e {
                 VirtQueueError::QueueFull => GpuError::TransportError,
                 _ => GpuError::TransportError,
             })?;
-
-        levitate_hal::serial_println!("[GPU-DBG] Buffer added, notifying device...");
 
         // Notify device
         self.transport.queue_notify(CONTROLQ);
@@ -358,8 +347,6 @@ impl<H: VirtioHal> VirtioGpu<H> {
             timeout -= 1;
             core::hint::spin_loop();
         }
-
-        levitate_hal::serial_println!("[GPU-DBG] Wait done, timeout remaining: {}", timeout);
 
         if timeout == 0 {
             return Err(GpuError::Timeout);

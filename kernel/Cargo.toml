@@ -15,9 +15,11 @@ multitask-demo = [] # TEAM_071: Enable demo tasks for preemption verification
 [dependencies]
 levitate-hal = { path = "../levitate-hal" }
 levitate-utils = { path = "../levitate-utils" }
-levitate-gpu = { path = "../levitate-gpu" }
+# levitate-gpu removed - replaced by levitate-drivers-gpu
+# TEAM_110: Consolidated GPU drivers
 # TEAM_103: Renamed from levitate-virtio-gpu
 levitate-drivers-gpu = { path = "../levitate-drivers-gpu" }
+levitate-virtio = { path = "../levitate-virtio", features = ["hal-impl"] }
 levitate-terminal = { path = "../levitate-terminal" }
 linked_list_allocator = "0.10.5"
 virtio-drivers = "0.12"

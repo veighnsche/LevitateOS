@@ -18,7 +18,7 @@
 //! See `.teams/TEAM_109_fix_gpu_driver_no_fallback.md` for investigation details.
 
 use bitflags::bitflags;
-use core::sync::atomic::{fence, Ordering};
+use core::sync::atomic::{Ordering, fence};
 
 /// Error types for VirtQueue operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,20 +90,12 @@ pub struct VirtQueue<const SIZE: usize> {
     avail_idx: u16,
     /// Available ring entries.
     avail_ring: [u16; SIZE],
-    /// TEAM_109: used_event field per VirtIO spec (even if EVENT_IDX not negotiated)
-    used_event: u16,
-    /// TEAM_109: Padding to ensure used ring is 4-byte aligned per VirtIO spec 2.6
-    /// The used ring MUST be 4-byte aligned, but after avail ring (2-byte aligned fields)
-    /// we may be at a 2-byte boundary. This padding ensures proper alignment.
-    _padding: u16,
     /// Used ring flags.
     used_flags: u16,
     /// Used ring index (next entry to read).
     used_idx: u16,
     /// Used ring entries.
     used_ring: [UsedRingEntry; SIZE],
-    /// TEAM_109: avail_event field per VirtIO spec (even if EVENT_IDX not negotiated)
-    avail_event: u16,
     /// Free descriptor head (local driver state, not accessed by device).
     free_head: u16,
     /// Number of free descriptors.
@@ -132,12 +124,9 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
             avail_flags: 0,
             avail_idx: 0,
             avail_ring: [0; SIZE],
-            used_event: 0,
-            _padding: 0,
             used_flags: 0,
             used_idx: 0,
             used_ring: [UsedRingEntry { id: 0, len: 0 }; SIZE],
-            avail_event: 0,
             free_head: 0,
             num_free: SIZE as u16,
             last_used_idx: 0,
@@ -192,13 +181,19 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
             let next_idx = unsafe { (*desc_ptr).next };
             // TEAM_100: Convert virtual address to physical for DMA
             unsafe {
-                core::ptr::write_volatile(&mut (*desc_ptr).addr, virt_to_phys(input.as_ptr() as usize) as u64);
+                core::ptr::write_volatile(
+                    &mut (*desc_ptr).addr,
+                    virt_to_phys(input.as_ptr() as usize) as u64,
+                );
                 core::ptr::write_volatile(&mut (*desc_ptr).len, input.len() as u32);
-                core::ptr::write_volatile(&mut (*desc_ptr).flags, if i + 1 < total {
-                    DescriptorFlags::NEXT.bits()
-                } else {
-                    0
-                });
+                core::ptr::write_volatile(
+                    &mut (*desc_ptr).flags,
+                    if i + 1 < total {
+                        DescriptorFlags::NEXT.bits()
+                    } else {
+                        0
+                    },
+                );
             }
             if i + 1 < total {
                 desc_idx = next_idx;
@@ -214,13 +209,19 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
             // TEAM_100: Convert virtual address to physical for DMA
             let is_last = i + 1 == output_count;
             unsafe {
-                core::ptr::write_volatile(&mut (*desc_ptr).addr, virt_to_phys(output.as_ptr() as usize) as u64);
+                core::ptr::write_volatile(
+                    &mut (*desc_ptr).addr,
+                    virt_to_phys(output.as_ptr() as usize) as u64,
+                );
                 core::ptr::write_volatile(&mut (*desc_ptr).len, output.len() as u32);
-                core::ptr::write_volatile(&mut (*desc_ptr).flags, if is_last {
-                    DescriptorFlags::WRITE.bits()
-                } else {
-                    DescriptorFlags::WRITE.bits() | DescriptorFlags::NEXT.bits()
-                });
+                core::ptr::write_volatile(
+                    &mut (*desc_ptr).flags,
+                    if is_last {
+                        DescriptorFlags::WRITE.bits()
+                    } else {
+                        DescriptorFlags::WRITE.bits() | DescriptorFlags::NEXT.bits()
+                    },
+                );
             }
             if !is_last {
                 desc_idx = next_idx;
@@ -259,15 +260,13 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
     }
 
     /// Check if there are used buffers to process.
-    /// 
+    ///
     /// TEAM_100: Volatile-read the used_idx since device writes via DMA.
     pub fn has_used(&self) -> bool {
         fence(Ordering::SeqCst);
         // The device writes to used_idx via the physical address we gave it.
         // We need to volatile-read it from our memory location.
-        let device_used_idx = unsafe {
-            core::ptr::read_volatile(&self.used_idx as *const u16)
-        };
+        let device_used_idx = unsafe { core::ptr::read_volatile(&self.used_idx as *const u16) };
         self.last_used_idx != device_used_idx
     }
 
@@ -283,9 +282,8 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
 
         let used_slot = (self.last_used_idx as usize) % SIZE;
         // TEAM_100: Volatile-read since device writes via DMA
-        let entry = unsafe {
-            core::ptr::read_volatile(&self.used_ring[used_slot] as *const UsedRingEntry)
-        };
+        let entry =
+            unsafe { core::ptr::read_volatile(&self.used_ring[used_slot] as *const UsedRingEntry) };
         self.last_used_idx = self.last_used_idx.wrapping_add(1);
 
         // Return descriptors to free list
