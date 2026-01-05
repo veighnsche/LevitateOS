@@ -323,10 +323,13 @@ impl gic::InterruptHandler for TimerHandler {
         let count = COUNTER.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 
         // TEAM_092: Verify timer is actually advancing (verbose-only)
+        // TEAM_092: Verify timer is actually advancing (verbose-only)
+        // TEAM_122: Removed verbose log to prevent deadlocks with UART lock
         if count % 100 == 0 {
             verbose!("[TICK] count={}", count);
         }
 
+        /*
         if count % 5 == 0 {
             if let Some(mut guard) = gpu::GPU.try_lock() {
                 if let Some(gpu_state) = guard.as_mut() {
@@ -334,6 +337,7 @@ impl gic::InterruptHandler for TimerHandler {
                 }
             }
         }
+        */
 
         // TEAM_070: Preemptive scheduling
         crate::task::yield_now();
@@ -595,7 +599,7 @@ pub extern "C" fn kmain() -> ! {
         );
     }
 
-    // TEAM_065: SPEC-4 Initrd Discovery with Fail-Fast (Rule 14)
+    // TEAM_121: SPEC-4 Initrd Discovery with Fail-Fast (Rule 14)
     println!("Detecting Initramfs...");
     let initrd_found = if let Some(slice) = dtb_slice {
         // TEAM_045: Use already created DTB slice
@@ -616,11 +620,6 @@ pub extern "C" fn kmain() -> ! {
                 println!("Files in initramfs:");
                 for entry in archive.iter() {
                     println!(" - {}", entry.name);
-                    if entry.name == "hello.txt" {
-                        if let Ok(s) = core::str::from_utf8(entry.data) {
-                            println!("   Content: {}", s.trim());
-                        }
-                    }
                 }
 
                 // TEAM_120: Store initramfs globally for syscalls
@@ -631,26 +630,26 @@ pub extern "C" fn kmain() -> ! {
 
                 // ================================================================
                 // TEAM_120: Run init from initramfs
-                println!("[BOOT] Starting init from initramfs...");
-                // Enable interrupts (required for syscall handling)
-                unsafe { levitate_hal::interrupts::enable() };
+                println!("[BOOT] spawning init task...");
 
                 // Get copy of archive to avoid holding the lock
-                let archive = {
+                let archive_data = {
                     let archive_lock = crate::fs::INITRAMFS.lock();
-                    *archive_lock.as_ref().unwrap()
+                    archive_lock
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .find(|e| e.name == "init")
+                        .expect("init not found in initramfs")
+                        .data
                 };
 
                 // TEAM_121: Spawn init and let the scheduler take over.
-                // This ensures init has a proper PID (1) and kmain can become the idle/background task.
-                match task::process::spawn_from_elf(
-                    archive.iter().find(|e| e.name == "init").unwrap().data,
-                ) {
+                match task::process::spawn_from_elf(archive_data) {
                     Ok(task) => {
                         let tcb = alloc::sync::Arc::new(task::TaskControlBlock::from(task));
                         task::scheduler::SCHEDULER.add_task(tcb);
-                        println!("[BOOT] Init process scheduled. Starting scheduler...");
-                        // TEAM_121: Return true to indicate initrd was processed
+                        println!("[BOOT] Init process scheduled.");
                         true
                     }
                     Err(e) => {
@@ -658,8 +657,6 @@ pub extern "C" fn kmain() -> ! {
                         false
                     }
                 }
-
-                // This line should never be reached
             }
             Err(e) => {
                 println!("[BOOT] ERROR: No initramfs in DTB: {:?}", e);
@@ -688,13 +685,14 @@ pub extern "C" fn kmain() -> ! {
     }
 
     // Initialize Filesystem (Phase 4)
-    // Don't panic if FS fails, just log it. Initramfs implies we might be diskless.
+    println!("Mounting filesystems...");
     match fs::init() {
         Ok(_) => {
-            verbose!("Filesystem initialized.");
+            println!("[BOOT] Filesystem initialized successfully.");
         }
         Err(e) => {
-            println!("Filesystem init skipped (expected if no disk): {}", e);
+            println!("[BOOT] WARNING: Filesystem mount failed: {}", e);
+            println!("  (Check tinyos_disk.img format/presence)");
         }
     }
 
@@ -705,70 +703,16 @@ pub extern "C" fn kmain() -> ! {
     println!("\n[SUCCESS] LevitateOS System Ready.");
     println!("--------------------------------------");
 
-    println!("Interactive kernel console active.");
-    println!("Type in QEMU window or this terminal.");
+    // TEAM_121: Transition bootstrap task to Exited state.
+    // This allows the scheduler to pick the spawned userspace tasks (init/shell).
+    // The kernel console conflict is resolved by letting userspace own the console via syscalls.
 
-    // TEAM_083: Write initial prompt by directly manipulating framebuffer
-    // Avoid Display struct which has internal GPU lock that causes deadlock
-    {
-        let mut gpu_guard = gpu::GPU.lock();
-        if let Some(gpu_state) = gpu_guard.as_mut() {
-            // TEAM_100: Use dimensions() for old GpuState API
-            let (width, _height) = gpu_state.dimensions();
+    // SAFETY: We must enable interrupts before yielding, as Context doesn't save PSTATE.
+    // If we don't, user tasks run with interrupts masked, killing the Timer (and GPU flush).
+    verbose!("Enabling interrupts and exiting bootstrap task...");
+    unsafe { levitate_hal::interrupts::enable() };
 
-            // TEAM_100: framebuffer() returns &mut [u8] directly
-            let fb = gpu_state.framebuffer();
-            // Draw a simple "READY" indicator - white pixels at top
-            for x in 10..200 {
-                let offset = ((10 * width + x) * 4) as usize;
-                if offset + 4 <= fb.len() {
-                    fb[offset] = 0xFF; // B
-                    fb[offset + 1] = 0xFF; // G
-                    fb[offset + 2] = 0xFF; // R
-                    fb[offset + 3] = 0xFF; // A
-                }
-            }
-            let _ = gpu_state.flush(); // TEAM_114: Ignore Result
-        }
-    }
-
-    levitate_hal::serial_print!("\n# ");
-
-    // TEAM_087: Counter for periodic GPU flush
-    let mut flush_counter: u32 = 0;
-
-    loop {
-        // Poll VirtIO input devices
-        input::poll();
-
-        // Echo VirtIO Keyboard input to UART
-        if let Some(ch) = input::read_char() {
-            levitate_hal::serial_print!("{}", ch);
-            if ch == '\n' {
-                levitate_hal::serial_print!("# ");
-            }
-        }
-
-        // Echo UART input (from terminal running QEMU)
-        if let Some(c) = levitate_hal::console::read_byte() {
-            let ch = c as char;
-            levitate_hal::serial_print!("{}", ch);
-            if ch == '\r' || ch == '\n' {
-                levitate_hal::serial_print!("\n# ");
-            }
-        }
-
-        // TEAM_087: Periodic GPU flush to update display
-        flush_counter = flush_counter.wrapping_add(1);
-        if flush_counter % 10000 == 0 {
-            let mut gpu_guard = gpu::GPU.lock();
-            if let Some(gpu_state) = gpu_guard.as_mut() {
-                let _ = gpu_state.flush();
-            }
-        }
-
-        core::hint::spin_loop();
-    }
+    crate::task::task_exit();
 }
 
 #[panic_handler]

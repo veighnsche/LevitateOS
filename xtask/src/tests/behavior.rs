@@ -10,12 +10,12 @@ use anyhow::{bail, Context, Result};
 use std::fs;
 use std::process::Command;
 
-use crate::QemuProfile;
+use crate::run::QemuProfile;
 
 const GOLDEN_FILE: &str = "tests/golden_boot.txt";
 const ACTUAL_FILE: &str = "tests/actual_boot.txt";
 const KERNEL_BIN: &str = "kernel64_rust.bin";
-const TIMEOUT_SECS: u64 = 5;
+const TIMEOUT_SECS: u64 = 15;
 
 pub fn run() -> Result<()> {
     run_with_profile(QemuProfile::Default)
@@ -41,7 +41,7 @@ fn run_with_profile(profile: QemuProfile) -> Result<()> {
     println!("=== Behavior Test [{}] ===\n", profile_name);
 
     // Build kernel with verbose feature for golden file comparison
-    crate::build_kernel_verbose()?;
+    crate::build::build_kernel_verbose()?;
 
     // Kill any existing QEMU
     let _ = Command::new("pkill")

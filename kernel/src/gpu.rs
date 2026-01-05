@@ -37,6 +37,7 @@ impl GpuState {
     }
 }
 
+// TEAM_122: Use IrqSafeLock to prevent deadlocks between input::poll and ISR prints
 pub static GPU: IrqSafeLock<Option<GpuState>> = IrqSafeLock::new(None);
 
 /// Initialize GPU via PCI transport
@@ -87,11 +88,7 @@ impl<'a> DrawTarget for Display<'a> {
         let fb = self.state.framebuffer();
 
         for Pixel(point, color) in pixels {
-            if point.x >= 0
-                && point.x < width as i32
-                && point.y >= 0
-                && point.y < height as i32
-            {
+            if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32 {
                 let idx = (point.y as usize * width as usize + point.x as usize) * 4;
                 if idx + 3 < fb.len() {
                     fb[idx] = color.b();

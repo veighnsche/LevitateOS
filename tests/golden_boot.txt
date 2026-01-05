@@ -8,6 +8,17 @@ Detected GIC version: V2
 Buddy Allocator initialized with DTB memory map.
 Core drivers initialized.
 Timer initialized.
+[BOOT] Stage 3: Boot Console (DXE)
+[GPU] Initializing via PCI...
+[PCI] Scanning Bus 0 for GPU...
+[PCI] Found VirtIO GPU at 00:01.0
+[PCI] PciTransport created successfully
+[GPU] Resolution: 1280x800
+[GPU] Initialized via PCI transport
+GPU initialized successfully.
+[TERM] GPU resolution: 1280x800
+[TERM] Terminal::new(1280x800) -> 128x36 chars (font 10x20, spacing 2)
+Terminal initialized.
 [BOOT] Stage 4: Discovery & FS (DXE/BDS)
 Scanning VirtIO MMIO bus...
 Initializing Block device...
@@ -24,36 +35,44 @@ Initramfs found at 0x48000000 - 0x48026400 (156672 bytes)
 Files in initramfs:
  - .
  - hello.txt
-   Content: Hello from initramfs!
  - test.txt
  - shell
  - init
-[BOOT] Starting init from initramfs...
-[SPAWN] Parsing ELF header... data len 75592
+[BOOT] spawning init task...
+[SPAWN] Parsing ELF header (75520 bytes)...
+ELF Header e_ident on stack at 0xffff8000400cb4d0
+[SPAWN] ELF parsed.
+[SPAWN] Creating user page table...
 [MMU] Creating user page table...
 [MMU] Allocated L0 table at phys 0x48027000
 [MMU] Zeroing L0 table at va 0xffff800048027000
+[SPAWN] Loading segments...
 [ELF] Copying segment: src[0]=ff to VA 10000
 [ELF] Resolved PA 48028000 -> Kernel VA ffff800048028000
-[ELF] Copying segment: src[0]=0 to VA 11378
-[ELF] Resolved PA 4802c378 -> Kernel VA ffff80004802c378
-[SPAWN] Created user process PID=1 entry=0x10000 sp=0x7fffffff0000
-[SPAWN] Starting user process...
+[ELF] Copying segment: src[0]=0 to VA 11398
+[ELF] Resolved PA 4802c398 -> Kernel VA ffff80004802c398
+[SPAWN] Setting up stack...
+[SPAWN] Success: PID=1 entry=0x10000 sp=0x7fffffff0000
+[BOOT] Init process scheduled.
+Mounting filesystems...
+FAT32 mounted. Root contains 0 entries.
+[BOOT] Filesystem initialized successfully.
+[TASK] Entering user task PID=1 at 0x10000
 [INIT] PID 1 starting...
 [INIT] Spawning shell...
 [SYSCALL] spawn('shell')
-[SPAWN] Parsing ELF header... data len 80160
+[SPAWN] Parsing ELF header (80160 bytes)...
+ELF Header e_ident on stack at 0xffff8000404dcec0
+[SPAWN] ELF parsed.
+[SPAWN] Creating user page table...
 [MMU] Creating user page table...
 [MMU] Allocated L0 table at phys 0x48040000
 [MMU] Zeroing L0 table at va 0xffff800048040000
+[SPAWN] Loading segments...
 [ELF] Copying segment: src[0]=ff to VA 10000
 [ELF] Resolved PA 48041000 -> Kernel VA ffff800048041000
 [ELF] Copying segment: src[0]=c0 to VA 11f30
 [ELF] Resolved PA 48045f30 -> Kernel VA ffff800048045f30
-[SPAWN] Created user process PID=2 entry=0x10000 sp=0x7fffffff0000
-[TASK] Entering user task PID=2 at 0x10000
-
-LevitateOS Shell (lsh) v0.1
-Type 'help' for commands.
-
-# 
+[SPAWN] Setting up stack...
+[SPAWN] Success: PID=2 entry=0x10000 sp=0x7fffffff0000
+[INIT] Shell spawned as PID 2

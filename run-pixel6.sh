@@ -48,11 +48,8 @@ aarch64-linux-gnu-objcopy -O binary "$ELF" "$BIN"
 
 echo "Launching QEMU (Pixel 6 profile)..."
 # Ensure disk image exists
-if [ ! -f tinyos_disk.img ]; then
-    echo "💿 Creating default 16MB FAT32 disk image (tinyos_disk.img)..."
-    dd if=/dev/zero of=tinyos_disk.img bs=1M count=16
-    mkfs.vfat -F 32 -n LEVITATE tinyos_disk.img
-fi
+# TEAM_121: Use xtask to ensure disk image is correctly partitioned and populated
+cargo xtask build
 
 qemu-system-aarch64 \
     -M "$QEMU_MACHINE" \

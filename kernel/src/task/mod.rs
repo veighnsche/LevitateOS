@@ -115,10 +115,16 @@ pub fn switch_to(new_task: Arc<TaskControlBlock>) {
         let old_ctx = &old_task.context as *const Context as *mut Context;
         let new_ctx = &new_task.context as *const Context;
 
+        // TEAM_127: Fix Race Condition - Interrupts MUST be disabled during context switch
+        // to prevent recursive scheduling or state corruption.
+        let flags = levitate_hal::interrupts::disable();
+
         // Update current task pointer
         set_current_task(new_task);
 
         cpu_switch_to(old_ctx, new_ctx);
+
+        levitate_hal::interrupts::restore(flags);
     }
 }
 

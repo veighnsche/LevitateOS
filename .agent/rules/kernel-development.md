@@ -1,7 +1,5 @@
 ---
 trigger: always_on
-glob:
-description:
 ---
 
 # Rust Kernel Development SOP
@@ -178,34 +176,3 @@ description:
 * **Tight Coupling:** Avoid hardware or software dependencies that force specific versions of unrelated components.
 * **The "Clever" Code (The Rule of Clarity):** Clarity is better than cleverness. If the logic relies on obscure Rust tricks that are hard to explain, rewrite it for clarity.
 * **Feature Creep:** Keep drivers focused on hardware abstraction, not policy or unrelated features.
-
-## VI. Enforcement (The Rule of Automation)
-
-The rules defined in this SOP are not merely suggestions; they are enforced by the compiler and CI pipeline to ensure high-fidelity adherence to the Unix-Rust philosophy.
-
-### 23. Automated Linting
-
-* **Workspace Lints:** The root `Cargo.toml` defines a global lint suite under `[workspace.lints]` which all crates must inherit.
-* **Safety Enforcement (Rule 5):**
-  - `unsafe_code = "deny"`: Prevents unauthorized `unsafe` usage.
-  - `missing_safety_doc = "deny"`: Mandates documentation for every safety-critical block.
-* **Robustness Enforcement (Rule 6):**
-  - `unwrap_used = "deny"`, `expect_used = "deny"`, `panic = "deny"`: Forces explicit error handling via `Result`.
-* **Representation Enforcement (Rule 13):**
-  - `match_same_arms = "deny"`: Enforces clean and distinct representation logic.
-* **Economy Enforcement (Rule 21):**
-  - `clippy::pedantic` suite: Enforces highly efficient and idiomatic Rust patterns.
-
-### 24. Continuous Verification
-
-* **Pre-commit Checks:** All developers should run `cargo clippy` and `cargo test` locally before submitting code.
-* **CI Enforcement:** Every pull request is automatically checked for lint violations and behavioral regressions using `cargo xtask test`.
-
-### 25. Unified Testing Interface (The Rule of QA Ergonomics)
-
-* **Guideline:** Never fracture the testing experience. A single command must be capable of running ALL tests (Unit + Behavior + Integration + Regression).
-* **Reasoning:** Functional fragmentation leads to "forgotten" tests and regressions. If a developer has to remember to run `cargo xtask test-special-feature`, they will forget.
-* **Implementation:**
-  - `cargo xtask test` (no args) **MUST** run the complete superset of all test suites.
-  - New test profiles (e.g., GICv3) must be added to the default `run()` flow.
-  - Warning on minor mismatches (like golden logs) is preferred over excluding the test entirely.

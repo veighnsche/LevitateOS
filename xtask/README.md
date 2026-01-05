@@ -27,7 +27,7 @@ xtask/src/
 ### Build
 
 ```bash
-cargo xtask build
+cargo xtask build all
 ```
 
 Builds the kernel in release mode for `aarch64-unknown-none` target.
@@ -35,7 +35,7 @@ Builds the kernel in release mode for `aarch64-unknown-none` target.
 ### Run
 
 ```bash
-cargo xtask run
+cargo xtask run default
 ```
 
 Builds and runs in QEMU with default profile (512MB RAM, 1 core, cortex-a53).
@@ -43,7 +43,7 @@ Builds and runs in QEMU with default profile (512MB RAM, 1 core, cortex-a53).
 ### Run with Pixel 6 Profile
 
 ```bash
-cargo xtask run-pixel6
+cargo xtask run pixel6
 ```
 
 Builds and runs with Pixel 6 hardware approximation:
@@ -126,8 +126,8 @@ All profiles include:
 
 ```bash
 # From project root
-cargo xtask build
-cargo xtask run
+cargo xtask build all
+cargo xtask run default
 cargo xtask test
 
 # From xtask directory (automatically detects project root)
