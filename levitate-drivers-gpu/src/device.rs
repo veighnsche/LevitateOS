@@ -28,6 +28,7 @@ const QUEUE_SIZE: usize = 16;
 
 /// VirtIO GPU device with full transport integration.
 /// TEAM_106: VirtQueue allocated via HAL's dma_alloc for DMA-safe memory.
+/// TEAM_109: Command buffers also DMA-allocated for device access.
 pub struct VirtioGpu<H: VirtioHal> {
     /// MMIO transport for device registers
     transport: MmioTransport,
@@ -38,6 +39,12 @@ pub struct VirtioGpu<H: VirtioHal> {
     control_queue_paddr: u64,
     /// Control queue allocation size in pages
     control_queue_pages: usize,
+    /// TEAM_109: DMA-allocated send buffer for commands
+    cmd_buf_ptr: NonNull<u8>,
+    cmd_buf_paddr: u64,
+    /// TEAM_109: DMA-allocated receive buffer for responses  
+    resp_buf_ptr: NonNull<u8>,
+    resp_buf_paddr: u64,
     /// Protocol state machine driver
     driver: GpuDriver,
     /// Framebuffer physical address
@@ -127,6 +134,11 @@ impl<H: VirtioHal> VirtioGpu<H> {
         let control_queue_pages = levitate_virtio::pages_for(queue_size);
         let (control_queue_paddr, queue_vptr) = H::dma_alloc(control_queue_pages, BufferDirection::Both);
 
+        // TEAM_109: Allocate DMA buffers for commands and responses
+        // Device needs to DMA read commands and DMA write responses - regular heap won't work!
+        let (cmd_buf_paddr, cmd_buf_ptr) = H::dma_alloc(1, BufferDirection::DriverToDevice);
+        let (resp_buf_paddr, resp_buf_ptr) = H::dma_alloc(1, BufferDirection::DeviceToDriver);
+
         // Initialize queue in DMA memory
         let control_queue_ptr = unsafe {
             let ptr = queue_vptr.as_ptr() as *mut VirtQueue<QUEUE_SIZE>;
@@ -148,6 +160,12 @@ impl<H: VirtioHal> VirtioGpu<H> {
         let avail_paddr = H::virt_to_phys(avail_vaddr);
         let used_paddr = H::virt_to_phys(used_vaddr);
         
+        // TEAM_109: Debug - trace queue addresses
+        levitate_hal::serial_println!("[GPU-DBG] Queue setup:");
+        levitate_hal::serial_println!("[GPU-DBG]   desc:  v={:#x} p={:#x}", desc_vaddr, desc_paddr);
+        levitate_hal::serial_println!("[GPU-DBG]   avail: v={:#x} p={:#x}", avail_vaddr, avail_paddr);
+        levitate_hal::serial_println!("[GPU-DBG]   used:  v={:#x} p={:#x}", used_vaddr, used_paddr);
+        
         transport.queue_set(
             CONTROLQ,
             QUEUE_SIZE as u16,
@@ -168,6 +186,10 @@ impl<H: VirtioHal> VirtioGpu<H> {
             control_queue_ptr,
             control_queue_paddr,
             control_queue_pages,
+            cmd_buf_ptr,
+            cmd_buf_paddr,
+            resp_buf_ptr,
+            resp_buf_paddr,
             driver,
             fb_paddr: 0,
             fb_ptr: None,
@@ -283,31 +305,61 @@ impl<H: VirtioHal> VirtioGpu<H> {
     }
 
     /// Send a command and wait for response.
+    /// TEAM_109: Uses DMA-allocated buffers - device can't DMA to/from regular heap!
     fn send_command(&mut self, cmd: &[u8], resp_size: usize) -> Result<alloc::vec::Vec<u8>, GpuError> {
         extern crate alloc;
         use alloc::vec;
+        use levitate_virtio::PAGE_SIZE;
 
-        // Allocate response buffer
-        let mut resp = vec![0u8; resp_size];
+        // Validate sizes fit in our DMA buffers
+        if cmd.len() > PAGE_SIZE || resp_size > PAGE_SIZE {
+            return Err(GpuError::TransportError);
+        }
 
-        // TEAM_106: Add to virtqueue with physical address translation
+        // TEAM_109: Copy command to DMA buffer
+        let cmd_buf = unsafe {
+            core::slice::from_raw_parts_mut(self.cmd_buf_ptr.as_ptr(), PAGE_SIZE)
+        };
+        cmd_buf[..cmd.len()].copy_from_slice(cmd);
+
+        // TEAM_109: Zero the response DMA buffer
+        let resp_buf = unsafe {
+            core::slice::from_raw_parts_mut(self.resp_buf_ptr.as_ptr(), PAGE_SIZE)
+        };
+        resp_buf[..resp_size].fill(0);
+
+        // TEAM_109: Use physical addresses of DMA buffers directly
+        let cmd_slice = &cmd_buf[..cmd.len()];
+        let resp_slice = &mut resp_buf[..resp_size];
+
+        // TEAM_109: Debug - trace addresses
+        let cmd_vaddr = cmd_slice.as_ptr() as usize;
+        let cmd_paddr = H::virt_to_phys(cmd_vaddr);
+        let resp_vaddr = resp_slice.as_ptr() as usize;
+        let resp_paddr = H::virt_to_phys(resp_vaddr);
+        levitate_hal::serial_println!("[GPU-DBG] cmd: v={:#x} p={:#x} len={}", cmd_vaddr, cmd_paddr, cmd.len());
+        levitate_hal::serial_println!("[GPU-DBG] resp: v={:#x} p={:#x} len={}", resp_vaddr, resp_paddr, resp_size);
+
         let _head = self.control_queue()
-            .add_buffer(&[cmd], &mut [resp.as_mut_slice()], H::virt_to_phys)
+            .add_buffer(&[cmd_slice], &mut [resp_slice], H::virt_to_phys)
             .map_err(|e| match e {
                 VirtQueueError::QueueFull => GpuError::TransportError,
                 _ => GpuError::TransportError,
             })?;
 
+        levitate_hal::serial_println!("[GPU-DBG] Buffer added, notifying device...");
+
         // Notify device
         self.transport.queue_notify(CONTROLQ);
 
         // Poll for completion (busy wait)
-        // In a real async implementation, we'd use interrupts
         let mut timeout = 1_000_000u32;
         while !self.control_queue().has_used() && timeout > 0 {
             timeout -= 1;
             core::hint::spin_loop();
         }
+
+        levitate_hal::serial_println!("[GPU-DBG] Wait done, timeout remaining: {}", timeout);
 
         if timeout == 0 {
             return Err(GpuError::Timeout);
@@ -316,7 +368,10 @@ impl<H: VirtioHal> VirtioGpu<H> {
         // Pop the used buffer
         let _ = self.control_queue().pop_used();
 
-        Ok(resp)
+        // TEAM_109: Copy response from DMA buffer to returned Vec
+        let mut result = vec![0u8; resp_size];
+        result.copy_from_slice(&resp_buf[..resp_size]);
+        Ok(result)
     }
 }
 
@@ -332,6 +387,12 @@ impl<H: VirtioHal> Drop for VirtioGpu<H> {
                 self.control_queue_ptr.cast(),
                 self.control_queue_pages,
             );
+        }
+
+        // TEAM_109: Deallocate DMA command/response buffers
+        unsafe {
+            H::dma_dealloc(self.cmd_buf_paddr, self.cmd_buf_ptr, 1);
+            H::dma_dealloc(self.resp_buf_paddr, self.resp_buf_ptr, 1);
         }
 
         // Free framebuffer if allocated

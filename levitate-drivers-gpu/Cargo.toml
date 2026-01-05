@@ -8,6 +8,8 @@ description = "VirtIO GPU driver for LevitateOS"
 [dependencies]
 # TEAM_103: Enable hal-impl feature to get LevitateVirtioHal
 levitate-virtio = { path = "../levitate-virtio", features = ["hal-impl"] }
+# TEAM_109: Added for debug output
+levitate-hal = { path = "../levitate-hal" }
 bitflags = "2.10.0"
 embedded-graphics = "0.8.1"
 

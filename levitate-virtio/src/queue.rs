@@ -1,8 +1,21 @@
 //! VirtQueue implementation for VirtIO devices.
 //!
 //! TEAM_098: Created as part of VirtIO GPU refactor.
+//! TEAM_109: Added event fields, padding, volatile writes, DSB barrier.
+//!           Still has issues - see docs/VIRTIO_IMPLEMENTATION.md for details.
 //!
 //! This module provides a split virtqueue implementation per VirtIO 1.1 spec section 2.6.
+//!
+//! # Known Issues (TEAM_109)
+//!
+//! This implementation differs architecturally from virtio-drivers:
+//! - We embed all data in one struct; virtio-drivers uses separate DMA regions
+//! - We write directly; virtio-drivers uses shadow descriptors
+//! - We use volatile u16; virtio-drivers uses AtomicU16
+//!
+//! These differences may cause the device to not respond. If you're debugging
+//! timeout issues, consider refactoring to match virtio-drivers' architecture.
+//! See `.teams/TEAM_109_fix_gpu_driver_no_fallback.md` for investigation details.
 
 use bitflags::bitflags;
 use core::sync::atomic::{fence, Ordering};
@@ -77,13 +90,21 @@ pub struct VirtQueue<const SIZE: usize> {
     avail_idx: u16,
     /// Available ring entries.
     avail_ring: [u16; SIZE],
+    /// TEAM_109: used_event field per VirtIO spec (even if EVENT_IDX not negotiated)
+    used_event: u16,
+    /// TEAM_109: Padding to ensure used ring is 4-byte aligned per VirtIO spec 2.6
+    /// The used ring MUST be 4-byte aligned, but after avail ring (2-byte aligned fields)
+    /// we may be at a 2-byte boundary. This padding ensures proper alignment.
+    _padding: u16,
     /// Used ring flags.
     used_flags: u16,
     /// Used ring index (next entry to read).
     used_idx: u16,
     /// Used ring entries.
     used_ring: [UsedRingEntry; SIZE],
-    /// Free descriptor head.
+    /// TEAM_109: avail_event field per VirtIO spec (even if EVENT_IDX not negotiated)
+    avail_event: u16,
+    /// Free descriptor head (local driver state, not accessed by device).
     free_head: u16,
     /// Number of free descriptors.
     num_free: u16,
@@ -111,9 +132,12 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
             avail_flags: 0,
             avail_idx: 0,
             avail_ring: [0; SIZE],
+            used_event: 0,
+            _padding: 0,
             used_flags: 0,
             used_idx: 0,
             used_ring: [UsedRingEntry { id: 0, len: 0 }; SIZE],
+            avail_event: 0,
             free_head: 0,
             num_free: SIZE as u16,
             last_used_idx: 0,
@@ -162,36 +186,44 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
         let mut desc_idx = head;
 
         // Add input buffers (device reads)
+        // TEAM_109: Use volatile writes - device reads descriptors via DMA
         for (i, input) in inputs.iter().enumerate() {
-            let desc = &mut self.descriptors[desc_idx as usize];
+            let desc_ptr = &mut self.descriptors[desc_idx as usize] as *mut Descriptor;
+            let next_idx = unsafe { (*desc_ptr).next };
             // TEAM_100: Convert virtual address to physical for DMA
-            desc.addr = virt_to_phys(input.as_ptr() as usize) as u64;
-            desc.len = input.len() as u32;
-            desc.flags = if i + 1 < total {
-                DescriptorFlags::NEXT.bits()
-            } else {
-                0
-            };
+            unsafe {
+                core::ptr::write_volatile(&mut (*desc_ptr).addr, virt_to_phys(input.as_ptr() as usize) as u64);
+                core::ptr::write_volatile(&mut (*desc_ptr).len, input.len() as u32);
+                core::ptr::write_volatile(&mut (*desc_ptr).flags, if i + 1 < total {
+                    DescriptorFlags::NEXT.bits()
+                } else {
+                    0
+                });
+            }
             if i + 1 < total {
-                desc_idx = desc.next;
+                desc_idx = next_idx;
             }
         }
 
         // Add output buffers (device writes)
+        // TEAM_109: Use volatile writes - device reads descriptors via DMA
         let output_count = outputs.len();
         for (i, output) in outputs.iter_mut().enumerate() {
-            let desc = &mut self.descriptors[desc_idx as usize];
+            let desc_ptr = &mut self.descriptors[desc_idx as usize] as *mut Descriptor;
+            let next_idx = unsafe { (*desc_ptr).next };
             // TEAM_100: Convert virtual address to physical for DMA
-            desc.addr = virt_to_phys(output.as_ptr() as usize) as u64;
-            desc.len = output.len() as u32;
             let is_last = i + 1 == output_count;
-            desc.flags = if is_last {
-                DescriptorFlags::WRITE.bits()
-            } else {
-                DescriptorFlags::WRITE.bits() | DescriptorFlags::NEXT.bits()
-            };
+            unsafe {
+                core::ptr::write_volatile(&mut (*desc_ptr).addr, virt_to_phys(output.as_ptr() as usize) as u64);
+                core::ptr::write_volatile(&mut (*desc_ptr).len, output.len() as u32);
+                core::ptr::write_volatile(&mut (*desc_ptr).flags, if is_last {
+                    DescriptorFlags::WRITE.bits()
+                } else {
+                    DescriptorFlags::WRITE.bits() | DescriptorFlags::NEXT.bits()
+                });
+            }
             if !is_last {
-                desc_idx = desc.next;
+                desc_idx = next_idx;
             }
         }
 
@@ -200,8 +232,11 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
         self.num_free -= total as u16;
 
         // Add to available ring
+        // TEAM_109: Volatile write - device reads avail_ring via DMA
         let avail_slot = (self.avail_idx as usize) % SIZE;
-        self.avail_ring[avail_slot] = head;
+        unsafe {
+            core::ptr::write_volatile(&mut self.avail_ring[avail_slot], head);
+        }
 
         // Memory barrier before updating index
         fence(Ordering::SeqCst);
@@ -210,6 +245,14 @@ impl<const SIZE: usize> VirtQueue<SIZE> {
         let new_idx = self.avail_idx.wrapping_add(1);
         unsafe {
             core::ptr::write_volatile(&mut self.avail_idx as *mut u16, new_idx);
+        }
+
+        // TEAM_109: ARM DSB to ensure writes are visible to device
+        // The fence above orders CPU memory accesses, but DSB ensures
+        // completion of all memory writes before device sees them via DMA.
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            core::arch::asm!("dsb sy", options(nostack, preserves_flags));
         }
 
         Ok(head)

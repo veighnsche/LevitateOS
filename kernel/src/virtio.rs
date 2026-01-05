@@ -4,6 +4,16 @@
 //! - PhysAddr is now u64 (not usize)
 //! - MmioTransport::new() requires mmio_size argument
 //! - MmioTransport has lifetime parameter
+//!
+//! # ⚠️ WARNING: GPU INITIALIZATION IS BROKEN ⚠️
+//!
+//! The `init_gpu()` function below uses `levitate-gpu` which gives **FALSE POSITIVES**.
+//! The GPU driver initializes successfully but the display shows NOTHING.
+//!
+//! **DO NOT** think this code is correct just because tests pass.
+//! **DO NOT** revert to this approach when fixing levitate-drivers-gpu.
+//!
+//! The real fix is in `levitate-drivers-gpu` - see `docs/VIRTIO_IMPLEMENTATION.md`
 
 // Allow unwrap/panic in HAL trait impls - these are low-level allocators where
 // failure to allocate is unrecoverable (system cannot continue)

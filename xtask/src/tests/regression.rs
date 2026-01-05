@@ -74,6 +74,9 @@ pub fn run() -> Result<()> {
     test_gpu_error_handling(&mut results);
     test_boot_stage_enum(&mut results);
 
+    // TEAM_109: GPU Display Verification (catches false positives!)
+    test_gpu_display_actually_works(&mut results);
+
     println!();
     if results.summary() {
         println!("\n✅ All regression tests passed\n");
@@ -508,6 +511,77 @@ fn test_boot_stage_enum(results: &mut TestResults) {
         results.pass("transition_to() state machine helper exists");
     } else {
         results.fail("transition_to() function missing");
+    }
+}
+
+// =============================================================================
+// TEAM_109: GPU Display Verification (catches false positives!)
+// =============================================================================
+
+/// TEAM_109: Verify GPU actually displays something, not just initializes
+/// 
+/// ⚠️ THIS TEST IS EXPECTED TO FAIL until GPU is properly fixed!
+/// 
+/// The current `levitate-gpu` (virtio-drivers) gives FALSE POSITIVE tests:
+/// - Driver initializes without error
+/// - Serial output says "GPU initialized successfully"
+/// - BUT the QEMU display shows nothing / "Display output is not active"
+/// 
+/// This test catches that false positive by checking if the GPU driver
+/// actually implements the required VirtIO GPU scanout sequence.
+fn test_gpu_display_actually_works(results: &mut TestResults) {
+    println!("TEAM_109: GPU display ACTUALLY works (not false positive)");
+
+    // Check 1: levitate-gpu must implement SET_SCANOUT command
+    let levitate_gpu = fs::read_to_string("levitate-gpu/src/gpu.rs").unwrap_or_default();
+    
+    // The VirtIO GPU spec requires SET_SCANOUT to actually display anything.
+    // If this command isn't being sent, the display will be blank.
+    let has_set_scanout = levitate_gpu.contains("SET_SCANOUT") 
+        || levitate_gpu.contains("set_scanout")
+        || levitate_gpu.contains("VIRTIO_GPU_CMD_SET_SCANOUT");
+    
+    if has_set_scanout {
+        results.pass("levitate-gpu sends SET_SCANOUT command");
+    } else {
+        results.fail("levitate-gpu MISSING SET_SCANOUT - display will be blank!");
+    }
+
+    // Check 2: Must have RESOURCE_FLUSH for display updates
+    let has_flush = levitate_gpu.contains("RESOURCE_FLUSH")
+        || levitate_gpu.contains("resource_flush")
+        || levitate_gpu.contains("VIRTIO_GPU_CMD_RESOURCE_FLUSH");
+    
+    if has_flush {
+        results.pass("levitate-gpu sends RESOURCE_FLUSH command");
+    } else {
+        results.fail("levitate-gpu MISSING RESOURCE_FLUSH - display won't update!");
+    }
+
+    // Check 3: Kernel must actually call flush() after drawing
+    let kernel_gpu = fs::read_to_string("kernel/src/gpu.rs").unwrap_or_default();
+    let terminal_rs = fs::read_to_string("kernel/src/terminal.rs").unwrap_or_default();
+    
+    let kernel_flushes = kernel_gpu.contains(".flush()")
+        || terminal_rs.contains(".flush()")
+        || kernel_gpu.contains("flush().ok()");
+    
+    if kernel_flushes {
+        results.pass("Kernel calls flush() after drawing");
+    } else {
+        results.fail("Kernel NOT calling flush() - display won't update!");
+    }
+
+    // Check 4: Verify we're NOT silently swallowing GPU errors
+    // If GpuState::new() returns Ok but display doesn't work, that's a false positive
+    let swallows_errors = kernel_gpu.contains("Ok(())") 
+        && !kernel_gpu.contains("Err(")
+        && kernel_gpu.contains("fn init");
+    
+    if swallows_errors {
+        results.fail("GPU init may be swallowing errors (false positive risk)");
+    } else {
+        results.pass("GPU init propagates errors properly");
     }
 }
 
