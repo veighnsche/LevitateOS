@@ -25,13 +25,13 @@ pub fn write_str(s: &str) {
     // Lock GPU first, then terminal - consistent order prevents deadlock
     let mut gpu_guard = GPU.lock();
     let mut term_guard = GPU_TERMINAL.lock();
-    
+
     if let (Some(gpu_state), Some(term)) = (gpu_guard.as_mut(), term_guard.as_mut()) {
         // Copy dimensions before borrowing framebuffer
         let width = gpu_state.width;
         let height = gpu_state.height;
         let fb = gpu_state.framebuffer();
-        
+
         // Simple direct pixel writing for each character
         for c in s.chars() {
             // For now, just advance cursor and track position
@@ -52,19 +52,19 @@ pub fn write_str(s: &str) {
                     // Simple character rendering - draw a block for now
                     let x = term.cursor_col * 10; // FONT_WIDTH
                     let y = term.cursor_row * 22; // FONT_HEIGHT + spacing
-                    
+
                     // Draw character block (simplified - just marks position)
                     if x < width && y < height {
                         let offset = ((y * width + x) * 4) as usize;
                         if offset + 4 <= fb.len() {
                             // Draw white pixel to show something
-                            fb[offset] = 0xCC;     // B
+                            fb[offset] = 0xCC; // B
                             fb[offset + 1] = 0xCC; // G
                             fb[offset + 2] = 0xCC; // R
                             fb[offset + 3] = 0xFF; // A
                         }
                     }
-                    
+
                     term.cursor_col += 1;
                     if term.cursor_col >= term.cols {
                         term.cursor_col = 0;
@@ -74,12 +74,12 @@ pub fn write_str(s: &str) {
                 _ => {}
             }
         }
-        
-        // TEAM_087: Removed flush per-call - was causing performance issues
-        // Flush is batched or done by caller if needed
-        // if let Err(_) = gpu_state.gpu.flush() {
-        //     levitate_hal::serial_println!("[GPU] flush error");
-        // }
+
+        // TEAM_088 BREADCRUMB: CONFIRMED - This was root cause of "Display output is not active"
+        // Must flush after writing pixels to transfer to host
+        if let Err(_) = gpu_state.gpu.flush() {
+            levitate_hal::serial_println!("[GPU] flush error");
+        }
     }
 }
 
@@ -95,7 +95,7 @@ pub fn clear() {
     // TEAM_086: Lock GPU first, then terminal - consistent order prevents deadlock
     let mut gpu_guard = GPU.lock();
     let mut term_guard = GPU_TERMINAL.lock();
-    
+
     if let (Some(gpu_state), Some(term)) = (gpu_guard.as_mut(), term_guard.as_mut()) {
         term.clear(gpu_state);
         gpu_state.flush();
@@ -118,7 +118,7 @@ pub fn get_terminal() -> levitate_hal::IrqSafeLockGuard<'static, Option<Terminal
 pub fn check_blink() {
     let mut gpu_guard = GPU.lock();
     let mut term_guard = GPU_TERMINAL.lock();
-    
+
     if let (Some(gpu_state), Some(term)) = (gpu_guard.as_mut(), term_guard.as_mut()) {
         term.check_blink(gpu_state);
         gpu_state.flush();

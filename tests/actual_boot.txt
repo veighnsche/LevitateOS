@@ -13,9 +13,6 @@ Scanning VirtIO MMIO bus for GPU...
 GPU initialized successfully.
 [TERM] GPU resolution: 1280x800
 [TERM] Terminal::new(1280x800) -> 128x36 chars (font 10x20, spacing 2)
-[TERM] Terminal size: 128x36 characters
-[TERM] clear() - filling 1280x800 with bg color
-[TERM] clear() complete, cursor at (0, 0)
 Terminal initialized.
 [BOOT] Stage 4: Discovery & FS (DXE/BDS)
 Scanning VirtIO MMIO bus...
@@ -29,27 +26,18 @@ Initializing Input...
 VirtIO Input initialized successfully.
 BOOT_REGS: x0=48200000 x1=0 x2=0 x3=0
 Detecting Initramfs...
-Initramfs found at 0x48000000 - 0x48010800 (67584 bytes)
+Initramfs found at 0x48000000 - 0x48013200 (78336 bytes)
 Files in initramfs:
  - .
  - hello.txt
    Content: Hello from initramfs!
  - test.txt
  - hello
-[BOOT] TEAM_073: Hijacking boot for Userspace Demo...
-[SPAWN] Looking for 'hello' in initramfs...
-[SPAWN] Found 'hello' (66576 bytes)
-[SPAWN] Parsing ELF header... data len 66576
-ELF Header e_ident on stack at 0xffff8000400c3e50
-[MMU] Creating user page table...
-[MMU] Allocated L0 table at phys 0x48011000
-[MMU] Zeroing L0 table at va 0xffff800048011000
-[ELF] Copying segment: src[0]=20 to VA 10000
-[ELF] Resolved PA 48012000 -> Kernel VA ffff800048012000
-[ELF] Copying segment: src[0]=48 to VA 10040
-[ELF] Resolved PA 48012040 -> Kernel VA ffff800048012040
-[SPAWN] Created user process PID=1 entry=0x10000 sp=0x7fffffff0000
-[SPAWN] Starting user process...
-Hello from userspace!
-LevitateOS Phase 8: Userspace support working!
-[SYSCALL] exit(0)
+FAT32 mounted. Root contains 0 entries.
+Filesystem initialized.
+Interrupts enabled.
+
+[SUCCESS] LevitateOS System Ready.
+--------------------------------------
+Interactive kernel console active.
+Type in QEMU window or this terminal.
