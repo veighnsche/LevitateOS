@@ -34,7 +34,7 @@ pub fn init() {
 /// Mirror console output to the GPU terminal.
 /// Called via the secondary output callback in levitate-hal.
 /// TEAM_115: Changed from try_lock to lock to ensure output is never lost.
-/// Added explicit flush to make output immediately visible.
+/// TEAM_129: Added explicit flush after write to make output immediately visible.
 pub fn write_str(s: &str) {
     let mut term_guard = TERMINAL.lock();
     if let Some(term) = term_guard.as_mut() {
@@ -43,6 +43,9 @@ pub fn write_str(s: &str) {
             // TEAM_100: Use Display wrapper for DrawTarget
             let mut display = crate::gpu::Display::new(gpu_state);
             term.write_str(&mut display, s);
+            // TEAM_129: Flush GPU after every write to ensure output is visible
+            // The timer-based flush uses try_lock which fails when we hold the lock
+            let _ = gpu_state.flush();
         }
     }
 }

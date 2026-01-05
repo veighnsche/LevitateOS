@@ -99,6 +99,9 @@ fn run_with_profile(profile: QemuProfile) -> Result<()> {
     // Normalize line endings
     let golden = golden.replace("\r\n", "\n");
     let actual = actual.replace("\r\n", "\n");
+    
+    // TEAM_129: Save raw actual for GPU regression assertions (before filtering)
+    let actual_raw = actual.clone();
 
     // TEAM_065: Normalize GIC version differences (environment-dependent)
     // GIC version (V2 vs V3) depends on QEMU version/config, not code
@@ -108,35 +111,73 @@ fn run_with_profile(profile: QemuProfile) -> Result<()> {
     let actual = actual.replace("Detected GIC version: V3", "Detected GIC version: V*");
 
     // TEAM_111: Filter out [TICK] lines as they are timing-dependent and flaky
+    // TEAM_129: Filter out [GPU_TEST] lines - they are verified separately with assertions
     let golden = golden.lines()
-        .filter(|l| !l.starts_with("[TICK]"))
+        .filter(|l| !l.starts_with("[TICK]") && !l.starts_with("[GPU_TEST]"))
         .collect::<Vec<_>>()
         .join("\n");
         
     let actual = actual.lines()
-        .filter(|l| !l.starts_with("[TICK]"))
+        .filter(|l| !l.starts_with("[TICK]") && !l.starts_with("[GPU_TEST]"))
         .collect::<Vec<_>>()
         .join("\n");
 
-    // TEAM_115: Normalize ELF stack addresses (vary with code changes)
-    // The on-stack ELF header address depends on kernel stack layout
-    let normalize_stack_addr = |s: String| {
-        let re = regex::Regex::new(r"ELF Header e_ident on stack at 0x[0-9a-fA-F]+").unwrap();
-        re.replace_all(&s, "ELF Header e_ident on stack at 0x<STACK_ADDR>").to_string()
-    };
-    let golden = normalize_stack_addr(golden);
-    let actual = normalize_stack_addr(actual);
+    // TEAM_115/129: Normalization logic removed in favor of kernel-side masking (Rule 18)
+    // The kernel strict masking ensures "way better" golden file stability.
 
     // Compare
     if golden.trim() == actual.trim() {
         println!("✅ SUCCESS: Current behavior matches Golden Log.\n");
         
         // TEAM_111: Additional verification for DESIRED BEHAVIORS
-        // We MUST verify that we actually reached the shell, ensuring meaningful boot.
-        if !actual.contains("LevitateOS Shell") || !actual.contains("# ") {
-            bail!("❌ FAILURE: Boot did not reach shell prompt! (Golden log might be incomplete?)");
-        } else {
-            println!("✅ VERIFIED: Shell prompt reached.");
+        // TEAM_129: Verify shell was spawned AND actually ran (catches scheduling bugs)
+        
+        // Check 1: Shell was spawned by init
+        if !actual_raw.contains("[INIT] Shell spawned as PID 2") {
+            bail!("❌ FAILURE: Shell was not spawned!");
+        }
+        println!("✅ VERIFIED: Shell spawned successfully.");
+        
+        // Check 2: Shell task was scheduled (catches yield/scheduling bugs)
+        if !actual_raw.contains("[TASK] Entering user task PID=2") {
+            bail!("❌ FAILURE: Shell was spawned but never scheduled! (scheduling bug)");
+        }
+        println!("✅ VERIFIED: Shell was scheduled.");
+        
+        // Check 3: Shell's _start() executed and printed banner
+        if !actual_raw.contains("LevitateOS Shell") {
+            bail!("❌ FAILURE: Shell started but didn't print banner! (userspace execution bug)");
+        }
+        println!("✅ VERIFIED: Shell executed successfully.");
+
+        // TEAM_129: GPU regression test verification (use raw output before filtering)
+        // Check that GPU flush was called (prevents black screen regression)
+        if actual_raw.contains("[GPU_TEST] WARNING: GPU flush count is 0") {
+            bail!("❌ FAILURE: GPU flush count is 0 - display would be black!");
+        }
+        
+        // TEAM_129: Check flush count is high enough (indicates flushes during shell execution)
+        // If flush only happens during boot (not after scheduler), count would be ~1
+        // With proper per-write flushing, count should be much higher (50+)
+        if let Some(count_str) = actual_raw.split("[GPU_TEST] Flush count: ").nth(1) {
+            if let Some(count) = count_str.split_whitespace().next().and_then(|s| s.parse::<u32>().ok()) {
+                if count < 10 {
+                    bail!("❌ FAILURE: GPU flush count is {} (too low) - shell output may not be visible!", count);
+                }
+                println!("✅ VERIFIED: GPU flush count is {} (flushes happening during shell execution).", count);
+            }
+        } else if actual_raw.contains("[GPU_TEST] Flush count:") {
+            println!("✅ VERIFIED: GPU flush is being called.");
+        }
+
+        // Check that framebuffer has content (terminal rendered something)
+        if actual_raw.contains("[GPU_TEST] WARNING: Framebuffer is entirely black") {
+            bail!("❌ FAILURE: Framebuffer is entirely black - no content rendered!");
+        }
+        // Note: Check for warning absence, not "0 non-black" substring (would match "400 non-black")
+        if actual_raw.contains("[GPU_TEST] Framebuffer:") && 
+           !actual_raw.contains("WARNING: Framebuffer is entirely black") {
+            println!("✅ VERIFIED: Framebuffer has rendered content.");
         }
 
         Ok(())

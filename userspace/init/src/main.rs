@@ -7,7 +7,7 @@
 #![no_main]
 
 use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println, spawn};
+use libsyscall::{common_panic_handler, println, spawn, yield_cpu};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -30,11 +30,8 @@ pub extern "C" fn _start() -> ! {
     }
 
     // PID 1 must never exit
+    // TEAM_129: Yield to allow shell to run
     loop {
-        // In a real OS, we would wait for children here
-        // For now, just yield or loop
-        for _ in 0..1000000 {
-            core::hint::spin_loop();
-        }
+        yield_cpu();
     }
 }

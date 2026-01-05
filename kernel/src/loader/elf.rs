@@ -110,7 +110,7 @@ impl Elf64Header {
 
         // Manually parse fields to avoid alignment/pointer issues
         let e_ident: [u8; 16] = data[0..16].try_into().unwrap(); // Infallible due to size check
-        levitate_hal::println!("ELF Header e_ident on stack at {:p}", &e_ident);
+        levitate_hal::println!("ELF Header e_ident verified");
         let e_type = u16::from_le_bytes(data[16..18].try_into().unwrap());
         let e_machine = u16::from_le_bytes(data[18..20].try_into().unwrap());
         let e_version = u32::from_le_bytes(data[20..24].try_into().unwrap());
@@ -388,9 +388,7 @@ impl<'a> Elf<'a> {
 
                         if i == 0 {
                             levitate_hal::println!(
-                                "[ELF] Resolved PA {:x} -> Kernel VA {:x}",
-                                dst_phys,
-                                dst as usize
+                                "[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]"
                             );
                         }
 

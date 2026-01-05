@@ -329,7 +329,7 @@ impl gic::InterruptHandler for TimerHandler {
             verbose!("[TICK] count={}", count);
         }
 
-        /*
+        // TEAM_129: GPU flush was commented out, causing black screen
         if count % 5 == 0 {
             if let Some(mut guard) = gpu::GPU.try_lock() {
                 if let Some(gpu_state) = guard.as_mut() {
@@ -337,7 +337,6 @@ impl gic::InterruptHandler for TimerHandler {
                 }
             }
         }
-        */
 
         // TEAM_070: Preemptive scheduling
         crate::task::yield_now();
@@ -696,12 +695,36 @@ pub extern "C" fn kmain() -> ! {
         }
     }
 
-    // 6. Enable interrupts (moved back here to avoid early boot hangs)
-    unsafe { levitate_hal::interrupts::enable() };
-    verbose!("Interrupts enabled.");
+    // TEAM_129: GPU regression test verification (BEFORE interrupts enable to avoid preemption)
+    // These checks ensure the display pipeline is working (prevents black screen regression)
+    {
+        // Manually trigger one GPU flush to ensure framebuffer content is pushed
+        if let Some(mut guard) = gpu::GPU.try_lock() {
+            if let Some(gpu_state) = guard.as_mut() {
+                let _ = gpu_state.flush();
+            }
+        }
+        
+        let flush_count = gpu::flush_count();
+        verbose!("[GPU_TEST] Flush count: {}", flush_count);
+        if flush_count == 0 {
+            verbose!("[GPU_TEST] WARNING: GPU flush count is 0 - display may be black!");
+        }
+        
+        if let Some((_total, non_black)) = gpu::framebuffer_has_content() {
+            verbose!("[GPU_TEST] Framebuffer: {} non-black pixels of {} total", non_black, _total);
+            if non_black == 0 {
+                verbose!("[GPU_TEST] WARNING: Framebuffer is entirely black - no content rendered!");
+            }
+        }
+    }
 
     println!("\n[SUCCESS] LevitateOS System Ready.");
     println!("--------------------------------------");
+
+    // 6. Enable interrupts (moved back here to avoid early boot hangs)
+    unsafe { levitate_hal::interrupts::enable() };
+    verbose!("Interrupts enabled.");
 
     // TEAM_121: Transition bootstrap task to Exited state.
     // This allows the scheduler to pick the spawned userspace tasks (init/shell).

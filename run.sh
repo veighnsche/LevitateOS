@@ -24,7 +24,7 @@ qemu-system-aarch64 \
     -cpu cortex-a72 \
     -m 1G \
     -kernel "$BIN" \
-    -display gtk,zoom-to-fit=off \
+    -display sdl \
     -device virtio-gpu-pci,xres=1280,yres=800 \
     -device virtio-keyboard-device \
     -device virtio-tablet-device \

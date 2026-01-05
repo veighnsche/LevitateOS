@@ -22,6 +22,7 @@ pub const SYS_GETPID: u64 = 3;
 pub const SYS_SBRK: u64 = 4;
 pub const SYS_SPAWN: u64 = 5;
 pub const SYS_EXEC: u64 = 6;
+pub const SYS_YIELD: u64 = 7;
 
 // ============================================================================
 // Syscall Wrappers
@@ -168,6 +169,20 @@ pub fn exec(path: &str) -> isize {
         );
     }
     ret as isize
+}
+
+/// Yield CPU to other tasks.
+///
+/// TEAM_129: Added to allow cooperative scheduling.
+#[inline]
+pub fn yield_cpu() {
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_YIELD,
+            options(nostack)
+        );
+    }
 }
 
 // ============================================================================

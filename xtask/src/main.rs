@@ -33,6 +33,8 @@ enum Commands {
     Test(TestArgs),
     /// Clean up artifacts and QEMU locks
     Clean,
+    /// Kill any running QEMU instances
+    Kill,
 
     // === Groups ===
     #[command(subcommand)]
@@ -79,6 +81,9 @@ fn main() -> Result<()> {
         },
         Commands::Clean => {
             clean::clean()?;
+        },
+        Commands::Kill => {
+            clean::kill_qemu()?;
         },
         Commands::Build(cmd) => match cmd {
             build::BuildCommands::All => build::build_all()?,

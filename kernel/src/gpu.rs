@@ -5,6 +5,7 @@
 //! See: `docs/planning/virtio-pci/` for the implementation plan
 
 use levitate_hal::IrqSafeLock;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
@@ -25,6 +26,8 @@ unsafe impl Sync for GpuState {}
 
 impl GpuState {
     pub fn flush(&mut self) -> Result<(), GpuError> {
+        // TEAM_129: Increment flush counter for regression testing
+        FLUSH_COUNT.fetch_add(1, Ordering::Relaxed);
         self.inner.flush()
     }
 
@@ -39,6 +42,36 @@ impl GpuState {
 
 // TEAM_122: Use IrqSafeLock to prevent deadlocks between input::poll and ISR prints
 pub static GPU: IrqSafeLock<Option<GpuState>> = IrqSafeLock::new(None);
+
+// TEAM_129: Flush counter for regression testing - ensures GPU flush is actually called
+static FLUSH_COUNT: AtomicU32 = AtomicU32::new(0);
+
+/// Get the number of times GPU flush has been called (for testing)
+pub fn flush_count() -> u32 {
+    FLUSH_COUNT.load(Ordering::Relaxed)
+}
+
+/// TEAM_129: Check if framebuffer contains any non-black pixels (for regression testing)
+/// Returns (total_pixels, non_black_count) to verify terminal actually rendered content
+pub fn framebuffer_has_content() -> Option<(usize, usize)> {
+    let mut guard = GPU.lock();
+    if let Some(gpu_state) = guard.as_mut() {
+        let fb = gpu_state.framebuffer();
+        let total_pixels = fb.len() / 4; // BGRA format
+        let mut non_black = 0usize;
+        
+        // Sample every 100th pixel for performance (still catches any rendering)
+        for i in (0..fb.len()).step_by(400) { // 400 = 100 pixels * 4 bytes
+            // Check if R, G, or B is non-zero (index+2=R, index+1=G, index=B)
+            if i + 2 < fb.len() && (fb[i] != 0 || fb[i + 1] != 0 || fb[i + 2] != 0) {
+                non_black += 1;
+            }
+        }
+        Some((total_pixels, non_black * 100)) // Scale back up
+    } else {
+        None
+    }
+}
 
 /// Initialize GPU via PCI transport
 /// Note: mmio_base is ignored - we use PCI enumeration instead

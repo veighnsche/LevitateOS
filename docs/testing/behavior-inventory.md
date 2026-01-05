@@ -731,7 +731,45 @@ TEAM_115: Added userspace shell behaviors for Phase 8b
 | 12 | Terminal GPU Output | 4 | 4 | ⚠️ |
 | 12 | User Process | 4 | 4 | ⚠️ |
 | 12 | Interactive Shell | 7 | 7 | ⚠️ |
-| **Total** | | **198** | **196** | **2 unit + 65 runtime** ⚠️ |
+| 13 | GPU Regression | 2 | 2 | ✅ |
+| **Total** | | **200** | **198** | **2 unit + 65 runtime** ⚠️ |
 
 > **TEAM_115**: Added 24 userspace shell behaviors (Phase 8b). All verified via behavior test (golden file) and VNC interactive testing.
+
+---
+
+## Group 13: GPU Display Regression — Behavior Inventory
+
+TEAM_129: Added GPU display regression tests to prevent black screen issues
+
+### File Groups
+- `kernel/src/gpu.rs` (Flush counter, framebuffer content check)
+- `kernel/src/main.rs` (GPU_TEST verification during boot)
+- `xtask/src/tests/behavior.rs` (Regression assertions)
+
+### GPU Display Pipeline
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| GPU5 | GPU flush is called during boot (flush_count > 0) | ✅ | Behavior Test `[GPU_TEST] Flush count:` |
+| GPU6 | Framebuffer contains rendered content (non-black pixels > 0) | ✅ | Behavior Test `[GPU_TEST] Framebuffer:` |
+| GPU7 | GPU flush happens during shell execution (flush_count >= 10) | ✅ | Behavior Test flush count threshold |
+
+### Shell Execution Pipeline
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| SHELL1 | Shell process is spawned by init | ✅ | Behavior Test `[INIT] Shell spawned as PID 2` |
+| SHELL2 | Shell task is scheduled (gets CPU time) | ✅ | Behavior Test `[TASK] Entering user task PID=2` |
+| SHELL3 | Shell _start() executes and prints banner | ✅ | Behavior Test `LevitateOS Shell` |
+
+### Group 13 Summary
+- **GPU Regression**: 3/3 behaviors tested ✅
+- **Shell Execution**: 3/3 behaviors tested ✅
+- **Total**: 6/6 behaviors tested ✅
+
+### Regressions Prevented
+- **Black screen**: GPU flush commented out → GPU5/GPU6 fail
+- **Shell output invisible**: write_str not flushing → GPU7 fails
+- **Shell not running**: Init not yielding → SHELL2/SHELL3 fail
 

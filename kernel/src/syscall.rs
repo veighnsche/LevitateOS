@@ -46,6 +46,8 @@ pub enum SyscallNumber {
     Spawn = 5,
     /// Replace current process
     Exec = 6,
+    /// Yield CPU to other tasks
+    Yield = 7,
 }
 
 impl SyscallNumber {
@@ -59,6 +61,7 @@ impl SyscallNumber {
             4 => Some(Self::Sbrk),
             5 => Some(Self::Spawn),
             6 => Some(Self::Exec),
+            7 => Some(Self::Yield),
             _ => None,
         }
     }
@@ -168,6 +171,7 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg0() as usize, // path
             frame.arg1() as usize, // path_len
         ),
+        Some(SyscallNumber::Yield) => sys_yield(),
         None => {
             // TEAM_073: Unknown syscall - return ENOSYS (Rule 14: Fail Fast, but don't crash)
             println!("[SYSCALL] Unknown syscall number: {}", nr);
@@ -321,6 +325,12 @@ fn sys_sbrk(_increment: isize) -> i64 {
     // TODO(TEAM_073): Implement heap management
     println!("[SYSCALL] sbrk({}) - not implemented", _increment);
     errno::ENOSYS
+}
+
+/// TEAM_129: sys_yield - Voluntarily yield CPU to other tasks.
+fn sys_yield() -> i64 {
+    crate::task::yield_now();
+    0
 }
 
 /// TEAM_120: sys_spawn - Spawn a new process from initramfs.

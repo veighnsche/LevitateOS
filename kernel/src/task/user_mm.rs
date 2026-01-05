@@ -33,11 +33,11 @@ pub fn create_user_page_table() -> Option<usize> {
     // Allocate a page for L0 table
     let l0_phys = FRAME_ALLOCATOR.alloc_page()?;
 
-    levitate_hal::println!("[MMU] Allocated L0 table at phys 0x{:x}", l0_phys);
+    levitate_hal::println!("[MMU] Allocated L0 table at phys [MASKED]");
 
     // Zero the table
     let l0_va = mmu::phys_to_virt(l0_phys);
-    levitate_hal::println!("[MMU] Zeroing L0 table at va 0x{:x}", l0_va);
+    levitate_hal::println!("[MMU] Zeroing L0 table at va [MASKED]");
     let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
     l0.zero();
 
