@@ -21,6 +21,7 @@ levitate-hal/src/
 ├── interrupts.rs   # CPU interrupt enable/disable/restore
 ├── mmu.rs          # Memory Management Unit (page tables, mappings)
 ├── timer.rs        # AArch64 Generic Timer
+├── virtio.rs       # VirtIO HAL (VirtioHal, StaticMmioTransport)
 └── uart_pl011.rs   # PL011 UART driver
 ```
 
@@ -105,6 +106,13 @@ PL011 UART driver with interrupt-driven RX:
 - Bitflag types for register access (`FlagFlags`, `ControlFlags`, etc.)
 - `print!` / `println!` macros via `WRITER` static
 - RX ring buffer for interrupt-based input
+
+### VirtIO HAL (`virtio.rs`)
+
+Provides the backing implementation for `virtio-drivers` to interact with LevitateOS:
+
+- **VirtioHal**: Implements `Hal` trait for DMA allocation and address translation.
+- **StaticMmioTransport**: Type-alias for `MmioTransport<'static>`, used for fixed MMIO mappings.
 
 ## Features
 

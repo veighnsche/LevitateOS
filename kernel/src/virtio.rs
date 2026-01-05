@@ -12,67 +12,13 @@
 extern crate alloc;
 
 use core::ptr::NonNull;
+pub use levitate_hal::virtio::{StaticMmioTransport, VirtioHal};
 use virtio_drivers::transport::Transport;
-use virtio_drivers::{Hal, PhysAddr};
 
 // TEAM_078: Use high VA for VirtIO MMIO (accessible via TTBR1 regardless of TTBR0 state)
 pub const VIRTIO_MMIO_START: usize = levitate_hal::mmu::VIRTIO_MMIO_VA;
 pub const VIRTIO_MMIO_SIZE: usize = 0x200;
 pub const VIRTIO_MMIO_COUNT: usize = 32;
-
-pub struct VirtioHal;
-
-unsafe impl Hal for VirtioHal {
-    fn dma_alloc(
-        pages: usize,
-        _direction: virtio_drivers::BufferDirection,
-    ) -> (PhysAddr, NonNull<u8>) {
-        let layout = core::alloc::Layout::from_size_align(pages * 4096, 4096).unwrap();
-        let ptr = unsafe { alloc::alloc::alloc_zeroed(layout) };
-        if ptr.is_null() {
-            panic!("VirtIO DMA allocation failed");
-        }
-        let vaddr = ptr as usize;
-        let paddr = levitate_hal::mmu::virt_to_phys(vaddr);
-        // TEAM_032: PhysAddr is now u64
-        (paddr as u64, NonNull::new(ptr).unwrap())
-    }
-
-    unsafe fn dma_dealloc(paddr: PhysAddr, _vaddr: NonNull<u8>, pages: usize) -> i32 {
-        let layout = core::alloc::Layout::from_size_align(pages * 4096, 4096).unwrap();
-        // TEAM_032: PhysAddr is now u64, convert to usize
-        let vaddr = levitate_hal::mmu::phys_to_virt(paddr as usize);
-        unsafe { alloc::alloc::dealloc(vaddr as *mut u8, layout) };
-        0
-    }
-
-    unsafe fn mmio_phys_to_virt(paddr: PhysAddr, _size: usize) -> NonNull<u8> {
-        // TEAM_032: PhysAddr is now u64, convert to usize
-        let vaddr = levitate_hal::mmu::phys_to_virt(paddr as usize);
-        NonNull::new(vaddr as *mut u8).unwrap()
-    }
-
-    unsafe fn share(
-        buffer: NonNull<[u8]>,
-        _direction: virtio_drivers::BufferDirection,
-    ) -> PhysAddr {
-        let vaddr = buffer.as_ptr() as *mut u8 as usize;
-        // TEAM_032: Return u64 PhysAddr
-        levitate_hal::mmu::virt_to_phys(vaddr) as u64
-    }
-
-    unsafe fn unshare(
-        _paddr: PhysAddr,
-        _buffer: NonNull<[u8]>,
-        _direction: virtio_drivers::BufferDirection,
-    ) {
-        // Nothing to do
-    }
-}
-
-/// Type alias for MmioTransport with 'static lifetime
-/// This works because MMIO addresses are fixed hardware addresses
-pub type StaticMmioTransport = virtio_drivers::transport::mmio::MmioTransport<'static>;
 
 /// TEAM_065: Initialize GPU device only (Stage 3 - BootConsole)
 /// GPU must be available before terminal operations.

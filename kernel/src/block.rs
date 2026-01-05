@@ -35,6 +35,7 @@ pub fn read_block(block_id: usize, buf: &mut [u8]) {
     );
     let mut dev = BLOCK_DEVICE.lock();
     if let Some(ref mut blk) = *dev {
+        let blk: &mut VirtIOBlk<VirtioHal, StaticMmioTransport> = blk;
         match blk.read_blocks(block_id, buf) {
             Ok(_) => {}
             Err(e) => panic!("Failed to read block {}: {:?}", block_id, e),
@@ -52,6 +53,7 @@ pub fn write_block(block_id: usize, buf: &[u8]) {
     );
     let mut dev = BLOCK_DEVICE.lock();
     if let Some(ref mut blk) = *dev {
+        let blk: &mut VirtIOBlk<VirtioHal, StaticMmioTransport> = blk;
         match blk.write_blocks(block_id, buf) {
             Ok(_) => {}
             Err(e) => panic!("Failed to write block {}: {:?}", block_id, e),

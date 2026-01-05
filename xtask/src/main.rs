@@ -14,6 +14,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+mod qmp;
 mod tests;
 
 #[derive(Parser)]
@@ -37,6 +38,12 @@ enum Commands {
     Run,
     /// Build and run in QEMU with Pixel 6 profile (8GB, 8 cores)
     RunPixel6,
+    /// Dump the current GPU screen to a file via QMP
+    GpuDump {
+        /// Output PNG file path
+        #[arg(default_value = "screenshot.png")]
+        output: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -75,6 +82,15 @@ fn main() -> Result<()> {
             println!("🎯 Running with Pixel 6 profile (8GB RAM, 8 cores)");
             build_kernel()?;
             run_qemu(QemuProfile::Pixel6, false)?;
+        }
+        Commands::GpuDump { output } => {
+            println!("📸 Dumping GPU screen to {}...", output);
+            let mut client = qmp::QmpClient::connect("./qmp.sock")?;
+            let args = serde_json::json!({
+                "filename": output,
+            });
+            client.execute("screendump", Some(args))?;
+            println!("✅ Screenshot saved to {}", output);
         }
     }
 

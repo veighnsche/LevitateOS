@@ -3,6 +3,8 @@ members = [
     "kernel",
     "levitate-hal",
     "levitate-utils",
+    "levitate-gpu",
+    "levitate-terminal",
     "xtask",
 ]
 default-members = ["levitate-hal", "levitate-utils", "xtask"]

@@ -8,7 +8,7 @@ This crate contains **platform-independent, `no_std`-compatible** utilities that
 
 1. Used in the kernel without heap allocation overhead
 2. Unit tested on the host with the `std` feature
-3. Shared between `levitate-hal` and `levitate-kernel`
+3. Shared between `levitate-hal`, `levitate-terminal`, and `levitate-kernel`
 
 ## Architecture
 

@@ -12,11 +12,12 @@ This crate is the **entry point** for the entire operating system. It orchestrat
 kernel/src/
 ├── main.rs         # Entry point, boot sequence, kmain()
 ├── exceptions.rs   # Exception vector table, IRQ handling
-├── block.rs        # VirtIO block device driver
+├── block.rs        # VirtIO block device wrapper
 ├── cursor.rs       # Mouse cursor state management
-├── gpu.rs          # VirtIO GPU driver (embedded-graphics integration)
-├── input.rs        # VirtIO input device driver (keyboard/tablet)
-├── virtio.rs       # VirtIO MMIO transport and HAL implementation
+├── gpu.rs          # GPU library wrapper
+├── input.rs        # VirtIO input device wrapper
+├── terminal.rs     # Terminal library integration
+├── virtio.rs       # VirtIO MMIO discovery & transport
 ├── fs/
 │   ├── mod.rs      # Virtual filesystem layer
 │   ├── fat.rs      # FAT32 filesystem (boot partition)
@@ -57,9 +58,11 @@ kernel/src/
 
 | Crate | Purpose |
 |-------|---------|
-| `levitate-hal` | Hardware abstraction (GIC, Timer, MMU, UART, Console) |
+| `levitate-hal` | Hardware abstraction (GIC, Timer, MMU, UART, Console, VirtIO HAL) |
 | `levitate-utils` | Core utilities (Spinlock, RingBuffer, CPIO parser, hex formatting) |
-| `virtio-drivers` | VirtIO device drivers (v0.12.0, MMIO transport) |
+| `levitate-gpu` | VirtIO GPU driver and graphics abstraction |
+| `levitate-terminal` | ANSI terminal emulator |
+| `virtio-drivers` | Underlying VirtIO protocol implementation (v0.12) |
 | `embedded-graphics` | 2D graphics primitives |
 | `embedded-sdmmc` | FAT32 filesystem |
 | `ext4-view` | Read-only ext4 filesystem |

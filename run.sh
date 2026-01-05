@@ -4,8 +4,8 @@
 # Exit on any error
 set -e
 
-echo "Building ClaudeOS Rust kernel..."
-cargo build --release
+echo "Building LevitateOS kernel (verbose)..."
+cargo build -p levitate-kernel --release --target aarch64-unknown-none --features verbose
 
 # Path to the compiled ELF
 ELF="target/aarch64-unknown-none/release/levitate-kernel"
@@ -17,10 +17,13 @@ aarch64-linux-gnu-objcopy -O binary "$ELF" "$BIN"
 echo "Launching QEMU..."
 # TEAM_038: Use raw binary for Linux boot protocol (passes DTB in x0)
 # ELF boot does NOT pass DTB - see .teams/TEAM_038_bugfix_dtb_detection.md
+# Cleanup QMP socket if it exists
+rm -f ./qmp.sock
+
 qemu-system-aarch64 \
     -M virt \
-    -cpu cortex-a53 \
-    -m 512M \
+    -cpu cortex-a72 \
+    -m 1G \
     -kernel "$BIN" \
     -display gtk \
     -device virtio-gpu-device,xres=1280,yres=800 \
@@ -31,7 +34,6 @@ qemu-system-aarch64 \
     -drive file=tinyos_disk.img,format=raw,if=none,id=hd0 \
     -device virtio-blk-device,drive=hd0 \
     -initrd initramfs.cpio \
-    -serial stdio \
-    -d in_asm,int \
-    -D qemu.log \
+    -serial mon:stdio \
+    -qmp unix:./qmp.sock,server,nowait \
     -no-reboot

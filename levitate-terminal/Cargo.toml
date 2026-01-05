@@ -1,0 +1,8 @@
+[package]
+name = "levitate-terminal"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+levitate-utils = { path = "../levitate-utils" }
+embedded-graphics = "0.8.1"

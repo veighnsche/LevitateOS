@@ -23,7 +23,6 @@ use core::arch::global_asm;
 use core::panic::PanicInfo;
 
 mod block;
-mod console_gpu; // TEAM_081: GPU terminal integration for dual console
 mod cursor;
 mod exceptions;
 mod fs;
@@ -323,10 +322,21 @@ impl gic::InterruptHandler for TimerHandler {
         // Only flush every 10th interrupt (100Hz / 10 = 10Hz)
         static COUNTER: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
         let count = COUNTER.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+
+        // TEAM_092: Verify timer is actually advancing (verbose-only)
+        if count % 100 == 0 {
+            verbose!("[TICK] count={}", count);
+        }
+
         if count % 10 == 0 {
             if let Some(mut guard) = gpu::GPU.try_lock() {
                 if let Some(gpu_state) = guard.as_mut() {
                     gpu_state.flush();
+
+                    // TEAM_092: Heartbeat telemetry every 10 flushes (1Hz)
+                    if (count / 10) % 10 == 0 {
+                        gpu_state.heartbeat();
+                    }
                 }
             }
         }
@@ -550,14 +560,11 @@ pub extern "C" fn kmain() -> ! {
     };
 
     // TEAM_081: Initialize global GPU terminal for dual console output
-    console_gpu::init(width, height);
-
-    // TEAM_081: Clear terminal
-    console_gpu::clear();
+    terminal::init();
 
     // TEAM_087: Re-enable dual console now that GPU deadlock is fixed (TEAM_086)
     // This mirrors all println! output to the GPU terminal
-    levitate_hal::console::set_secondary_output(console_gpu::write_str);
+    levitate_hal::console::set_secondary_output(terminal::write_str);
 
     println!("Terminal initialized.");
 

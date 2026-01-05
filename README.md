@@ -15,28 +15,21 @@ An AArch64 operating system kernel written in Rust, targeting the QEMU `virt` ma
 ## 🏗️ Architecture
 
 ```
-LevitateOS/
-├── kernel/           # Main kernel binary
+├── levitate-gpu/     # VirtIO GPU Library
 │   └── src/
-│       ├── main.rs       # Entry point, boot sequence, kmain()
-│       ├── exceptions.rs # Exception vectors, IRQ handling
-│       ├── virtio.rs     # VirtIO MMIO transport
-│       ├── gpu.rs        # VirtIO GPU (embedded-graphics)
-│       ├── input.rs      # VirtIO input devices
-│       ├── block.rs      # VirtIO block device
-│       ├── fs/           # Filesystem layer (FAT32, ext4, initramfs)
-│       └── memory/       # Frame allocator integration
+│       ├── lib.rs        # Graphics exports & errors
+│       └── gpu.rs        # Driver & DrawTarget impl
+│
+├── levitate-terminal/ # ANSI Terminal Emulator
+│   └── src/
+│       └── lib.rs        # Platform-agnostic rendering
 │
 ├── levitate-hal/     # Hardware Abstraction Layer
 │   └── src/
-│       ├── gic.rs        # GICv2/GICv3 interrupt controller
-│       ├── mmu.rs        # Page tables, address translation
-│       ├── timer.rs      # AArch64 generic timer
-│       ├── console.rs    # UART console (print!/println!)
-│       ├── uart_pl011.rs # PL011 UART driver
-│       ├── fdt.rs        # Device Tree parsing
-│       ├── interrupts.rs # CPU interrupt control
-│       └── allocator/    # Buddy allocator, Page descriptors
+│       ├── gic.rs        # GicV2/GicV3 auto-detection
+│       ├── mmu.rs        # Page tables & translation
+│       ├── virtio.rs     # VirtIO HAL & transport
+│       └── ...           # Console, Timer, FDT
 │
 ├── levitate-utils/   # Core utilities (no_std)
 │   └── src/
@@ -90,7 +83,9 @@ cargo xtask test regress       # Static analysis (API consistency, constant sync
 | Crate | Purpose |
 |-------|---------|
 | **[kernel](kernel/README.md)** | Main kernel binary — boot sequence, device drivers, main loop |
-| **[levitate-hal](levitate-hal/README.md)** | Hardware abstraction — GIC, MMU, Timer, UART, Buddy allocator |
+| **[levitate-gpu](levitate-gpu/README.md)** | VirtIO GPU driver and graphics abstraction |
+| **[levitate-terminal](levitate-terminal/README.md)** | Platform-agnostic ANSI terminal emulator |
+| **[levitate-hal](levitate-hal/README.md)** | Hardware abstraction — GIC, MMU, Timer, UART, VirtIO HAL |
 | **[levitate-utils](levitate-utils/README.md)** | Core utilities — Spinlock, RingBuffer, CPIO parser, hex formatting |
 | **[xtask](xtask/README.md)** | Development task runner — build, run, test commands |
 

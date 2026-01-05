@@ -63,7 +63,9 @@ pub fn poll() -> bool {
 
     let mut devices = INPUT_DEVICES.lock();
     for input in devices.iter_mut() {
+        let input: &mut VirtIOInput<VirtioHal, StaticMmioTransport> = input;
         while let Some(event) = input.pop_pending_event() {
+            let event: virtio_drivers::device::input::InputEvent = event;
             match event.event_type {
                 EV_ABS => match event.code {
                     ABS_X => {

@@ -1,432 +1,52 @@
-//! GPU Terminal Emulator
-//!
-//! TEAM_058: Terminal emulation for Phase 6 GPU Refinement
-//!
-//! ## Behaviors (with verbose UART logging for verification)
-//! - [TERM1] Character rendering at cursor position
-//! - [TERM2] Cursor advances after each character
-//! - [TERM3] Newline moves to start of next line
-//! - [TERM4] Screen scrolls when cursor exceeds rows
-//! - [TERM5] Carriage return moves to start of current line
-//! - [TERM6] Tab advances to next 8-column boundary
-//! - [TERM7] Clear fills screen with background color
-//! - [TERM8] Backspace moves cursor left (no erase)
-//! - [TERM9] Resolution adapts to screen dimensions
+//! Kernel Terminal Integration
+//! TEAM_092: Unified integration for dual-console mirroring.
+//! This file replaces the previous terminal.rs and console_gpu.rs.
 
-// TEAM_086: Import GpuState for new Display API
-use crate::gpu::{Display, GPU, GpuState};
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_10X20},
-    pixelcolor::Rgb888,
-    prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
-    text::Text,
-};
+use crate::gpu::GPU;
+use levitate_gpu::{Display, GpuState};
+use levitate_hal::IrqSafeLock;
+use levitate_terminal::Terminal;
 
-/// Font dimensions (FONT_10X20) - SC3.4, SC3.5
-const FONT_WIDTH: u32 = 10;
-const FONT_HEIGHT: u32 = 20;
-const LINE_SPACING: u32 = 2;
-const CHARACTER_SPACING: u32 = 0;
+pub static TERMINAL: IrqSafeLock<Option<Terminal>> = IrqSafeLock::new(None);
 
-/// Default terminal colors - SC4.5, SC4.6
-pub const DEFAULT_FG: Rgb888 = Rgb888::new(204, 204, 204); // Light gray
-pub const DEFAULT_BG: Rgb888 = Rgb888::new(0, 0, 0); // Black
-
-/// Terminal configuration (compile-time or runtime)
-pub struct TerminalConfig {
-    #[allow(dead_code)]
-    pub font_width: u32,
-    #[allow(dead_code)]
-    pub font_height: u32,
-    #[allow(dead_code)]
-    pub line_spacing: u32,
-    pub fg_color: Rgb888,
-    pub bg_color: Rgb888,
-}
-
-impl Default for TerminalConfig {
-    fn default() -> Self {
-        Self {
-            font_width: FONT_WIDTH,
-            font_height: FONT_HEIGHT,
-            line_spacing: LINE_SPACING,
-            fg_color: DEFAULT_FG,
-            bg_color: DEFAULT_BG,
+/// Initialize the global GPU terminal.
+/// Mirroring is enabled after this by calling levitate_hal::console::set_secondary_output.
+pub fn init() {
+    if let Some(mut gpu_guard) = GPU.try_lock() {
+        if let Some(gpu_state) = gpu_guard.as_mut() {
+            let term = Terminal::new(gpu_state.width, gpu_state.height);
+            *TERMINAL.lock() = Some(term);
         }
     }
 }
 
-/// Terminal emulator state - SC3.2
-/// TEAM_083: Made cursor fields public for direct GPU write access
-pub struct Terminal {
-    pub cursor_col: u32,
-    pub cursor_row: u32,
-    pub cols: u32,
-    pub rows: u32,
-    config: TerminalConfig,
-    screen_width: u32,  // pixels
-    screen_height: u32, // pixels
-    cursor_visible: bool,
-    last_blink: u64,
-    saved_pixels: [[Rgb888; 10]; 20],
-    has_saved: bool,
-    ansi_state: AnsiState, // TEAM_063: Track escape sequences
+/// Mirror console output to the GPU terminal.
+/// Called via the secondary output callback in levitate-hal.
+pub fn write_str(s: &str) {
+    if let Some(mut term_guard) = TERMINAL.try_lock() {
+        if let Some(term) = term_guard.as_mut() {
+            if let Some(mut gpu_guard) = GPU.try_lock() {
+                if let Some(gpu_state) = gpu_guard.as_mut() {
+                    let mut display = Display::new(gpu_state);
+                    term.write_str(&mut display, s);
+                }
+            }
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AnsiState {
-    None,
-    Esc,
-    CSI,
-}
-
-impl Terminal {
-    /// [TERM9] Create terminal with auto-calculated dimensions - SC3.3
-    pub fn new(screen_width: u32, screen_height: u32) -> Self {
-        // SC3.4: cols = width / FONT_WIDTH
-        let cols = screen_width / FONT_WIDTH;
-        // SC3.5: rows = height / (FONT_HEIGHT + LINE_SPACING)
-        let rows = screen_height / (FONT_HEIGHT + LINE_SPACING);
-
-        // SC2.5: Log resolution to UART for verification
-        levitate_hal::serial_println!(
-            "[TERM] Terminal::new({}x{}) -> {}x{} chars (font {}x{}, spacing {})",
-            screen_width,
-            screen_height,
-            cols,
-            rows,
-            FONT_WIDTH,
-            FONT_HEIGHT,
-            LINE_SPACING
-        );
-
-        Terminal {
-            cursor_col: 0,
-            cursor_row: 0,
-            cols,
-            rows,
-            config: TerminalConfig::default(),
-            screen_width,
-            screen_height,
-            cursor_visible: false,
-            last_blink: 0,
-            saved_pixels: [[Rgb888::BLACK; 10]; 20],
-            has_saved: false,
-            ansi_state: AnsiState::None,
-        }
-    }
-
-    /// Get terminal dimensions (columns, rows)
-    pub fn size(&self) -> (u32, u32) {
-        (self.cols, self.rows)
-    }
-
-    /// Get cursor position (column, row)
-    #[allow(dead_code)]
-    pub fn cursor(&self) -> (u32, u32) {
-        (self.cursor_col, self.cursor_row)
-    }
-
-    /// [TERM1] [TERM2] Write single character at cursor position
-    /// TEAM_086: Changed to accept &mut GpuState instead of &mut Display
-    pub fn write_char(&mut self, gpu_state: &mut GpuState, c: char) {
-        self.hide_cursor(gpu_state);
-
-        // TEAM_063: Basic ANSI VT100 state machine
-        match self.ansi_state {
-            AnsiState::None => {
-                if c == '\x1b' {
-                    self.ansi_state = AnsiState::Esc;
-                    return;
-                }
-            }
-            AnsiState::Esc => {
-                if c == '[' {
-                    self.ansi_state = AnsiState::CSI;
-                } else {
-                    self.ansi_state = AnsiState::None;
-                }
-                return;
-            }
-            AnsiState::CSI => {
-                // Currently only support 'J' (Clear Screen) for VT100 compatibility
-                if c == 'J' {
-                    self.clear(gpu_state);
-                }
-                // Transition back after any command or if we hit a non-parameter char
-                if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
-                    self.ansi_state = AnsiState::None;
-                }
-                return;
-            }
-        }
-
-        match c {
-            '\n' => {
-                // [TERM3] - SC6.1, SC6.2
-                self.newline(gpu_state);
-            }
-            '\r' => {
-                // [TERM5] - SC7.1, SC7.2
-                self.carriage_return(gpu_state);
-            }
-            '\t' => {
-                // [TERM6] - SC9.1
-                self.tab(gpu_state);
-            }
-            '\x08' => {
-                // [TERM8] [SPEC-3] Interactive destructive backspace
-                self.backspace(gpu_state);
-            }
-            c if c >= ' ' => {
-                // [TERM2] Check if we need to wrap - SC8.2
-                if self.cursor_col >= self.cols {
-                    self.newline(gpu_state);
-                }
-
-                // [TERM1] Render character - SC4.3, SC5.1, SC5.2
-                let cur_row = self.cursor_row;
-                let cur_col = self.cursor_col;
-                let x = (cur_col * FONT_WIDTH) as i32;
-                let y = (cur_row * (FONT_HEIGHT + LINE_SPACING)) as i32;
-
-                let style = MonoTextStyle::new(&FONT_10X20, self.config.fg_color);
-                let mut buf = [0u8; 4];
-                let s = c.encode_utf8(&mut buf);
-
-                // TEAM_086: Create Display from borrowed GpuState
-                let mut display = Display::new(gpu_state);
-                // Text baseline is at bottom of character
-                let _ = Text::new(s, Point::new(x, y + FONT_HEIGHT as i32), style).draw(&mut display);
-
-                // [TERM2] Advance cursor - SC5.3
-                self.cursor_col += 1;
-            }
-            _ => {} // Ignore other control characters
-        }
-        self.show_cursor(gpu_state);
-    }
-
-    /// Write string to terminal
-    /// TEAM_086: Changed to accept &mut GpuState
-    pub fn write_str(&mut self, gpu_state: &mut GpuState, s: &str) {
-        for c in s.chars() {
-            self.write_char(gpu_state, c);
-        }
-    }
-
-    /// [TERM3] [TERM4] Move to next line, scroll if needed - SC6.1, SC6.2
-    /// TEAM_086: Changed to accept &mut GpuState
-    pub fn newline(&mut self, gpu_state: &mut GpuState) {
-        self.hide_cursor(gpu_state);
-        self.cursor_col = 0;
-        self.cursor_row += 1;
-
-        // [TERM4] Scroll if we've exceeded screen - SC11.2
-        if self.cursor_row >= self.rows {
-            self.scroll_up(gpu_state);
-            self.cursor_row = self.rows - 1; // SC11.6
-        }
-    }
-
-    // [TERM5] - SC7.1, SC7.2
-    /// TEAM_086: Changed to accept &mut GpuState
-    pub fn carriage_return(&mut self, gpu_state: &mut GpuState) {
-        self.hide_cursor(gpu_state);
-        self.cursor_col = 0;
-        self.show_cursor(gpu_state);
-    }
-
-    /// [TERM6] Tab to next 8-column boundary - SC9.1-SC9.5
-    /// TEAM_065: Fixed to handle wrap-around when tab exceeds columns
-    /// TEAM_086: Changed to accept &mut GpuState
-    fn tab(&mut self, gpu_state: &mut GpuState) {
-        self.hide_cursor(gpu_state);
-        let next_tab = ((self.cursor_col / 8) + 1) * 8;
-
-        // TEAM_065: Handle wrap-around if tab would exceed line width
-        if next_tab >= self.cols {
-            self.newline(gpu_state);
-        } else {
-            self.cursor_col = next_tab;
-        }
-        self.show_cursor(gpu_state);
-    }
-
-    /// [SPEC-2] Destructive backspace (0x08)
-    /// TEAM_086: Changed to accept &mut GpuState
-    fn backspace(&mut self, gpu_state: &mut GpuState) {
-        self.hide_cursor(gpu_state);
-
-        let mut changed = false;
-        if self.cursor_col > 0 {
-            // [TERM8] Normal backspace
-            self.cursor_col -= 1;
-            changed = true;
-        } else if self.cursor_row > 0 {
-            // [SPEC-2] Wrap back to previous line
-            self.cursor_row -= 1;
-            self.cursor_col = self.cols - 1;
-            changed = true;
-        }
-
-        if changed {
-            // [SPEC-2] Erase character at new position
-            let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
-            let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
-
-            // TEAM_086: Create Display from borrowed GpuState
-            let mut display = Display::new(gpu_state);
-            let _ = Rectangle::new(
-                Point::new(x as i32, y as i32),
-                Size::new(FONT_WIDTH, FONT_HEIGHT + LINE_SPACING),
-            )
-            .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
-            .draw(&mut display);
-        }
-        self.show_cursor(gpu_state);
-    }
-
-    /// [TERM7] Clear screen and reset cursor - SC10.1-SC10.5
-    /// TEAM_086: Changed to accept &mut GpuState
-    pub fn clear(&mut self, gpu_state: &mut GpuState) {
-        self.hide_cursor(gpu_state);
-
-        // TEAM_086: Create Display from borrowed GpuState
-        let mut display = Display::new(gpu_state);
-        let _ = Rectangle::new(
-            Point::zero(),
-            Size::new(self.screen_width, self.screen_height),
-        )
-        .into_styled(PrimitiveStyle::with_fill(self.config.bg_color))
-        .draw(&mut display);
-
-        self.cursor_col = 0;
-        self.cursor_row = 0;
-
-        self.show_cursor(gpu_state);
-    }
-
-    /// [TERM4] Scroll screen up by one line - SC11.3-SC11.8
-    /// TEAM_086: Changed to accept &mut GpuState - no internal locking needed
-    fn scroll_up(&mut self, gpu_state: &mut GpuState) {
-        self.hide_cursor(gpu_state);
-        let line_height = FONT_HEIGHT + LINE_SPACING;
-
-        // TEAM_086: Use provided gpu_state directly - no lock needed
-        let fb = gpu_state.framebuffer();
-        let bytes_per_pixel = 4; // RGBA
-        let row_bytes = self.screen_width as usize * bytes_per_pixel;
-        let scroll_bytes = line_height as usize * row_bytes;
-
-        // SC11.4: Copy everything up by one line
-        if scroll_bytes < fb.len() {
-            fb.copy_within(scroll_bytes.., 0);
-
-            // SC11.5: Clear bottom line with background color
-            let clear_start = fb.len() - scroll_bytes;
-            for i in (clear_start..fb.len()).step_by(4) {
-                fb[i] = self.config.bg_color.r();
-                fb[i + 1] = self.config.bg_color.g();
-                fb[i + 2] = self.config.bg_color.b();
-                fb[i + 3] = 255;
-            }
-        }
-        self.show_cursor(gpu_state);
-    }
-
-    /// Set foreground color
-    #[allow(dead_code)]
-    pub fn set_fg(&mut self, color: Rgb888) {
-        self.config.fg_color = color;
-    }
-
-    /// Set background color
-    #[allow(dead_code)]
-    pub fn set_bg(&mut self, color: Rgb888) {
-        self.config.bg_color = color;
-    }
-
-    /// [TEAM_060] Toggle cursor visibility based on timer
-    /// TEAM_086: Changed to accept &mut GpuState
-    pub fn check_blink(&mut self, gpu_state: &mut GpuState) {
-        let now = crate::timer::uptime_seconds();
-        if now != self.last_blink {
-            self.last_blink = now;
-            if self.cursor_visible {
-                self.hide_cursor(gpu_state);
-            } else {
-                self.show_cursor(gpu_state);
-            }
-        }
-    }
-
-    /// TEAM_086: Changed to accept &mut GpuState - no internal locking needed
-    fn show_cursor(&mut self, gpu_state: &mut GpuState) {
-        if self.cursor_visible {
-            return;
-        }
-
-        let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
-        let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
-
-        // TEAM_086: Save pixels using provided gpu_state directly
-        let fb = gpu_state.framebuffer();
-        let width = self.screen_width as usize;
-
-        for dy in 0..20 {
-            for dx in 0..10 {
-                let py = (y + dy) as usize;
-                let px = (x + dx) as usize;
-                if py < self.screen_height as usize && px < self.screen_width as usize {
-                    let idx = (py * width + px) * 4;
-                    self.saved_pixels[dy as usize][dx as usize] =
-                        Rgb888::new(fb[idx], fb[idx + 1], fb[idx + 2]);
+/// Check cursor blink timer.
+pub fn check_blink() {
+    if let Some(mut term_guard) = TERMINAL.try_lock() {
+        if let Some(term) = term_guard.as_mut() {
+            if let Some(mut gpu_guard) = GPU.try_lock() {
+                if let Some(gpu_state) = gpu_guard.as_mut() {
+                    let _ = term_guard; // Hold both locks
+                    // Note: Terminal::check_blink needs time/tick info
+                    // Currently, the library heartbeats handles hardware status.
+                    // The actual blink logic will be refactored into the library in Phase 3.
                 }
             }
         }
-        self.has_saved = true;
-
-        // TEAM_086: Create Display from borrowed GpuState and draw block
-        let mut display = Display::new(gpu_state);
-        let _ = Rectangle::new(Point::new(x as i32, y as i32), Size::new(10, 20))
-            .into_styled(PrimitiveStyle::with_fill(self.config.fg_color))
-            .draw(&mut display);
-
-        self.cursor_visible = true;
-    }
-
-    /// TEAM_086: Changed to accept &mut GpuState - no internal locking needed
-    fn hide_cursor(&mut self, gpu_state: &mut GpuState) {
-        if !self.cursor_visible || !self.has_saved {
-            self.cursor_visible = false;
-            return;
-        }
-
-        let x = self.cursor_col * (FONT_WIDTH + CHARACTER_SPACING);
-        let y = self.cursor_row * (FONT_HEIGHT + LINE_SPACING);
-
-        // TEAM_086: Restore pixels using provided gpu_state directly
-        let fb = gpu_state.framebuffer();
-        let width = self.screen_width as usize;
-
-        for dy in 0..20 {
-            for dx in 0..10 {
-                let py = (y + dy) as usize;
-                let px = (x + dx) as usize;
-                if py < self.screen_height as usize && px < self.screen_width as usize {
-                    let idx = (py * width + px) * 4;
-                    let color = self.saved_pixels[dy as usize][dx as usize];
-                    fb[idx] = color.r();
-                    fb[idx + 1] = color.g();
-                    fb[idx + 2] = color.b();
-                    fb[idx + 3] = 255;
-                }
-            }
-        }
-        // TEAM_086: Note - flush is now caller's responsibility
-
-        self.cursor_visible = false;
     }
 }

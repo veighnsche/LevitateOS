@@ -65,6 +65,7 @@ if let Some(gpu_state) = gpu_guard.as_mut() {
 - Added 10Hz timer-based GPU flush in `kernel/src/main.rs`.
 - **Status:** Behavior tests pass (golden log match), proving init/flush works.
 - **Visuals:** Display may still be blank on some QEMU versions/hosts despite correct driver behavior.
+- **Verification:** Always use `cargo xtask gpu-dump` to verify if pixels are being modified in RAM before assuming the driver is failing.
 - **Recommendation:** Rely on serial console for active development.
 
 ### 5. Kernel Does Not Recompile When Initramfs Changes (TEAM_090)
@@ -100,6 +101,16 @@ cargo build --release
 let guard1 = SOME_LOCK.lock();
 let guard2 = SOME_LOCK.lock();  // DEADLOCK!
 ```
+
+---
+
+### 7. Recursive Deadlocks in IRQ Serial Output (TEAM_092)
+
+**Location:** `kernel/src/gpu.rs:heartbeat()` and `kernel/src/main.rs:TimerHandler`
+
+**Problem:** Using `serial_println!` (which uses `WRITER.lock()`) inside a timer interrupt can cause a recursive deadlock if the shell or kernel main loop already holds the `WRITER` lock during a print operation.
+
+**Fix:** Use `WRITER.try_lock()` in IRQ handlers and telemetry hooks. If the lock is held, skip the output or use a non-blocking queue.
 
 ---
 

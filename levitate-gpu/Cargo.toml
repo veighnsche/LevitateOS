@@ -1,0 +1,10 @@
+[package]
+name = "levitate-gpu"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+levitate-hal = { path = "../levitate-hal" }
+virtio-drivers = "0.12"
+embedded-graphics = "0.8.1"
+bitflags = "2.10.0"

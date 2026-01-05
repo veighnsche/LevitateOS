@@ -25,3 +25,10 @@ VirtIO Input initialized successfully.
 Initializing Input...
 VirtIO Input initialized successfully.
 BOOT_REGS: x0=48200000 x1=0 x2=0 x3=0
+Detecting Initramfs...
+Initramfs found at 0x48000000 - 0x48013000 (77824 bytes)
+Files in initramfs:
+ - .
+ - readme.txt
+ - lsh
+[BOOT] Starting shell from initramfs...
