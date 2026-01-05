@@ -1,0 +1,12 @@
+[package]
+name = "levitate-virtio-gpu"
+version = "0.1.0"
+edition = "2024"
+description = "VirtIO GPU driver for LevitateOS"
+
+[dependencies]
+levitate-virtio = { path = "../levitate-virtio" }
+bitflags = "2.10.0"
+
+[lints]
+workspace = true

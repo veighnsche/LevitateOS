@@ -1,12 +1,14 @@
-# Phase 4: Cleanup
+# Phase 4: High-Level Abstractions and Integration
 
-## Dead Code Removal
-- Remove `virtio-drivers` from `levitate-gpu/Cargo.toml` if it's no longer used.
-- Remove old `gpu.rs` logic that wraps the external crate.
+## Target Design
+The final orchestration layer that provides the `Display` and `GpuState` types to the kernel.
 
-## Encapsulation
-- ensure `GpuDriver` fields are private.
-- Move protocol constants to an internal `protocol` module.
+## Perfection Criteria
+- The Terminal continues to render to a `DrawTarget` and remains unaware of the driver internals.
+- **Scanout Stability:** The driver automatically recovers the host-side scanout if a timeout is detected or on a health-check interval.
 
-## File Size Check
-- Ensure `levitate-gpu` remains modular and readable.
+## Steps
+1. **Step 1 – Refactor GpuState to use Driver + Resource**
+2. **Step 2 – Implement Scanout Health Check Loop**
+3. **Step 3 – Integrate with main.rs Telemetry**
+   - Ensure the heartbeat shows meaningful architectural health metrics, not just "flushes".

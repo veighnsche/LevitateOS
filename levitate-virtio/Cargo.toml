@@ -1,0 +1,11 @@
+[package]
+name = "levitate-virtio"
+version = "0.1.0"
+edition = "2024"
+description = "VirtIO transport layer for LevitateOS"
+
+[dependencies]
+bitflags = "2.10.0"
+
+[lints]
+workspace = true

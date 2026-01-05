@@ -27,7 +27,14 @@ impl GpuState {
         let mut gpu = VirtIOGpu::<VirtioHal, StaticMmioTransport>::new(transport)
             .map_err(|_| "VirtIOGpu::new failed")?;
 
+        // TEAM_097 BREADCRUMB: INVESTIGATING - What resolution does QEMU return?
         let (width, height) = gpu.resolution().map_err(|_| "Failed to get resolution")?;
+        
+        // TEAM_097: Diagnostic logging to trace tiny screen bug
+        levitate_hal::serial_println!(
+            "[GPU] GET_DISPLAY_INFO returned: {}x{} - if this is small, QEMU is returning wrong resolution",
+            width, height
+        );
 
         let mut state = Self {
             gpu,

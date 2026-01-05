@@ -84,7 +84,7 @@ cargo build --release
 
 ---
 
-
+ 
 ### 5. IrqSafeLock is NOT Re-entrant (TEAM_083)
 
 **Location:** `levitate-hal/src/lib.rs`

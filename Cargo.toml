@@ -5,6 +5,8 @@ members = [
     "levitate-utils",
     "levitate-gpu",
     "levitate-terminal",
+    "levitate-virtio",
+    "levitate-virtio-gpu",
     "xtask",
 ]
 default-members = ["levitate-hal", "levitate-utils", "xtask"]
