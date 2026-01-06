@@ -1,43 +1,14 @@
 #!/bin/bash
-# run.sh - Build and run LevitateOS Rust in QEMU
-BIN="kernel64_rust.bin"
+# run.sh - LevitateOS Quick Launcher
+#
+# This script provides the default GUI experience.
+# For different modes, use:
+#   ./run-gui.sh  - Opens QEMU window (click window to type)
+#   ./run-term.sh - Terminal only, WSL-like (type in terminal)
 
+echo "Starting LevitateOS in GUI mode..."
+echo "  (Use ./run-term.sh for terminal-only/WSL-like mode)"
+echo ""
 
-# Exit on any error
-set -e
-
-# Ensure disk image exists
-# TEAM_121: Use xtask to ensure disk image is correctly partitioned and populated
-cargo xtask build all
-
-echo "Building LevitateOS via xtask..."
-cargo xtask build all
-
-echo "Launching QEMU..."
-# TEAM_038: Use raw binary for Linux boot protocol (passes DTB in x0)
-# ELF boot does NOT pass DTB - see .teams/TEAM_038_bugfix_dtb_detection.md
-# Cleanup QMP socket if it exists
-rm -f ./qmp.sock
-
-
-# TEAM_139: Use GTK display instead of SDL
-# SDL grabs keyboard input for the window, preventing serial input from host terminal
-# GTK allows keyboard input to go to serial (mon:stdio) while still showing GPU display
-qemu-system-aarch64 \
-    -M virt \
-    -cpu cortex-a72 \
-    -m 1G \
-    -kernel "$BIN" \
-    -display gtk,zoom-to-fit=off,window-close=off \
-    -device virtio-gpu-pci,xres=1280,yres=800 \
-    -device virtio-keyboard-device \
-    -device virtio-tablet-device \
-    -device virtio-net-device,netdev=net0 \
-    -netdev user,id=net0 \
-    -drive file=tinyos_disk.img,format=raw,if=none,id=hd0 \
-    -device virtio-blk-device,drive=hd0 \
-    -initrd initramfs.cpio \
-    -serial mon:stdio \
-    -qmp unix:./qmp.sock,server,nowait \
-    -no-reboot
+exec bash ./run-gui.sh
 

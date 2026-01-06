@@ -77,7 +77,8 @@ fn main() -> Result<()> {
             "behavior" => tests::behavior::run()?,
             "regress" | "regression" => tests::regression::run()?,
             "gicv3" => tests::behavior::run_gicv3()?,
-            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', or 'all'", other),
+            "serial" => tests::serial_input::run()?,
+            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', or 'all'", other),
         },
         Commands::Clean => {
             clean::clean()?;
@@ -105,6 +106,9 @@ fn main() -> Result<()> {
             }
             run::RunCommands::Vnc => {
                 run::run_qemu_vnc()?;
+            }
+            run::RunCommands::Term => {
+                run::run_qemu_term()?;
             }
         },
         Commands::Image(cmd) => match cmd {

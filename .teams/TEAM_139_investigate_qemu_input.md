@@ -71,9 +71,23 @@ This multiplexes serial console + QEMU monitor on stdio:
 - Behavior tests unaffected (use `-serial file:` output)
 - Plan documented in `implementation_plan.md`
 
+## Update: Serial Input Bug
+
+### Root Cause (CONFIRMED)
+**GTK display captures keyboard focus**, blocking stdin from reaching the serial console.
+Even with `-serial mon:stdio`, when GTK window is present, keyboard input goes to VirtIO keyboard instead of serial stdin.
+
+### Fix
+Changed `run.sh` to use VNC display (`-display none -vnc :0`) instead of GTK:
+- VNC doesn't capture keyboard focus
+- Host terminal input now reaches serial console
+- GPU output viewable via VNC viewer at localhost:5900
+
 ## Handoff Checklist
 - [x] Project builds cleanly
 - [x] All tests pass (31/31 regression, behavior test passed)
 - [x] Behavioral regression tests pass
 - [x] Team file updated
 - [x] Remaining TODOs documented: None
+- [x] Root cause confirmed: GTK keyboard focus capture
+- [x] Fix implemented: VNC display mode

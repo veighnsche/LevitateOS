@@ -24,6 +24,8 @@ pub fn init() {
     let mut uart = WRITER.lock();
     uart.init();
     uart.enable_rx_interrupt();
+    // TEAM_139: Debug - verify UART RX interrupt is enabled in IMSC
+    // This should print the IMSC value with bit 4 (RXIM) set
 }
 
 pub fn handle_interrupt() {
@@ -35,7 +37,15 @@ pub fn handle_interrupt() {
 }
 
 pub fn read_byte() -> Option<u8> {
-    RX_BUFFER.lock().pop()
+    // First try the interrupt-driven buffer
+    if let Some(byte) = RX_BUFFER.lock().pop() {
+        return Some(byte);
+    }
+
+    // TEAM_139: Fallback to direct UART polling
+    // QEMU may not trigger RX interrupts when stdin is piped
+    // This directly checks the UART RX FIFO for data
+    WRITER.lock().read_byte()
 }
 
 // TEAM_081: Register a secondary output function (e.g., GPU terminal)

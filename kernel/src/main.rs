@@ -346,6 +346,8 @@ impl gic::InterruptHandler for TimerHandler {
 struct UartHandler;
 impl gic::InterruptHandler for UartHandler {
     fn handle(&self, _irq: u32) {
+        // TEAM_139: Note - UART RX interrupts may not fire when QEMU stdin is piped
+        // Direct UART polling is used as fallback in console::read_byte()
         levitate_hal::console::handle_interrupt();
     }
 }

@@ -6,12 +6,14 @@ use crate::{build, image};
 
 #[derive(Subcommand)]
 pub enum RunCommands {
-    /// Run default QEMU (512MB, generic)
+    /// Run with GUI window (keyboard goes to QEMU window)
     Default,
     /// Run Pixel 6 Profile
     Pixel6,
     /// Run with VNC for browser verification
     Vnc,
+    /// Run in terminal-only mode (WSL-like, keyboard in terminal)
+    Term,
 }
 
 /// QEMU hardware profiles
@@ -260,4 +262,53 @@ fn find_websockify() -> Result<String> {
         • sudo dnf install python3-websockify  (Fedora)\n\
         • sudo apt install websockify  (Debian/Ubuntu)"
     )
+}
+
+/// TEAM_139: Run QEMU in terminal-only mode (WSL-like).
+/// No graphical window - keyboard input goes to terminal stdin.
+/// Ctrl+A X to exit, Ctrl+A C to switch to QEMU monitor.
+pub fn run_qemu_term() -> Result<()> {
+    println!("╔════════════════════════════════════════════════════════════╗");
+    println!("║  LevitateOS Terminal Mode (WSL-like)                       ║");
+    println!("║                                                            ║");
+    println!("║  Type directly here - keyboard goes to VM                  ║");
+    println!("║  Ctrl+A X to exit QEMU                                     ║");
+    println!("║  Ctrl+A C to switch to QEMU monitor                        ║");
+    println!("╚════════════════════════════════════════════════════════════╝\n");
+
+    image::create_disk_image_if_missing()?;
+    build::build_all()?;
+
+    let kernel_bin = "kernel64_rust.bin";
+    let args = vec![
+        "-M", "virt",
+        "-cpu", "cortex-a72",
+        "-m", "1G",
+        "-kernel", kernel_bin,
+        "-nographic",  // No display, stdin goes to serial
+        "-device", "virtio-gpu-pci,xres=1280,yres=800",
+        "-device", "virtio-keyboard-device",
+        "-device", "virtio-tablet-device",
+        "-device", "virtio-net-device,netdev=net0",
+        "-netdev", "user,id=net0",
+        "-drive", "file=tinyos_disk.img,format=raw,if=none,id=hd0",
+        "-device", "virtio-blk-device,drive=hd0",
+        "-initrd", "initramfs.cpio",
+        "-serial", "mon:stdio",
+        "-qmp", "unix:./qmp.sock,server,nowait",
+        "-no-reboot",
+    ];
+
+    // Clean QMP socket
+    let _ = std::fs::remove_file("./qmp.sock");
+
+    Command::new("qemu-system-aarch64")
+        .args(&args)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .context("Failed to run QEMU")?;
+
+    Ok(())
 }
