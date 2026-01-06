@@ -1,117 +1,50 @@
 # levitate-kernel
 
-The main kernel binary for LevitateOS — an AArch64 operating system kernel targeting the QEMU `virt` machine and Pixel 6 hardware.
+The core operating system kernel for LevitateOS.
 
-## Purpose
+## Overview
 
-This crate is the **entry point** for the entire operating system. It orchestrates hardware initialization, sets up memory management, initializes device drivers, and runs the main kernel loop.
+LevitateOS is an AArch64 higher-half kernel written in Rust. It targets the QEMU `virt` machine and aims for compatibility with Pixel 6 hardware.
 
 ## Architecture
 
-```
-kernel/src/
-├── main.rs         # Entry point, boot sequence, kmain()
-├── exceptions.rs   # Exception vector table, IRQ handling
-├── block.rs        # VirtIO block device wrapper
-├── cursor.rs       # Mouse cursor state management
-├── gpu.rs          # GPU library wrapper
-├── input.rs        # VirtIO input device wrapper
-├── terminal.rs     # Terminal library integration
-├── virtio.rs       # VirtIO MMIO discovery & transport
-├── fs/
-│   ├── mod.rs      # Virtual filesystem layer
-│   ├── fat.rs      # FAT32 filesystem (boot partition)
-│   ├── ext4.rs     # ext4 filesystem (root partition, read-only)
-│   └── initramfs.rs # CPIO initramfs support (re-exports from levitate-utils)
-└── memory/
-    └── mod.rs      # Physical memory management, frame allocator integration
-```
+The kernel is organized into several key subsystems:
+
+- **Boot & Assembly** (`src/arch/aarch64/`): Early boot code, exception vectors, and MMU initialization.
+- **Memory Management** (`src/mm/`): Buddy allocator integration, heap management, and page table control.
+- **Drivers** (`src/drivers/`): High-level driver logic (UART, GIC, Timer, VirtIO devices).
+- **Process & Scheduling** (`src/process/`): Task management, context switching, and syscall handling.
+- **Filesystem** (`src/fs/`): VFS layer, initramfs (CPIO), and FAT32 support.
+
+## Feature Flags
+
+- `verbose`: Enables granular boot logging for diagnostic purposes and automated behavior testing.
+- `diskless`: Skip requirements for an external block device during boot.
+- `multitask-demo`: Enable pre-defined tasks to demonstrate preemptive multitasking.
 
 ## Boot Sequence
 
-1. **Assembly Entry (`_start`)**: Disables interrupts, enables FP/SIMD, zeroes BSS, saves boot registers (DTB address in x0), sets up early page tables, enables MMU, jumps to `kmain`.
+1. `_start` (ASM) -> Early MMU & Stack setup.
+2. `kernel_main` (Rust) -> Subsystem initialization:
+   - Exception handlers
+   - Heap allocator
+   - Console & Logging
+   - Interrupt Controller (GIC)
+   - Physical Memory (DTB)
+   - VirtIO Bus Scan
+   - FS Mount & Initramfs
+3. PID 1 (`init`) spawn.
 
-2. **Heap Initialization**: Uses `linked_list_allocator` with heap bounds from linker script.
+## Development
 
-3. **MMU Re-initialization**: Sets up higher-half kernel mappings with 2MB block optimization.
-
-4. **Core Drivers**: Exception vectors, UART console, GIC (v2/v3 auto-detected via FDT).
-
-5. **Physical Memory**: Buddy allocator initialized from DTB memory map.
-
-6. **Timer**: AArch64 generic timer configured for periodic interrupts.
-
-7. **VirtIO Devices**: Scans MMIO bus, initializes GPU, Input, and Block devices.
-
-8. **Filesystem**: Mounts FAT32 boot partition, parses initramfs from DTB.
-
-9. **Main Loop**: Polls input, echoes UART, draws cursor.
-
-## Key Features
-
-- **Higher-Half Kernel**: Virtual addresses start at `0xFFFF_8000_0000_0000`
-- **GICv2/GICv3 Support**: Auto-detected via FDT for Pixel 6 compatibility
-- **VirtIO 1.0**: GPU, Input, Block devices via MMIO transport
-- **Verbose Mode**: `--features verbose` enables boot messages for golden file testing (Rule 4: Silence is Golden)
-
-## Dependencies
-
-| Crate | Purpose |
-|-------|---------|
-| `levitate-hal` | Hardware abstraction (GIC, Timer, MMU, UART, Console, VirtIO HAL) |
-| `levitate-utils` | Core utilities (Spinlock, RingBuffer, CPIO parser, hex formatting) |
-| `levitate-gpu` | VirtIO GPU driver and graphics abstraction |
-| `levitate-terminal` | ANSI terminal emulator |
-| `virtio-drivers` | Underlying VirtIO protocol implementation (v0.12) |
-| `embedded-graphics` | 2D graphics primitives |
-| `embedded-sdmmc` | FAT32 filesystem |
-| `ext4-view` | Read-only ext4 filesystem |
-| `linked_list_allocator` | Kernel heap allocator |
-
-## Building
+Build the kernel using the root `xtask` runner:
 
 ```bash
-# Build for AArch64 (requires nightly)
-cargo build -Z build-std=core,alloc --release --target aarch64-unknown-none -p levitate-kernel
-
-# Build with verbose boot messages
-cargo build -Z build-std=core,alloc --release --target aarch64-unknown-none -p levitate-kernel --features verbose
+cargo xtask build kernel
 ```
 
-## Running
+Run in QEMU:
 
 ```bash
-# Via xtask (recommended)
 cargo xtask run
-
-# Direct QEMU
-qemu-system-aarch64 -M virt -cpu cortex-a53 -m 512M \
-  -kernel target/aarch64-unknown-none/release/levitate-kernel \
-  -device virtio-gpu-device -serial stdio
 ```
-
-## IRQ Handling
-
-IRQs are dispatched via `levitate_hal::gic::dispatch()` which calls registered `InterruptHandler` trait implementations:
-
-| IRQ | Source | Handler |
-|-----|--------|---------|
-| 27 | Virtual Timer | Reloads timer for next tick |
-| 33 | PL011 UART | Buffers received bytes |
-
-## DTB Detection
-
-The kernel discovers hardware configuration via Device Tree Blob (DTB):
-
-1. **x0 register**: Bootloader-provided DTB address (standard Linux boot protocol)
-2. **Memory scan**: Fallback for QEMU ELF boot — scans `0x4000_0000..0x4900_0000` for DTB magic (`0xD00DFEED`)
-
-## Memory Layout
-
-See `linker.ld` for details. Key regions:
-
-| Region | Physical Address | Virtual Address |
-|--------|------------------|-----------------|
-| Kernel Start | `0x4008_0000` | `0xFFFF_8000_4008_0000` |
-| Heap | After kernel | Higher-half mapped |
-| Device MMIO | `0x0000_0000..0x4000_0000` | Identity mapped |

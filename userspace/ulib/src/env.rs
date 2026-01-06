@@ -20,9 +20,9 @@
 
 extern crate alloc;
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::ffi::CStr;
+use core::ffi::{c_char, CStr};
 
 /// TEAM_169: Cached arguments (parsed once at startup).
 static mut ARGS: Option<Vec<String>> = None;
@@ -41,7 +41,7 @@ static mut ENV_VARS: Option<Vec<String>> = None;
 /// * Stack layout must match the Linux ABI
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub unsafe fn init_args(sp: *const usize) {
-    if ARGS.is_some() {
+    if unsafe { ARGS.is_some() } {
         return; // Already initialized
     }
 
@@ -50,13 +50,13 @@ pub unsafe fn init_args(sp: *const usize) {
 
     // Read argc
     let argc = unsafe { *sp };
-    
+
     // Read argv pointers (starts at sp + 1)
     let argv_base = unsafe { sp.add(1) };
     for i in 0..argc {
         let arg_ptr = unsafe { *argv_base.add(i) } as *const u8;
         if !arg_ptr.is_null() {
-            if let Ok(cstr) = unsafe { CStr::from_ptr(arg_ptr as *const i8) }.to_str() {
+            if let Ok(cstr) = unsafe { CStr::from_ptr(arg_ptr as *const c_char) }.to_str() {
                 args.push(String::from(cstr));
             }
         }
@@ -70,7 +70,7 @@ pub unsafe fn init_args(sp: *const usize) {
         if env_ptr.is_null() {
             break;
         }
-        if let Ok(cstr) = unsafe { CStr::from_ptr(env_ptr as *const i8) }.to_str() {
+        if let Ok(cstr) = unsafe { CStr::from_ptr(env_ptr as *const c_char) }.to_str() {
             envs.push(String::from(cstr));
         }
         env_idx += 1;
@@ -106,11 +106,7 @@ pub fn args_len() -> usize {
 
 /// TEAM_169: Get a specific argument by index.
 pub fn arg(index: usize) -> Option<&'static str> {
-    unsafe {
-        ARGS.as_ref()
-            .and_then(|v| v.get(index))
-            .map(|s| s.as_str())
-    }
+    unsafe { ARGS.as_ref().and_then(|v| v.get(index)).map(|s| s.as_str()) }
 }
 
 /// TEAM_169: Iterator over command-line arguments.
