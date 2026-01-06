@@ -35,85 +35,79 @@ pub mod errno_file {
     #[allow(dead_code)]
     pub const EIO: i64 = -5;
 }
-
+/// TEAM_210: Linux AArch64 compatible syscall numbers
+/// Reference: https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/unistd.h
 #[repr(u64)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyscallNumber {
-    Read = 0,
-    Write = 1,
-    Exit = 2,
-    GetPid = 3,
-    Sbrk = 4,
-    Spawn = 5,
-    Exec = 6,
-    Yield = 7,
-    Shutdown = 8,
-    Openat = 9,
-    Close = 10,
-    Fstat = 11,
-    Nanosleep = 12,
-    ClockGettime = 13,
-    /// TEAM_176: Read directory entries
-    Getdents = 14,
-    /// TEAM_186: Spawn process with arguments
-    SpawnArgs = 15,
-    /// TEAM_188: Wait for child process
-    Waitpid = 16,
-    /// TEAM_192: Get current working directory
+    // === Standard Linux AArch64 syscalls ===
     Getcwd = 17,
-    /// TEAM_192: Create directory
     Mkdirat = 34,
-    /// TEAM_192: Remove file or directory
     Unlinkat = 35,
-    /// TEAM_192: Rename/move file or directory
-    Renameat = 38,
-    /// TEAM_198: Set file timestamps
-    Utimensat = 88,
-    /// TEAM_198: Create symbolic link
     Symlinkat = 36,
-    /// TEAM_204: Read value of a symbolic link
-    Readlinkat = 37,
-    /// TEAM_206: Unmount filesystem
+    Linkat = 37,
+    Renameat = 38,
     Umount = 39,
-    /// TEAM_206: Mount filesystem
     Mount = 40,
-    /// TEAM_208: Fast userspace mutex
-    Futex = 41,
-    /// TEAM_209: Create hard link
-    Linkat = 42,
+    Openat = 56,
+    Close = 57,
+    Getdents = 61,
+    Read = 63,
+    Write = 64,
+    Readlinkat = 78,
+    Fstat = 80,
+    Utimensat = 88,
+    Exit = 93,
+    Futex = 98,
+    Nanosleep = 101,
+    ClockGettime = 113,
+    Yield = 124,    // sched_yield
+    Shutdown = 142, // reboot
+    GetPid = 172,
+    Sbrk = 214,    // brk
+    Exec = 221,    // execve
+    Waitpid = 260, // wait4
+
+    // === Custom LevitateOS syscalls (temporary, until clone/execve work) ===
+    /// TEAM_120: Spawn process (custom, will be replaced by clone+execve)
+    Spawn = 1000,
+    /// TEAM_186: Spawn with args (custom, will be replaced by clone+execve)
+    SpawnArgs = 1001,
 }
 
 impl SyscallNumber {
     pub fn from_u64(n: u64) -> Option<Self> {
         match n {
-            0 => Some(Self::Read),
-            1 => Some(Self::Write),
-            2 => Some(Self::Exit),
-            3 => Some(Self::GetPid),
-            4 => Some(Self::Sbrk),
-            5 => Some(Self::Spawn),
-            6 => Some(Self::Exec),
-            7 => Some(Self::Yield),
-            8 => Some(Self::Shutdown),
-            9 => Some(Self::Openat),
-            10 => Some(Self::Close),
-            11 => Some(Self::Fstat),
-            12 => Some(Self::Nanosleep),
-            13 => Some(Self::ClockGettime),
-            14 => Some(Self::Getdents),
-            15 => Some(Self::SpawnArgs),
-            16 => Some(Self::Waitpid),
+            // Linux AArch64 numbers
             17 => Some(Self::Getcwd),
             34 => Some(Self::Mkdirat),
             35 => Some(Self::Unlinkat),
-            38 => Some(Self::Renameat),
-            88 => Some(Self::Utimensat),
             36 => Some(Self::Symlinkat),
-            37 => Some(Self::Readlinkat),
+            37 => Some(Self::Linkat),
+            38 => Some(Self::Renameat),
             39 => Some(Self::Umount),
             40 => Some(Self::Mount),
-            41 => Some(Self::Futex),
-            42 => Some(Self::Linkat),
+            56 => Some(Self::Openat),
+            57 => Some(Self::Close),
+            61 => Some(Self::Getdents),
+            63 => Some(Self::Read),
+            64 => Some(Self::Write),
+            78 => Some(Self::Readlinkat),
+            80 => Some(Self::Fstat),
+            88 => Some(Self::Utimensat),
+            93 => Some(Self::Exit),
+            98 => Some(Self::Futex),
+            101 => Some(Self::Nanosleep),
+            113 => Some(Self::ClockGettime),
+            124 => Some(Self::Yield),
+            142 => Some(Self::Shutdown),
+            172 => Some(Self::GetPid),
+            214 => Some(Self::Sbrk),
+            221 => Some(Self::Exec),
+            260 => Some(Self::Waitpid),
+            // Custom LevitateOS
+            1000 => Some(Self::Spawn),
+            1001 => Some(Self::SpawnArgs),
             _ => None,
         }
     }

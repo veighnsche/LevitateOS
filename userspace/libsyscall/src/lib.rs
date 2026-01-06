@@ -12,49 +12,49 @@
 use core::panic::PanicInfo;
 
 // ============================================================================
-// Syscall Numbers (must match kernel/src/syscall.rs)
+// Syscall Numbers — Linux AArch64 ABI (TEAM_210)
+// Reference: https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/unistd.h
 // ============================================================================
 
-pub const SYS_READ: u64 = 0;
-pub const SYS_WRITE: u64 = 1;
-pub const SYS_EXIT: u64 = 2;
-pub const SYS_GETPID: u64 = 3;
-pub const SYS_SBRK: u64 = 4;
-pub const SYS_SPAWN: u64 = 5;
-pub const SYS_EXEC: u64 = 6;
-pub const SYS_YIELD: u64 = 7;
-/// TEAM_142: Graceful system shutdown
-pub const SYS_SHUTDOWN: u64 = 8;
-/// TEAM_168: Open file
-pub const SYS_OPENAT: u64 = 9;
-/// TEAM_168: Close file descriptor
-pub const SYS_CLOSE: u64 = 10;
-/// TEAM_168: Get file status
-pub const SYS_FSTAT: u64 = 11;
-/// TEAM_170: Sleep for nanoseconds
-pub const SYS_NANOSLEEP: u64 = 12;
-/// TEAM_170: Get monotonic time
-pub const SYS_CLOCK_GETTIME: u64 = 13;
-/// TEAM_186: Spawn process with arguments
-pub const SYS_SPAWN_ARGS: u64 = 15;
-/// TEAM_188: Wait for child process
-pub const SYS_WAITPID: u64 = 16;
-/// TEAM_192: Get current working directory
+// Filesystem
 pub const SYS_GETCWD: u64 = 17;
-/// TEAM_192: Create directory
 pub const SYS_MKDIRAT: u64 = 34;
-/// TEAM_192: Remove file or directory
 pub const SYS_UNLINKAT: u64 = 35;
-/// TEAM_192: Rename/move file or directory
-pub const SYS_RENAMEAT: u64 = 38;
-/// TEAM_198: Set file timestamps
-pub const SYS_UTIMENSAT: u64 = 88;
-/// TEAM_198: Create symbolic link
 pub const SYS_SYMLINKAT: u64 = 36;
-/// TEAM_209: Create hard link
-pub const SYS_LINKAT: u64 = 42;
-/// TEAM_208: Fast userspace mutex
-pub const SYS_FUTEX: u64 = 41;
+pub const SYS_LINKAT: u64 = 37;
+pub const SYS_RENAMEAT: u64 = 38;
+pub const SYS_UMOUNT: u64 = 39;
+pub const SYS_MOUNT: u64 = 40;
+pub const SYS_OPENAT: u64 = 56;
+pub const SYS_CLOSE: u64 = 57;
+pub const SYS_GETDENTS: u64 = 61;
+pub const SYS_READ: u64 = 63;
+pub const SYS_WRITE: u64 = 64;
+pub const SYS_READLINKAT: u64 = 78;
+pub const SYS_FSTAT: u64 = 80;
+pub const SYS_UTIMENSAT: u64 = 88;
+
+// Process
+pub const SYS_EXIT: u64 = 93;
+pub const SYS_GETPID: u64 = 172;
+pub const SYS_SBRK: u64 = 214; // brk
+pub const SYS_EXEC: u64 = 221; // execve
+pub const SYS_WAITPID: u64 = 260; // wait4
+
+// Synchronization
+pub const SYS_FUTEX: u64 = 98;
+
+// Time
+pub const SYS_NANOSLEEP: u64 = 101;
+pub const SYS_CLOCK_GETTIME: u64 = 113;
+
+// Scheduling
+pub const SYS_YIELD: u64 = 124; // sched_yield
+pub const SYS_SHUTDOWN: u64 = 142; // reboot
+
+// Custom LevitateOS (temporary, until clone/execve work)
+pub const SYS_SPAWN: u64 = 1000;
+pub const SYS_SPAWN_ARGS: u64 = 1001;
 
 /// TEAM_208: Futex operations
 pub mod futex_ops {
@@ -509,8 +509,7 @@ pub fn clock_gettime(ts: &mut Timespec) -> isize {
 // Directory Syscalls (TEAM_176: Directory Iteration)
 // ============================================================================
 
-/// TEAM_176: Syscall number for getdents.
-pub const SYS_GETDENTS: u64 = 14;
+// SYS_GETDENTS is defined above with Linux AArch64 number (61)
 
 /// TEAM_176: Dirent64 structure for directory entries.
 /// Matches Linux ABI layout.
