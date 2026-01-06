@@ -31,13 +31,12 @@
 /// Supports both simple variants and nested variants containing inner errors.
 #[macro_export]
 macro_rules! define_kernel_error {
-    // Simple variants only (no inner types)
     (
         $(#[$meta:meta])*
         $vis:vis enum $name:ident($subsystem:literal) {
             $(
                 $(#[$variant_meta:meta])*
-                $variant:ident = $code:literal => $desc:literal
+                $variant:ident $(($inner:ty))? = $code:literal => $desc:literal
             ),* $(,)?
         }
     ) => {
@@ -46,7 +45,7 @@ macro_rules! define_kernel_error {
         $vis enum $name {
             $(
                 $(#[$variant_meta])*
-                $variant,
+                $variant $(($inner))?,
             )*
         }
 
@@ -57,74 +56,51 @@ macro_rules! define_kernel_error {
             /// Get numeric error code for debugging.
             pub const fn code(&self) -> u16 {
                 match self {
-                    $(Self::$variant => (($subsystem as u16) << 8) | $code,)*
+                    $(
+                        $crate::define_kernel_error!(@pattern $variant $(($inner))? _unused) => {
+                            (($subsystem as u16) << 8) | $code
+                        }
+                    )*
                 }
             }
 
             /// Get error name for logging.
             pub const fn name(&self) -> &'static str {
                 match self {
-                    $(Self::$variant => $desc,)*
+                    $(
+                        $crate::define_kernel_error!(@pattern $variant $(($inner))? _unused) => {
+                            $desc
+                        }
+                    )*
                 }
             }
         }
 
         impl core::fmt::Display for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(f, "E{:04X}: {}", self.code(), self.name())
+                match self {
+                    $(
+                        $crate::define_kernel_error!(@pattern $variant $(($inner))? inner) => {
+                            $crate::define_kernel_error!(@display_body self f $desc $(($inner))? inner)
+                        }
+                    )*
+                }
             }
         }
 
         impl core::error::Error for $name {}
     };
 
-    // Nested variants (with inner error types)
-    (
-        $(#[$meta:meta])*
-        $vis:vis enum $name:ident($subsystem:literal) {
-            $(
-                $(#[$variant_meta:meta])*
-                $variant:ident($inner:ty) = $code:literal => $desc:literal
-            ),* $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        $vis enum $name {
-            $(
-                $(#[$variant_meta])*
-                $variant($inner),
-            )*
-        }
+    // Helper to generate patterns
+    (@pattern $variant:ident ($inner:ty) $bind:ident) => { Self::$variant($bind) };
+    (@pattern $variant:ident $bind:ident) => { Self::$variant };
 
-        impl $name {
-            /// Subsystem identifier for this error type.
-            pub const SUBSYSTEM: u8 = $subsystem;
-
-            /// Get numeric error code for debugging.
-            pub const fn code(&self) -> u16 {
-                match self {
-                    $(Self::$variant(_) => (($subsystem as u16) << 8) | $code,)*
-                }
-            }
-
-            /// Get error name for logging.
-            pub const fn name(&self) -> &'static str {
-                match self {
-                    $(Self::$variant(_) => $desc,)*
-                }
-            }
-        }
-
-        impl core::fmt::Display for $name {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                match self {
-                    $(Self::$variant(inner) => write!(f, "E{:04X}: {} ({})", self.code(), self.name(), inner),)*
-                }
-            }
-        }
-
-        impl core::error::Error for $name {}
+    // Helper to generate display bodies
+    (@display_body $self:ident $f:ident $desc:literal ($inner:ty) $bind:ident) => {
+        write!($f, "E{:04X}: {} ({})", $self.code(), $desc, $bind)
+    };
+    (@display_body $self:ident $f:ident $desc:literal $bind:ident) => {
+        write!($f, "E{:04X}: {}", $self.code(), $desc)
     };
 }
 

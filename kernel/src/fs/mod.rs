@@ -16,63 +16,28 @@ use levitate_utils::Spinlock;
 pub mod ext4;
 pub mod fat;
 
-/// TEAM_152: Filesystem error type with error codes (0x05xx) per unified error system plan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FsError {
-    /// Failed to open volume (0x0501)
-    VolumeOpen,
-    /// Failed to open directory (0x0502)
-    DirOpen,
-    /// Failed to open file (0x0503)
-    FileOpen,
-    /// Read error (0x0504)
-    ReadError,
-    /// Write error (0x0505)
-    WriteError,
-    /// Filesystem not mounted (0x0506)
-    NotMounted,
-    /// Block device error (0x0507)
-    BlockError(crate::block::BlockError),
-}
+use levitate_error::define_kernel_error;
 
-impl FsError {
-    /// TEAM_152: Get numeric error code for debugging
-    pub const fn code(&self) -> u16 {
-        match self {
-            Self::VolumeOpen => 0x0501,
-            Self::DirOpen => 0x0502,
-            Self::FileOpen => 0x0503,
-            Self::ReadError => 0x0504,
-            Self::WriteError => 0x0505,
-            Self::NotMounted => 0x0506,
-            Self::BlockError(_) => 0x0507,
-        }
-    }
-
-    /// TEAM_152: Get error name for logging
-    pub const fn name(&self) -> &'static str {
-        match self {
-            Self::VolumeOpen => "Failed to open volume",
-            Self::DirOpen => "Failed to open directory",
-            Self::FileOpen => "Failed to open file",
-            Self::ReadError => "Read error",
-            Self::WriteError => "Write error",
-            Self::NotMounted => "Filesystem not mounted",
-            Self::BlockError(_) => "Block device error",
-        }
+define_kernel_error! {
+    /// TEAM_152: Filesystem error type with error codes (0x05xx) per unified error system plan.
+    /// TEAM_155: Migrated to define_kernel_error! macro.
+    pub enum FsError(0x05) {
+        /// Failed to open volume
+        VolumeOpen = 0x01 => "Failed to open volume",
+        /// Failed to open directory
+        DirOpen = 0x02 => "Failed to open directory",
+        /// Failed to open file
+        FileOpen = 0x03 => "Failed to open file",
+        /// Read error
+        ReadError = 0x04 => "Read error",
+        /// Write error
+        WriteError = 0x05 => "Write error",
+        /// Filesystem not mounted
+        NotMounted = 0x06 => "Filesystem not mounted",
+        /// Block device error
+        BlockError(crate::block::BlockError) = 0x07 => "Block device error",
     }
 }
-
-impl core::fmt::Display for FsError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::BlockError(inner) => write!(f, "E{:04X}: {} ({})", self.code(), self.name(), inner),
-            _ => write!(f, "E{:04X}: {}", self.code(), self.name()),
-        }
-    }
-}
-
-impl core::error::Error for FsError {}
 
 impl From<crate::block::BlockError> for FsError {
     fn from(e: crate::block::BlockError) -> Self {

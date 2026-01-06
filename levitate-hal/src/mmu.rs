@@ -9,52 +9,24 @@
 
 use bitflags::bitflags;
 
-/// TEAM_152: MMU error type with error codes (0x01xx) per unified error system plan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MmuError {
-    /// Page table allocation failed (0x0101)
-    AllocationFailed,
-    /// Address not mapped (0x0102)
-    NotMapped,
-    /// Invalid virtual address or target level (0x0103)
-    InvalidVirtualAddress,
-    /// Address not properly aligned (0x0104)
-    Misaligned,
-    /// Page table walk failed at intermediate level (0x0105)
-    WalkFailed,
-}
+use levitate_error::define_kernel_error;
 
-impl MmuError {
-    /// TEAM_152: Get numeric error code for debugging
-    pub const fn code(&self) -> u16 {
-        match self {
-            Self::AllocationFailed => 0x0101,
-            Self::NotMapped => 0x0102,
-            Self::InvalidVirtualAddress => 0x0103,
-            Self::Misaligned => 0x0104,
-            Self::WalkFailed => 0x0105,
-        }
-    }
-
-    /// TEAM_152: Get error name for logging
-    pub const fn name(&self) -> &'static str {
-        match self {
-            Self::AllocationFailed => "Page table allocation failed",
-            Self::NotMapped => "Address not mapped",
-            Self::InvalidVirtualAddress => "Invalid virtual address",
-            Self::Misaligned => "Address not properly aligned",
-            Self::WalkFailed => "Page table walk failed",
-        }
+define_kernel_error! {
+    /// TEAM_152: MMU error type with error codes (0x01xx) per unified error system plan.
+    /// TEAM_155: Migrated to define_kernel_error! macro.
+    pub enum MmuError(0x01) {
+        /// Page table allocation failed
+        AllocationFailed = 0x01 => "Page table allocation failed",
+        /// Address not mapped
+        NotMapped = 0x02 => "Address not mapped",
+        /// Invalid virtual address or target level
+        InvalidVirtualAddress = 0x03 => "Invalid virtual address",
+        /// Address not properly aligned
+        Misaligned = 0x04 => "Address not properly aligned",
+        /// Page table walk failed at intermediate level
+        WalkFailed = 0x05 => "Page table walk failed",
     }
 }
-
-impl core::fmt::Display for MmuError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "E{:04X}: {}", self.code(), self.name())
-    }
-}
-
-impl core::error::Error for MmuError {}
 
 /// [M23] Trait for physical page allocation, to be implemented by a Buddy Allocator.
 /// Allows MMU to request pages for dynamic page tables.
