@@ -77,6 +77,52 @@ pub fn sys_utimensat(_dirfd: i32, path: usize, path_len: usize, times: usize, _f
         .unwrap_or_else(|e| e.to_errno())
 }
 
+/// TEAM_209: sys_linkat - Create a hard link.
+pub fn sys_linkat(
+    _olddirfd: i32,
+    oldpath: usize,
+    oldpath_len: usize,
+    _newdirfd: i32,
+    newpath: usize,
+    newpath_len: usize,
+    _flags: u32,
+) -> i64 {
+    let task = crate::task::current_task();
+    
+    // Resolve oldpath
+    let mut old_path_buf = [0u8; 256];
+    for i in 0..oldpath_len.min(256) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, oldpath + i) {
+            old_path_buf[i] = unsafe { *ptr };
+        } else {
+            return errno::EFAULT;
+        }
+    }
+    let old_path_str = match core::str::from_utf8(&old_path_buf[..oldpath_len.min(256)]) {
+        Ok(s) => s,
+        Err(_) => return errno::EINVAL,
+    };
+
+    // Resolve newpath
+    let mut new_path_buf = [0u8; 256];
+    for i in 0..newpath_len.min(256) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, newpath + i) {
+            new_path_buf[i] = unsafe { *ptr };
+        } else {
+            return errno::EFAULT;
+        }
+    }
+    let new_path_str = match core::str::from_utf8(&new_path_buf[..newpath_len.min(256)]) {
+        Ok(s) => s,
+        Err(_) => return errno::EINVAL,
+    };
+
+    match vfs_link(old_path_str, new_path_str) {
+        Ok(()) => 0,
+        Err(e) => e.to_errno() as i64,
+    }
+}
+
 /// TEAM_198: sys_symlinkat - Create a symbolic link.
 ///
 /// # Arguments

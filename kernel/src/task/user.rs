@@ -61,7 +61,6 @@ pub mod layout {
 
 use crate::memory::heap::ProcessHeap;
 
-extern crate alloc;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pid(pub u64);
 

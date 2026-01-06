@@ -3,6 +3,7 @@ use crate::memory::user as mm_user;
 pub mod fs;
 pub mod mm;
 pub mod process;
+pub mod sync;
 pub mod sys;
 pub mod time;
 
@@ -76,6 +77,10 @@ pub enum SyscallNumber {
     Umount = 39,
     /// TEAM_206: Mount filesystem
     Mount = 40,
+    /// TEAM_208: Fast userspace mutex
+    Futex = 41,
+    /// TEAM_209: Create hard link
+    Linkat = 42,
 }
 
 impl SyscallNumber {
@@ -107,6 +112,8 @@ impl SyscallNumber {
             37 => Some(Self::Readlinkat),
             39 => Some(Self::Umount),
             40 => Some(Self::Mount),
+            41 => Some(Self::Futex),
+            42 => Some(Self::Linkat),
             _ => None,
         }
     }
@@ -265,6 +272,24 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg4() as usize,
         ),
         Some(SyscallNumber::Umount) => fs::sys_umount(frame.arg0() as usize, frame.arg1() as usize),
+        // TEAM_208: Futex syscall
+        Some(SyscallNumber::Futex) => {
+            let addr = frame.arg0() as usize;
+            let op = frame.arg1() as usize;
+            let val = frame.arg2() as usize;
+            let timeout = frame.arg3() as usize;
+            let addr2 = frame.arg4() as usize;
+            crate::syscall::sync::sys_futex(addr, op, val, timeout, addr2)
+        }
+        Some(SyscallNumber::Linkat) => fs::sys_linkat(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as i32,
+            frame.arg4() as usize,
+            frame.arg5() as usize,
+            frame.arg6() as u32,
+        ),
         None => {
             println!("[SYSCALL] Unknown syscall number: {}", nr);
             errno::ENOSYS

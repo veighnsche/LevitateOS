@@ -1,6 +1,6 @@
 # LevitateOS Roadmap
 
-**Last Updated:** 2026-01-06 (TEAM_200)
+**Last Updated:** 2026-01-06 (TEAM_208)
 
 This document outlines the planned development phases for LevitateOS. Each completed item includes the responsible team for traceability.
 
@@ -204,7 +204,7 @@ The goal of Part II is to build a rich, POSIX-like userspace environment on top 
 | `brk` | Heap allocation | 🟢 Implemented | 10 |
 | **Threading** | | | |
 | `clone` | Thread creation | 🔴 Not implemented | 14+ |
-| `futex` | Mutex, condvar | 🔴 Not implemented | 14+ |
+| `futex` | Mutex, condvar | � Implemented | 17a |
 | TLS (`TPIDR_EL0`) | Thread-local storage | 🔴 Not implemented | 14+ |
 | `set_tid_address` | Thread ID management | 🔴 Not implemented | 14+ |
 | **Signals** | | | |
@@ -214,7 +214,7 @@ The goal of Part II is to build a rich, POSIX-like userspace environment on top 
 | **Process** | | | |
 | `fork` / `vfork` | Process creation | 🔴 Not implemented | 12 |
 | `execve` | Program execution | 🟡 Have `spawn` | 12 |
-| `wait4` / `waitpid` | Child reaping | 🔴 Not implemented | 12 |
+| `wait4` / `waitpid` | Child reaping | � Implemented | 8d |
 | `getpid` / `getppid` | Process IDs | 🟢 Implemented | 8 |
 | **I/O** | | | |
 | `pipe` / `pipe2` | Shell pipelines | 🔴 Not implemented | 12 |
@@ -229,10 +229,10 @@ The goal of Part II is to build a rich, POSIX-like userspace environment on top 
 | `unlinkat` | Remove files | 🟢 Implemented (tmpfs) | 11 |
 | `mkdirat` | Create directory | 🟢 Implemented (tmpfs) | 11 |
 | `renameat` | Rename/move | 🟢 Implemented (tmpfs) | 11 |
-| `linkat` / `symlinkat` | Create links | 🔴 Not implemented | 11 |
+| `linkat` / `symlinkat` | Create links | � symlinkat impl | 11 |
 | `getcwd` | Current directory | 🟢 Implemented | 11 |
 | `chdir` / `fchdir` | Change directory | 🔴 Not implemented | 11 |
-| `utimensat` | Set timestamps | 🔴 Not implemented | 11 |
+| `utimensat` | Set timestamps | � Implemented | 11 |
 
 Legend: 🟢 Complete | 🟡 Partial/Wrapper Only | 🔴 Not Started
 
@@ -255,13 +255,16 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 | `openat` with O_TRUNC | 🟢 Complete | Truncates files in `/tmp` |
 | `read`/`write` for tmpfs | 🟢 Complete | Full read/write support |
 
-#### Remaining Blockers
+#### ✅ All Syscall Blockers Resolved
 
-| Blocker | Affects | Status | Notes |
-|---------|---------|--------|-------|
-| `utimensat` (88) | `touch` | 🔴 Not implemented | Set file timestamps |
-| `symlinkat` (36) | `ln -s` | 🔴 Not implemented | Create symbolic links |
-| `linkat` (37) | `ln` | 🔴 Deferred | Hard links — complex, low priority |
+| Blocker | Status | Team |
+|---------|--------|------|
+| `mkdirat` (34) | � Complete | TEAM_192 |
+| `unlinkat` (35) | 🟢 Complete | TEAM_192 |
+| `renameat` (38) | � Complete | TEAM_192 |
+| `utimensat` (88) | 🟢 Complete | TEAM_198 |
+| `symlinkat` (36) | � Complete | TEAM_198 |
+| `readlinkat` (37) | 🟢 Complete | TEAM_204 |
 
 #### Current Utility Status
 
@@ -275,8 +278,8 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 | `rm` | 🟢 Works | Tmpfs at `/tmp` |
 | `mv` | 🟢 Works | Tmpfs at `/tmp` |
 | `cp` | 🟢 Works | Tmpfs at `/tmp` |
-| `touch` | 🔴 Not started | `utimensat` syscall |
-| `ln` | 🔴 Not started | `symlinkat` syscall |
+| `touch` | � Ready | Syscall ready, utility pending |
+| `ln` | � Ready | symlinkat ready, utility pending |
 
 ---
 
@@ -336,12 +339,13 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 
 ---
 
-### 🗂️ Phase 12: VFS Foundation (Prerequisites)
+### ✅ Phase 12: VFS Foundation (Completed)
 
 > **Planning:** See `docs/planning/vfs/`  
 > **Team:** TEAM_200+
 
 - **Objective**: Build infrastructure required for a proper Linux-style Virtual Filesystem.
+- **Completed**: RwLock, Path abstraction, Mount table, Extended Stat, File mode constants
 - **Why Now**: Current ad-hoc file handling (FdType dispatch) doesn't scale. VFS is required for proper multi-filesystem support.
 
 #### Prerequisites to Build
@@ -364,7 +368,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 
 ---
 
-### 🗄️ Phase 13: Core VFS Implementation
+### ✅ Phase 13: Core VFS Implementation (Completed)
 
 - **Objective**: Implement Linux-style Virtual Filesystem layer.
 - **Critical for**: Unified file abstraction, proper filesystem extensibility.
@@ -413,9 +417,10 @@ pub trait SuperblockOps: Send + Sync {
 
 ---
 
-### 🔄 Phase 14: Filesystem Migration
+### ✅ Phase 14: Filesystem Migration (Completed)
 
 - **Objective**: Migrate existing filesystems to VFS layer.
+- **Completed**: tmpfs, initramfs, mount/umount syscalls (TEAM_206)
 
 #### Migrations
 
@@ -587,4 +592,86 @@ Once the userspace foundation is solid, we move to secure multi-user support.
 | 16 | TBD | Text Editing & Interaction |
 | 17 | TBD | Rust `std` Port & uutils |
 | 18-19 | TBD | Multi-User Security |
+
+---
+
+## 📚 Appendix A: External Kernel Reference & Gap Analysis
+
+> **Updated:** 2026-01-06 (TEAM_207)
+> 
+> **Source:** `.external-kernels/` containing Redox, Theseus, and Tock kernels
+
+### Reference Kernels Overview
+
+| Kernel | Focus | Size | Key Strengths |
+|--------|-------|------|---------------|
+| [Redox](file:///home/vince/Projects/LevitateOS/.external-kernels/redox-kernel) | Full OS | ~104KB memory.rs | Futex, CoW fork, signals, pipe |
+| [Theseus](file:///home/vince/Projects/LevitateOS/.external-kernels/theseus) | Research | 159 modules | Pluggable scheduler, IPC channels |
+| [Tock](file:///home/vince/Projects/LevitateOS/.external-kernels/tock) | Embedded | 27 core files | Scheduler trait, capability grants |
+
+### Gap Analysis Summary
+
+#### 🔴 Critical Gaps (Required for `std`/uutils)
+
+| Feature | Redox | Theseus | Tock | LevitateOS | Phase |
+|---------|-------|---------|------|------------|-------|
+| Futex (WAIT/WAKE) | ✅ | ❌ channels | ❌ | ❌ Missing | 17a |
+| mmap/munmap | ✅ Full | ✅ | ❌ | ❌ Missing | 17b |
+| clone/fork with CoW | ✅ | ✅ spawn | ❌ | ❌ Missing | 15/17a |
+| Signals (SIGCHLD, etc.) | ✅ Full | ✅ 4 types | ❌ upcalls | ❌ Missing | 15 |
+| Pipe (for `|`) | ✅ | ✅ | ❌ | ❌ Missing | 15 |
+| TLS (TPIDR_EL0) | ✅ | ✅ | ✅ | ❌ Missing | 17a |
+
+#### 🟡 Important Gaps
+
+| Feature | Status | Phase | Reference File |
+|---------|--------|-------|----------------|
+| dup/dup2/dup3 | ❌ Missing | 15 | `redox/src/syscall/fs.rs` |
+| poll/select | ❌ Missing | 16 | `redox/src/event.rs` |
+| ioctl | ❌ Missing | 16 | Theseus `tty/` |
+| Wait queues | ❌ Missing | 15 | `redox/src/sync/wait_queue.rs` |
+| Scheduler policies | 🟡 Simple RR | 17+ | `tock/kernel/src/scheduler.rs` |
+
+#### 🟢 Features LevitateOS Already Has
+
+| Feature | Status | Phase Completed |
+|---------|--------|-----------------|
+| VFS layer | ✅ | 14 |
+| tmpfs (full CRUD) | ✅ | 14 |
+| initramfs | ✅ | 4 |
+| Mount/Umount | ✅ | 14 |
+| waitpid | ✅ | 8d |
+| spawn_args | ✅ | 8d |
+| symlinkat/linkat | ✅ | 11 |
+| clock_gettime/nanosleep | ✅ | 10 |
+
+### Key Reference Files for Implementation
+
+| Task | Reference | File |
+|------|-----------|------|
+| Futex | Redox | [futex.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/redox-kernel/src/syscall/futex.rs) |
+| mmap/CoW | Redox | [memory.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/redox-kernel/src/context/memory.rs) |
+| Signals | Redox | [signal.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/redox-kernel/src/context/signal.rs) |
+| Pipe | Redox | [pipe.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/redox-kernel/src/scheme/pipe.rs) |
+| Scheduler | Tock | [scheduler.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/tock/kernel/src/scheduler.rs) |
+| Task/TLS | Theseus | [task/lib.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/theseus/kernel/task/src/lib.rs) |
+
+### Recommended Implementation Order
+
+1. **Phase 15 (Lower effort, high impact)**
+   - `pipe2` → Enables shell pipelines
+   - `dup`/`dup2` → FD redirection
+   - Basic signals (SIGCHLD, SIGKILL, SIGTERM)
+
+2. **Phase 17a (Threading)**
+   - `clone` with CLONE_VM
+   - TLS via TPIDR_EL0
+   - `futex` (WAIT/WAKE)
+
+3. **Phase 17b (Memory)**
+   - `mmap`/`munmap` (anonymous first)
+   - `mprotect` for guard pages
+
+> [!TIP]
+> **Quick win**: Pipe + dup only requires ~500 lines of kernel code but unlocks major shell functionality.
 

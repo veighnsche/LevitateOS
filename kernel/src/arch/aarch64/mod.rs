@@ -42,6 +42,10 @@ impl SyscallFrame {
     pub fn arg5(&self) -> u64 {
         self.regs[5]
     }
+    #[allow(dead_code)]
+    pub fn arg6(&self) -> u64 {
+        self.regs[6]
+    }
     pub fn set_return(&mut self, value: i64) {
         self.regs[0] = value as u64;
     }

@@ -91,11 +91,20 @@ pub fn switch_to(new_task: Arc<TaskControlBlock>) {
 }
 
 /// [MT5] yield_now() re-adds current task to ready queue.
+/// TEAM_208: Only re-add if task is not Blocked or Exited.
 pub fn yield_now() {
     let task = current_task();
-    // TEAM_143: Single lock acquisition instead of add_task + schedule
-    if let Some(next) = scheduler::SCHEDULER.yield_and_reschedule(task) {
-        switch_to(next);
+    let state = task.get_state();
+
+    // TEAM_208: If task is blocked (e.g., waiting on futex), don't re-add to ready queue
+    if state == TaskState::Blocked || state == TaskState::Exited {
+        // Just schedule next task without re-adding current
+        scheduler::SCHEDULER.schedule();
+    } else {
+        // TEAM_143: Single lock acquisition instead of add_task + schedule
+        if let Some(next) = scheduler::SCHEDULER.yield_and_reschedule(task) {
+            switch_to(next);
+        }
     }
 }
 
@@ -158,6 +167,17 @@ impl TaskControlBlock {
     pub fn set_state(&self, state: TaskState) {
         self.state.store(state as u8, Ordering::Release);
     }
+
+    /// TEAM_208: Get the current state of the task.
+    pub fn get_state(&self) -> TaskState {
+        match self.state.load(Ordering::Acquire) {
+            0 => TaskState::Ready,
+            1 => TaskState::Running,
+            2 => TaskState::Blocked,
+            3 => TaskState::Exited,
+            _ => TaskState::Ready, // Fallback
+        }
+    }
 }
 
 impl TaskControlBlock {
@@ -183,8 +203,8 @@ impl TaskControlBlock {
     }
 }
 
-use crate::memory::user as mm_user;
 use crate::memory::heap::ProcessHeap;
+use crate::memory::user as mm_user;
 use crate::task::user::UserTask;
 
 impl From<UserTask> for TaskControlBlock {

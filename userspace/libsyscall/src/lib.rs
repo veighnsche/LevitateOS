@@ -51,6 +51,16 @@ pub const SYS_RENAMEAT: u64 = 38;
 pub const SYS_UTIMENSAT: u64 = 88;
 /// TEAM_198: Create symbolic link
 pub const SYS_SYMLINKAT: u64 = 36;
+/// TEAM_209: Create hard link
+pub const SYS_LINKAT: u64 = 42;
+/// TEAM_208: Fast userspace mutex
+pub const SYS_FUTEX: u64 = 41;
+
+/// TEAM_208: Futex operations
+pub mod futex_ops {
+    pub const FUTEX_WAIT: usize = 0;
+    pub const FUTEX_WAKE: usize = 1;
+}
 
 /// TEAM_142: Shutdown flags
 pub mod shutdown_flags {
@@ -662,6 +672,28 @@ pub fn symlinkat(target: &str, linkdirfd: i32, linkpath: &str) -> isize {
     ret as isize
 }
 
+/// TEAM_209: Create a hard link.
+#[inline]
+pub fn linkat(olddfd: i32, oldpath: &str, newdfd: i32, newpath: &str, flags: u32) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_LINKAT,
+            in("x0") olddfd,
+            in("x1") oldpath.as_ptr(),
+            in("x2") oldpath.len(),
+            in("x3") newdfd,
+            in("x4") newpath.as_ptr(),
+            in("x5") newpath.len(),
+            in("x6") flags,
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
 /// TEAM_198: UTIME_NOW - set to current time
 pub const UTIME_NOW: u64 = 0x3FFFFFFF;
 /// TEAM_198: UTIME_OMIT - don't change
@@ -690,6 +722,39 @@ pub fn utimensat(dirfd: i32, path: &str, times: Option<&[Timespec; 2]>, flags: u
             in("x2") path.len(),
             in("x3") times_ptr,
             in("x4") flags,
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+// ============================================================================
+// Synchronization Syscalls (TEAM_208: Futex)
+// ============================================================================
+
+/// TEAM_208: Fast userspace mutex operation.
+///
+/// # Arguments
+/// * `addr` - Pointer to a 4-byte aligned u32 value
+/// * `op` - Operation (FUTEX_WAIT or FUTEX_WAKE)
+/// * `val` - Expected value (for WAIT) or max waiters to wake (for WAKE)
+///
+/// # Returns
+/// * FUTEX_WAIT: 0 on success, -11 (EAGAIN) if value mismatch
+/// * FUTEX_WAKE: Number of tasks woken
+#[inline]
+pub fn futex(addr: *const u32, op: usize, val: u32) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_FUTEX,
+            in("x0") addr as usize,
+            in("x1") op,
+            in("x2") val as usize,
+            in("x3") 0usize, // timeout (unused)
+            in("x4") 0usize, // addr2 (unused)
             lateout("x0") ret,
             options(nostack)
         );

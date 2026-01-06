@@ -302,3 +302,40 @@ pub fn vfs_utimes(path: &str, atime: Option<u64>, mtime: Option<u64>) -> VfsResu
     };
     vfs_setattr(path, &attr)
 }
+
+/// TEAM_209: Create a hard link
+pub fn vfs_link(old_path: &str, new_path: &str) -> VfsResult<()> {
+    // Look up the source
+    let old_dentry = dcache().lookup(old_path)?;
+    let old_inode = old_dentry.get_inode().ok_or(VfsError::NotFound)?;
+
+    if old_inode.is_dir() {
+        return Err(VfsError::IsADirectory);
+    }
+
+    // Resolve destination parent
+    let (new_parent_dentry, new_name) = dcache().lookup_parent(new_path)?;
+    let new_parent_inode = new_parent_dentry.get_inode().ok_or(VfsError::NotFound)?;
+
+    if !new_parent_inode.is_dir() {
+        return Err(VfsError::NotADirectory);
+    }
+
+    // Check if destination already exists
+    if new_parent_dentry.lookup_child(new_name).is_some() {
+        return Err(VfsError::AlreadyExists);
+    }
+
+    // Create the hard link in the filesystem
+    new_parent_inode.ops.link(&new_parent_inode, new_name, &old_inode)?;
+
+    // Add to dentry cache
+    let new_dentry = Arc::new(Dentry::new(
+        alloc::string::String::from(new_name),
+        Some(Arc::downgrade(&new_parent_dentry)),
+        Some(old_inode.clone()),
+    ));
+    new_parent_dentry.add_child(new_dentry);
+
+    Ok(())
+}

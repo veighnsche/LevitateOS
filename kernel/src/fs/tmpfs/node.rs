@@ -72,11 +72,14 @@ pub struct TmpfsNode {
     pub ctime: u64,
     /// Parent node (Weak reference to avoid cycles)
     pub parent: Weak<Spinlock<TmpfsNode>>,
+    /// TEAM_209: Number of hard links
+    pub nlink: u32,
 }
 
 impl TmpfsNode {
     /// TEAM_194: Create a new file node
     /// TEAM_198: Added timestamp fields
+    /// TEAM_209: Added nlink field
     pub fn new_file(ino: u64, name: &str) -> Self {
         let now = crate::syscall::time::uptime_seconds();
         Self {
@@ -89,11 +92,13 @@ impl TmpfsNode {
             mtime: now,
             ctime: now,
             parent: Weak::new(),
+            nlink: 1,
         }
     }
 
     /// TEAM_194: Create a new directory node
     /// TEAM_198: Added timestamp fields
+    /// TEAM_209: Added nlink field
     pub fn new_dir(ino: u64, name: &str) -> Self {
         let now = crate::syscall::time::uptime_seconds();
         Self {
@@ -106,10 +111,12 @@ impl TmpfsNode {
             mtime: now,
             ctime: now,
             parent: Weak::new(),
+            nlink: 2, // self + parent
         }
     }
 
     /// TEAM_198: Create a new symlink node
+    /// TEAM_209: Added nlink field
     pub fn new_symlink(ino: u64, name: &str, target: &str) -> Self {
         let now = crate::syscall::time::uptime_seconds();
         Self {
@@ -122,6 +129,7 @@ impl TmpfsNode {
             mtime: now,
             ctime: now,
             parent: Weak::new(),
+            nlink: 1,
         }
     }
 

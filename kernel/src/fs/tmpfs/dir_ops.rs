@@ -309,11 +309,19 @@ impl InodeOps for TmpfsDirOps {
 
         if let Some(idx) = found_idx {
             let child = parent_node.children.remove(idx);
-            let tmpfs_lock = TMPFS.lock();
-            let tmpfs = tmpfs_lock.as_ref().ok_or(VfsError::IoError)?;
-            tmpfs
-                .bytes_used
-                .fetch_sub(child.lock().data.len(), Ordering::SeqCst);
+            
+            // Decrement nlink in TmpfsNode
+            let mut child_locked = child.lock();
+            child_locked.nlink -= 1;
+            
+            // If it was the last link, decrement global bytes_used
+            if child_locked.nlink == 0 {
+                let tmpfs_lock = TMPFS.lock();
+                let tmpfs = tmpfs_lock.as_ref().ok_or(VfsError::IoError)?;
+                tmpfs
+                    .bytes_used
+                    .fetch_sub(child_locked.data.len(), Ordering::SeqCst);
+            }
             Ok(())
         } else {
             Err(VfsError::NotFound)
@@ -342,11 +350,37 @@ impl InodeOps for TmpfsDirOps {
         }
 
         if let Some(idx) = found_idx {
-            parent_node.children.remove(idx);
+            let child = parent_node.children.remove(idx);
+            child.lock().nlink -= 1; // self reference
+            parent_node.nlink -= 1; // child's .. reference
             Ok(())
         } else {
             Err(VfsError::NotFound)
         }
+    }
+
+    fn link(&self, inode: &Inode, _name: &str, target: &Inode) -> VfsResult<()> {
+        let parent_node_arc = inode
+            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .ok_or(VfsError::IoError)?;
+        
+        let target_node_arc = target
+            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .ok_or(VfsError::IoError)?;
+
+        // Standard Unix restriction: no hard links to directories
+        if target.is_dir() {
+            return Err(VfsError::IsADirectory);
+        }
+
+        // Add child (handles name collision and setting parent weak ref)
+        add_child(parent_node_arc, Arc::clone(target_node_arc))?;
+        
+        // Increment link count
+        target_node_arc.lock().nlink += 1;
+        target.inc_nlink();
+
+        Ok(())
     }
 
     fn setattr(&self, inode: &Inode, attr: &crate::fs::vfs::ops::SetAttr) -> VfsResult<()> {
