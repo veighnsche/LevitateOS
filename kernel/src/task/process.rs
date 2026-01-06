@@ -8,7 +8,7 @@
 use crate::loader::elf::Elf;
 use crate::loader::elf::ElfError;
 use crate::task::user::UserTask;
-use crate::task::user_mm;
+use crate::memory::user;
 use los_hal::mmu::MmuError;
 
 use los_error::define_kernel_error;
@@ -68,7 +68,7 @@ pub fn spawn_from_elf_with_args(
 
     // [PROC2] Create user page table
     los_hal::println!("[SPAWN] Creating user page table...");
-    let ttbr0_phys = user_mm::create_user_page_table() // [PROC2]
+    let ttbr0_phys = user::create_user_page_table() // [PROC2]
         .ok_or(SpawnError::PageTable(MmuError::AllocationFailed))?;
 
     // 3. Load ELF segments into user address space
@@ -77,16 +77,16 @@ pub fn spawn_from_elf_with_args(
 
     // 4. Set up user stack
     los_hal::println!("[SPAWN] Setting up stack...");
-    let stack_pages = user_mm::layout::STACK_SIZE / los_hal::mmu::PAGE_SIZE;
+    let stack_pages = user::layout::STACK_SIZE / los_hal::mmu::PAGE_SIZE;
     let stack_top =
-        unsafe { user_mm::setup_user_stack(ttbr0_phys, stack_pages).map_err(SpawnError::Stack)? };
+        unsafe { user::setup_user_stack(ttbr0_phys, stack_pages).map_err(SpawnError::Stack)? };
 
     // TEAM_169: Set up argc/argv/envp on stack
     let user_sp = if args.is_empty() && envs.is_empty() {
         stack_top
     } else {
         los_hal::println!("[SPAWN] Setting up args: argc={}", args.len());
-        user_mm::setup_stack_args(ttbr0_phys, stack_top, args, envs)
+        user::setup_stack_args(ttbr0_phys, stack_top, args, envs)
             .map_err(SpawnError::Stack)?
     };
 

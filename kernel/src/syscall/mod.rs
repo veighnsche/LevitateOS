@@ -293,7 +293,7 @@ pub(crate) fn write_to_user_buf(
     byte: u8,
 ) -> bool {
     let user_va = user_buf_base + offset;
-    if let Some(kernel_ptr) = crate::task::user_mm::user_va_to_kernel_ptr(ttbr0, user_va) {
+    if let Some(kernel_ptr) = crate::memory::user::user_va_to_kernel_ptr(ttbr0, user_va) {
         unsafe {
             *kernel_ptr = byte;
         }

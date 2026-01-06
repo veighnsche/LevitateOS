@@ -8,6 +8,8 @@ use los_utils::Spinlock;
 pub use los_hal::allocator::BuddyAllocator;
 pub use los_hal::allocator::Page;
 
+pub mod user; // TEAM_208: User-space memory management
+
 /// Global Frame Allocator
 pub struct FrameAllocator(Spinlock<BuddyAllocator>);
 

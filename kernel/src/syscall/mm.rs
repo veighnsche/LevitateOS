@@ -23,8 +23,8 @@ pub fn sys_sbrk(increment: isize) -> i64 {
 
                 for page in old_page..new_page {
                     let va = page * los_hal::mmu::PAGE_SIZE;
-                    if crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, va).is_none() {
-                        if crate::task::user_mm::alloc_and_map_heap_page(task.ttbr0, va).is_err() {
+                    if crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, va).is_none() {
+                        if crate::memory::user::alloc_and_map_heap_page(task.ttbr0, va).is_err() {
                             heap.current = old_break;
                             return 0; // null
                         }

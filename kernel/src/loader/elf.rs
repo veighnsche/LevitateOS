@@ -8,7 +8,7 @@
 //! - Program Header: 56 bytes each
 //! - AArch64 Machine Type: EM_AARCH64 = 183
 
-use crate::task::user_mm;
+use crate::memory::user;
 use los_hal::mmu::{self, PAGE_SIZE, PageFlags};
 
 /// ELF Magic Number: 0x7F 'E' 'L' 'F'
@@ -351,7 +351,7 @@ impl<'a> Elf<'a> {
 
                 // Map into user space
                 unsafe {
-                    user_mm::map_user_page(ttbr0_phys, page_va, phys, flags)
+                    user::map_user_page(ttbr0_phys, page_va, phys, flags)
                         .map_err(|_| ElfError::MappingFailed)?;
                 }
             }

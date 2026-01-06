@@ -5,7 +5,7 @@ pub mod process;
 pub mod process_table; // TEAM_188: Process table for waitpid
 pub mod scheduler;
 pub mod user; // TEAM_073: Userspace support (Phase 8)
-pub mod user_mm; // TEAM_073: User memory management (Phase 8) // TEAM_073: Process spawning (Phase 8)
+// TEAM_208: user_mm moved to crate::memory::user
 
 extern crate alloc;
 use crate::arch::{Context, cpu_switch_to, task_entry_trampoline};

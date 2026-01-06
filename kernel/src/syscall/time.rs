@@ -70,7 +70,7 @@ pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> i64 {
 pub fn sys_clock_gettime(timespec_buf: usize) -> i64 {
     let task = crate::task::current_task();
     let ts_size = core::mem::size_of::<Timespec>();
-    if crate::task::user_mm::validate_user_buffer(task.ttbr0, timespec_buf, ts_size, true).is_err()
+    if crate::memory::user::validate_user_buffer(task.ttbr0, timespec_buf, ts_size, true).is_err()
     {
         return errno::EFAULT;
     }
@@ -94,7 +94,7 @@ pub fn sys_clock_gettime(timespec_buf: usize) -> i64 {
         unsafe { core::slice::from_raw_parts(&ts as *const Timespec as *const u8, ts_size) };
 
     for (i, &byte) in ts_bytes.iter().enumerate() {
-        if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, timespec_buf + i)
+        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, timespec_buf + i)
         {
             unsafe { *ptr = byte };
         } else {
