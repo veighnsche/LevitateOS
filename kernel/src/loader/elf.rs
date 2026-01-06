@@ -313,10 +313,6 @@ impl<'a> Elf<'a> {
                 max_vaddr = segment_end;
             }
 
-            // TEAM_212: Debug segment loading
-            los_hal::println!("[ELF] Segment: vaddr=0x{:x} filesz=0x{:x} memsz=0x{:x} end=0x{:x}",
-                              vaddr, filesz, memsz, segment_end);
-
             // Allocate pages for this segment
             let page_start = vaddr & !0xFFF;
             let page_end = (vaddr + memsz + 0xFFF) & !0xFFF;
@@ -339,7 +335,25 @@ impl<'a> Elf<'a> {
                 .unwrap_or(false);
 
                 if already_mapped {
-                    continue; // Skip, page already mapped by earlier segment
+                    // TEAM_212: Page already mapped - check if we need to upgrade permissions
+                    // If new segment needs RW (USER_DATA) but page was mapped RO (USER_CODE),
+                    // we need to upgrade to USER_CODE_DATA (RWX) to allow both execute and write
+                    if flags == PageFlags::USER_DATA {
+                        let l0_va = mmu::phys_to_virt(ttbr0_phys);
+                        if let Ok(walk) = mmu::walk_to_entry(
+                            unsafe { &mut *(l0_va as *mut mmu::PageTable) },
+                            page_va,
+                            3,
+                            false,
+                        ) {
+                            let entry = walk.table.entry_mut(walk.index);
+                            let phys = entry.address();
+                            // Use USER_CODE_DATA (RWX) to preserve execute + add write
+                            entry.set(phys, PageFlags::USER_CODE_DATA | PageFlags::TABLE);
+                            mmu::tlb_flush_page(page_va);
+                        }
+                    }
+                    continue;
                 }
 
                 // Allocate a physical page

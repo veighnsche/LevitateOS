@@ -10,21 +10,15 @@ extern crate alloc;
 extern crate ulib;
 
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println, renameat};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{println, renameat};
 
 // ============================================================================
 // Options
 // ============================================================================
 
 struct Options {
-    force: bool,       // -f
-    verbose: bool,     // -v
+    force: bool,   // -f
+    verbose: bool, // -v
 }
 
 impl Default for Options {
@@ -92,13 +86,7 @@ fn move_file(src: &str, dest: &str, opts: &Options) -> bool {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut opts = Options::default();
     let mut files = Vec::new();
 
@@ -107,10 +95,10 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "-f" || arg == "--force" {
                 opts.force = true;
             } else if arg == "-i" || arg == "--interactive" {
@@ -119,7 +107,7 @@ pub extern "C" fn _start() -> ! {
                 opts.verbose = true;
             } else if arg.starts_with('-') {
                 println!("mv: invalid option -- '{}'", arg);
-                libsyscall::exit(1);
+                return 1;
             } else {
                 files.push(arg);
             }
@@ -129,16 +117,16 @@ pub extern "C" fn _start() -> ! {
     if files.len() < 2 {
         println!("mv: missing file operand");
         println!("Try 'mv --help' for more information.");
-        libsyscall::exit(1);
+        return 1;
     }
 
     // Simple two-file rename for now
     if files.len() == 2 {
         let success = move_file(files[0], files[1], &opts);
-        libsyscall::exit(if success { 0 } else { 1 })
+        return if success { 0 } else { 1 };
     }
 
     // Multiple sources to directory - not implemented yet
     println!("mv: target '{}' is not a directory", files[files.len() - 1]);
-    libsyscall::exit(1)
+    1
 }

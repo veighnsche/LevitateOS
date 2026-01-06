@@ -10,13 +10,7 @@ extern crate alloc;
 extern crate ulib;
 
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, mkdirat, println};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{mkdirat, println};
 
 // ============================================================================
 // Help and Version
@@ -68,16 +62,10 @@ fn make_dir(path: &str, _mode: u32, _parents: bool, verbose: bool) -> bool {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut parents = false;
     let mut verbose = false;
-    let mut mode = 0o755;
+    let mode = 0o755;
     let mut dirs = Vec::new();
 
     let argc = ulib::env::args_len();
@@ -85,10 +73,10 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "-p" || arg == "--parents" {
                 parents = true;
             } else if arg == "-v" || arg == "--verbose" {
@@ -97,7 +85,7 @@ pub extern "C" fn _start() -> ! {
                 // Ignore mode for now
             } else if arg.starts_with('-') {
                 println!("mkdir: invalid option -- '{}'", arg);
-                libsyscall::exit(1);
+                return 1;
             } else {
                 dirs.push(arg);
             }
@@ -106,7 +94,7 @@ pub extern "C" fn _start() -> ! {
 
     if dirs.is_empty() {
         println!("mkdir: missing operand");
-        libsyscall::exit(1);
+        return 1;
     }
 
     let mut success = true;
@@ -116,5 +104,9 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    libsyscall::exit(if success { 0 } else { 1 })
+    if success {
+        0
+    } else {
+        1
+    }
 }

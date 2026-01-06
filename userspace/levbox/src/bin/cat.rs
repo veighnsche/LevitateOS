@@ -20,8 +20,7 @@ extern crate alloc;
 // TEAM_182: ulib provides #[global_allocator] and #[alloc_error_handler]
 extern crate ulib;
 
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println};
+use libsyscall::println;
 
 // File descriptors
 const STDIN: usize = 0;
@@ -30,11 +29,6 @@ const STDERR: usize = 2;
 
 // Buffer size per spec recommendation
 const BUF_SIZE: usize = 4096;
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
 
 // ============================================================================
 // Error Handling
@@ -144,16 +138,7 @@ fn print_version() {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    // Initialize environment/args from stack (Linux ABI)
-    // The stack pointer at entry contains argc, argv, envp
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
-    let mut exit_code = 0i32;
+pub fn main() -> i32 {
     let argc = ulib::env::args_len();
 
     // Check for --help or --version first [CAT-EXT]
@@ -161,13 +146,15 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             }
         }
     }
+
+    let mut exit_code = 0i32;
 
     if argc <= 1 {
         // [CAT2] No arguments: read from stdin
@@ -205,5 +192,5 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    libsyscall::exit(exit_code)
+    exit_code
 }

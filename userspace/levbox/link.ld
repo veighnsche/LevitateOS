@@ -16,6 +16,18 @@ SECTIONS
         *(.rodata .rodata.*)
     }
 
+    .init_array : {
+        __init_array_start = .;
+        *(.init_array .init_array.*)
+        __init_array_end = .;
+    }
+
+    .fini_array : {
+        __fini_array_start = .;
+        *(.fini_array .fini_array.*)
+        __fini_array_end = .;
+    }
+
     .data : {
         *(.data .data.*)
     }

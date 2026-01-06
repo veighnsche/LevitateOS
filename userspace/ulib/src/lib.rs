@@ -2,9 +2,9 @@
 //!
 //! This library provides `std`-like abstractions for userspace programs:
 //! - Global allocator backed by `sbrk`
-//! - File I/O abstractions (future)
-//! - Environment access (future)
-//! - Time utilities (future)
+//! - File I/O abstractions
+//! - Environment access
+//! - Time utilities
 //!
 //! ## Usage
 //! ```rust
@@ -18,6 +18,10 @@
 
 #![no_std]
 #![feature(alloc_error_handler)]
+
+// TEAM_212: Process entry and lifecycle
+pub mod entry;
+pub mod panic;
 
 // TEAM_166: Module structure per Phase 10 design
 pub mod alloc;
@@ -33,10 +37,13 @@ pub mod time;
 pub use alloc::LosAllocator;
 pub use fs::File;
 // TEAM_176: Re-export directory iteration types
-pub use fs::{DirEntry, FileType, ReadDir, read_dir};
+pub use fs::{read_dir, DirEntry, FileType, ReadDir};
 pub use io::{Error, ErrorKind, Read, Result, Write};
 // TEAM_180: Re-export buffered I/O types
 pub use io::{BufReader, BufWriter};
+// TEAM_212: Re-export process lifecycle functions
+pub use entry::{abort, atexit, exit, sched_yield, sleep};
+pub use entry::{kill, pause, raise, signal, Signal};
 
 // Re-export libsyscall for convenience
 pub use libsyscall;

@@ -51,4 +51,4 @@ path = "src/bin/ln.rs"
 
 [dependencies]
 libsyscall = { path = "../libsyscall" }
-ulib = { path = "../ulib" }
+ulib = { path = "../ulib", features = ["entry"] }

@@ -10,15 +10,9 @@ extern crate alloc;
 extern crate ulib;
 
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println};
+use libsyscall::println;
 use ulib::fs::File;
 use ulib::io::Read;
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
 
 // ============================================================================
 // Help and Version
@@ -108,13 +102,7 @@ fn copy_file(src: &str, dest: &str, _opts: &Options) -> bool {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut opts = Options::default();
     let mut files = Vec::new();
 
@@ -123,10 +111,10 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "-f" || arg == "--force" {
                 opts.force = true;
             } else if arg == "-i" || arg == "--interactive" {
@@ -137,7 +125,7 @@ pub extern "C" fn _start() -> ! {
                 opts.recursive = true;
             } else if arg.starts_with('-') {
                 println!("cp: invalid option -- '{}'", arg);
-                libsyscall::exit(1);
+                return 1;
             } else {
                 files.push(arg);
             }
@@ -147,16 +135,16 @@ pub extern "C" fn _start() -> ! {
     if files.len() < 2 {
         println!("cp: missing file operand");
         println!("Try 'cp --help' for more information.");
-        libsyscall::exit(1);
+        return 1;
     }
 
     // Simple two-file copy for now
     if files.len() == 2 {
         let success = copy_file(files[0], files[1], &opts);
-        libsyscall::exit(if success { 0 } else { 1 })
+        return if success { 0 } else { 1 };
     }
 
     // Multiple sources to directory
     println!("cp: target '{}' is not a directory", files[files.len() - 1]);
-    libsyscall::exit(1)
+    1
 }

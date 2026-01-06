@@ -24,11 +24,11 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{c_char, CStr};
 
-/// TEAM_169: Cached arguments (parsed once at startup).
-static mut ARGS: Option<Vec<String>> = None;
+/// TEAM_213: Cached arguments (parsed once at startup).
+static ARGS: spin::Once<Vec<String>> = spin::Once::new();
 
-/// TEAM_169: Cached environment variables (parsed once at startup).
-static mut ENV_VARS: Option<Vec<String>> = None;
+/// TEAM_213: Cached environment variables (parsed once at startup).
+static ENV_VARS: spin::Once<Vec<String>> = spin::Once::new();
 
 /// TEAM_169: Initialize arguments from the stack pointer.
 ///
@@ -41,7 +41,7 @@ static mut ENV_VARS: Option<Vec<String>> = None;
 /// * Stack layout must match the Linux ABI
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub unsafe fn init_args(sp: *const usize) {
-    if unsafe { ARGS.is_some() } {
+    if ARGS.is_completed() {
         return; // Already initialized
     }
 
@@ -82,10 +82,8 @@ pub unsafe fn init_args(sp: *const usize) {
         env_idx += 1;
     }
 
-    unsafe {
-        ARGS = Some(args);
-        ENV_VARS = Some(envs);
-    }
+    ARGS.call_once(|| args);
+    ENV_VARS.call_once(|| envs);
 }
 
 /// TEAM_169: Get command-line arguments.
@@ -100,18 +98,18 @@ pub unsafe fn init_args(sp: *const usize) {
 /// ```
 pub fn args() -> Args {
     Args {
-        inner: unsafe { ARGS.as_ref().map(|v| v.iter()) },
+        inner: ARGS.get().map(|v| v.iter()),
     }
 }
 
 /// TEAM_169: Get the number of command-line arguments.
 pub fn args_len() -> usize {
-    unsafe { ARGS.as_ref().map(|v| v.len()).unwrap_or(0) }
+    ARGS.get().map(|v| v.len()).unwrap_or(0)
 }
 
 /// TEAM_169: Get a specific argument by index.
 pub fn arg(index: usize) -> Option<&'static str> {
-    unsafe { ARGS.as_ref().and_then(|v| v.get(index)).map(|s| s.as_str()) }
+    ARGS.get().and_then(|v| v.get(index)).map(|s| s.as_str())
 }
 
 /// TEAM_169: Iterator over command-line arguments.
@@ -141,28 +139,26 @@ impl ExactSizeIterator for Args {}
 /// Returns an iterator over environment variable strings (in "KEY=VALUE" format).
 pub fn vars() -> Vars {
     Vars {
-        inner: unsafe { ENV_VARS.as_ref().map(|v| v.iter()) },
+        inner: ENV_VARS.get().map(|v| v.iter()),
     }
 }
 
 /// TEAM_169: Get the number of environment variables.
 pub fn vars_len() -> usize {
-    unsafe { ENV_VARS.as_ref().map(|v| v.len()).unwrap_or(0) }
+    ENV_VARS.get().map(|v| v.len()).unwrap_or(0)
 }
 
 /// TEAM_169: Get an environment variable by name.
 pub fn var(name: &str) -> Option<&'static str> {
     let prefix_len = name.len();
-    unsafe {
-        ENV_VARS.as_ref().and_then(|vars| {
-            for var in vars {
-                if var.starts_with(name) && var.as_bytes().get(prefix_len) == Some(&b'=') {
-                    return Some(&var[prefix_len + 1..]);
-                }
+    ENV_VARS.get().and_then(|vars| {
+        for var in vars {
+            if var.starts_with(name) && var.as_bytes().get(prefix_len) == Some(&b'=') {
+                return Some(&var[prefix_len + 1..]);
             }
-            None
-        })
-    }
+        }
+        None
+    })
 }
 
 /// TEAM_169: Iterator over environment variables.

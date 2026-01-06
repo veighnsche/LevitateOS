@@ -567,6 +567,23 @@ Once the userspace foundation is solid, we move to secure multi-user support.
 
 ---
 
+## 🛡️ Phase 20: Advanced Kernel Hardening (Hostile Userspace Model)
+
+- **Objective**: Implement a Zero-Trust security model where the kernel treats all EL0 (Userspace) interactions as potentially malicious.
+- **Goal**: Establish LevitateOS as a "Secure-by-Design" kernel using Rust's type system to enforce boundary invariants.
+
+### Tasks & Invariants
+
+- [ ] **Type-Safe User Pointers**: Implement `UserPtr<T>` and `UserSlice<T>` wrappers to replace raw pointers in syscall handlers, enforcing validation before dereference.
+- [ ] **Hardware-Backed Isolation (PAN/PXN)**: Enable AArch64 Privileged Access Never (PAN) and Privileged Execute Never (PXN) to prevent lateral kernel corruption from EL0.
+- [ ] **Strict TOCTOU Prevention**: Enforce a mandatory Copy-In pattern for all syscall buffers to eliminate Time-of-Check to Time-of-Use vulnerabilities.
+- [ ] **Capability-Based Resource Access**: Migrate from enumerable integer File Descriptors to opaque Capability handles to prevent handle-guessing attacks.
+- [ ] **Address Space Layout Randomization (ASLR)**: Implement entropy-based randomization for user stack, heap (brk), and executable base addresses.
+- [ ] **Syscall Sandboxing**: Implement a per-process syscall filter (e.g., Seccomp-like) to restrict the attack surface for unprivileged processes.
+- [ ] **Audit Logs & Integrity**: Implement cryptographic measurement of userspace binaries and kernel-level audit logs for failed syscall validations.
+
+---
+
 ## Team Registry Summary
 
 | Phase | Teams | Description |
@@ -592,6 +609,7 @@ Once the userspace foundation is solid, we move to secure multi-user support.
 | 16 | TBD | Text Editing & Interaction |
 | 17 | TBD | Rust `std` Port & uutils |
 | 18-19 | TBD | Multi-User Security |
+| 20 | 214 | Advanced Kernel Hardening (Hostile Userspace) |
 
 ---
 

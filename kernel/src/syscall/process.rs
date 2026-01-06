@@ -232,8 +232,10 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
         };
 
         let mut elf_data = None;
+        // TEAM_212: Strip leading '/' for initramfs lookup
+        let lookup_name = path.strip_prefix('/').unwrap_or(path);
         for entry in archive.archive.iter() {
-            if entry.name == path {
+            if entry.name == lookup_name {
                 elf_data = Some(entry.data);
                 break;
             }

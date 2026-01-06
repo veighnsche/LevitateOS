@@ -11,28 +11,22 @@ extern crate ulib;
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println};
+use libsyscall::println;
 use ulib::fs::{read_dir, File, FileType};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
 
 // ============================================================================
 // Options
 // ============================================================================
 
 struct Options {
-    all: bool,           // -a
-    almost_all: bool,    // -A
-    classify: bool,      // -F
-    one_per_line: bool,  // -1
-    long_format: bool,   // -l
-    human_readable: bool,// -h
-    recursive: bool,     // -R
-    color: bool,         // --color
+    all: bool,            // -a
+    almost_all: bool,     // -A
+    classify: bool,       // -F
+    one_per_line: bool,   // -1
+    long_format: bool,    // -l
+    human_readable: bool, // -h
+    recursive: bool,      // -R
+    color: bool,          // --color
 }
 
 impl Default for Options {
@@ -55,9 +49,9 @@ impl Default for Options {
 // ============================================================================
 
 const ANSI_RESET: &[u8] = b"\x1b[0m";
-const ANSI_BLUE: &[u8] = b"\x1b[34m";   // Directories
-const ANSI_CYAN: &[u8] = b"\x1b[36m";   // Symlinks
-const ANSI_GREEN: &[u8] = b"\x1b[32m";  // Executables (not detected yet)
+const ANSI_BLUE: &[u8] = b"\x1b[34m"; // Directories
+const ANSI_CYAN: &[u8] = b"\x1b[36m"; // Symlinks
+                                      // const ANSI_GREEN: &[u8] = b"\x1b[32m";  // Executables (not detected yet)
 
 // ============================================================================
 // Help and Version
@@ -283,13 +277,7 @@ fn list_dir(path: &str, opts: &Options) -> bool {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut opts = Options::default();
     let mut files = Vec::new();
 
@@ -298,10 +286,10 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--all" {
                 opts.all = true;
             } else if arg == "--almost-all" {
@@ -316,7 +304,7 @@ pub extern "C" fn _start() -> ! {
                 opts.color = true;
             } else if arg.starts_with("--") {
                 println!("ls: unrecognized option: {}", arg);
-                libsyscall::exit(2);
+                return 2;
             } else if arg.starts_with('-') && arg.len() > 1 {
                 for c in arg.chars().skip(1) {
                     match c {
@@ -329,7 +317,7 @@ pub extern "C" fn _start() -> ! {
                         '1' => opts.one_per_line = true,
                         _ => {
                             println!("ls: invalid option -- '{}'", c);
-                            libsyscall::exit(2);
+                            return 2;
                         }
                     }
                 }
@@ -359,5 +347,9 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    libsyscall::exit(if success { 0 } else { 1 })
+    if success {
+        0
+    } else {
+        1
+    }
 }

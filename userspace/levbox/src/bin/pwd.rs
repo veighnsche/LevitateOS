@@ -8,13 +8,7 @@
 
 extern crate ulib;
 
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, getcwd, println};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{getcwd, println};
 
 // ============================================================================
 // Help and Version
@@ -39,27 +33,21 @@ fn print_version() {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let argc = ulib::env::args_len();
     for i in 1..argc {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "-L" || arg == "--logical" || arg == "-P" || arg == "--physical" {
                 // Ignore these for now as we don't have symlink dirs in initramfs
             } else if arg.starts_with('-') {
                 println!("pwd: invalid option -- '{}'", arg);
-                libsyscall::exit(1);
+                return 1;
             }
         }
     }
@@ -68,7 +56,7 @@ pub extern "C" fn _start() -> ! {
     let ret = getcwd(&mut buf);
     if ret < 0 {
         println!("pwd: error getting current directory");
-        libsyscall::exit(1);
+        return 1;
     }
 
     // getcwd returns length including null terminator
@@ -77,8 +65,8 @@ pub extern "C" fn _start() -> ! {
         println!("{}", s);
     } else {
         println!("pwd: invalid UTF-8 in directory name");
-        libsyscall::exit(1);
+        return 1;
     }
 
-    libsyscall::exit(0)
+    0
 }

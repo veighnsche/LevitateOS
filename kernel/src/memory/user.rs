@@ -252,15 +252,11 @@ pub fn setup_stack_args(
     let envc = envs.len();
     let num_entries = argc + envc + 3;
     
-    los_hal::println!("[STACK_ARGS] argc={}, envc={}, num_entries={}, sp_before=0x{:x}", 
-                      argc, envc, num_entries, sp);
-    
     // Align sp to 16 bytes
     sp &= !15;
     
     // If odd number of entries, add 8-byte padding so argc ends up 16-byte aligned
     if num_entries % 2 == 1 {
-        los_hal::println!("[STACK_ARGS] Adding padding (odd entries)");
         write_usize(&mut sp, 0)?;
     }
     
@@ -272,15 +268,12 @@ pub fn setup_stack_args(
 
     // 3. Write argv[] array (NULL terminated)  
     write_usize(&mut sp, 0)?;
-    for (i, ptr) in arg_ptrs.iter().rev().enumerate() {
-        los_hal::println!("[STACK_ARGS] argv[{}] ptr=0x{:x}", argc - 1 - i, *ptr);
+    for ptr in arg_ptrs.iter().rev() {
         write_usize(&mut sp, *ptr)?;
     }
 
     // 4. Write argc
     write_usize(&mut sp, argc)?;
-    
-    los_hal::println!("[STACK_ARGS] Final sp=0x{:x}, aligned={}", sp, sp % 16 == 0);
 
     Ok(sp)
 }

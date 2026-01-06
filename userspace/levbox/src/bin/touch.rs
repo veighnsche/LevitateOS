@@ -12,13 +12,7 @@ extern crate ulib;
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, openat, utimensat, println, Timespec, UTIME_NOW, UTIME_OMIT};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{openat, println, utimensat, Timespec, UTIME_NOW, UTIME_OMIT};
 
 // ============================================================================
 // Constants
@@ -78,20 +72,20 @@ fn days_in_month(year: u32, month: u32) -> u32 {
 fn datetime_to_epoch(year: u32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> u64 {
     // Count days from 1970 to the given date
     let mut days: u64 = 0;
-    
+
     // Add days for complete years
     for y in 1970..year {
         days += if is_leap_year(y) { 366 } else { 365 };
     }
-    
+
     // Add days for complete months in the target year
     for m in 1..month {
         days += days_in_month(year, m) as u64;
     }
-    
+
     // Add remaining days (day is 1-indexed)
     days += (day - 1) as u64;
-    
+
     // Convert to seconds and add time components
     days * 86400 + (hour as u64) * 3600 + (min as u64) * 60 + (sec as u64)
 }
@@ -124,12 +118,12 @@ fn parse_touch_timestamp(stamp: &str) -> Option<u64> {
     } else {
         (stamp, 0u32)
     };
-    
+
     // Validate seconds
     if seconds > 60 {
         return None;
     }
-    
+
     // Parse based on length:
     // 8 chars: MMDDhhmm (use current year)
     // 10 chars: YYMMDDhhmm (use current century)
@@ -166,7 +160,7 @@ fn parse_touch_timestamp(stamp: &str) -> Option<u64> {
         }
         _ => return None,
     };
-    
+
     // Validate components
     if month < 1 || month > 12 {
         return None;
@@ -180,7 +174,7 @@ fn parse_touch_timestamp(stamp: &str) -> Option<u64> {
     if min > 59 {
         return None;
     }
-    
+
     Some(datetime_to_epoch(year, month, day, hour, min, seconds))
 }
 
@@ -192,18 +186,18 @@ fn parse_touch_timestamp(stamp: &str) -> Option<u64> {
 /// Supports: "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD", "now"
 fn parse_date_string(s: &str) -> Option<u64> {
     let s = s.trim();
-    
+
     // Handle "now"
     if s == "now" {
         return None; // Signal to use UTIME_NOW
     }
-    
+
     // Try "YYYY-MM-DD HH:MM:SS" format
     if s.len() >= 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-' {
         let year = parse_4digits(&s[0..4])?;
         let month = parse_2digits(&s[5..7])?;
         let day = parse_2digits(&s[8..10])?;
-        
+
         let (hour, min, sec) = if s.len() >= 19 && s.as_bytes()[10] == b' ' {
             let hour = parse_2digits(&s[11..13])?;
             let min = parse_2digits(&s[14..16])?;
@@ -212,7 +206,7 @@ fn parse_date_string(s: &str) -> Option<u64> {
         } else {
             (0, 0, 0)
         };
-        
+
         // Validate
         if month < 1 || month > 12 {
             return None;
@@ -223,10 +217,10 @@ fn parse_date_string(s: &str) -> Option<u64> {
         if hour > 23 || min > 59 || sec > 60 {
             return None;
         }
-        
+
         return Some(datetime_to_epoch(year, month, day, hour, min, sec));
     }
-    
+
     None
 }
 
@@ -258,16 +252,16 @@ fn get_reference_times(ref_path: &str) -> Option<(u64, u64)> {
     if fd < 0 {
         return None;
     }
-    
+
     // Get file stats
     let mut stat = libsyscall::Stat::default();
     let ret = libsyscall::fstat(fd as usize, &mut stat);
     libsyscall::close(fd as usize);
-    
+
     if ret < 0 {
         return None;
     }
-    
+
     // Return access time and modification time from stat
     Some((stat.st_atime, stat.st_mtime))
 }
@@ -348,7 +342,7 @@ fn touch_file(
 
     // First, try to update timestamps on existing file
     let ret = utimensat(AT_FDCWD, path, Some(&times), 0);
-    
+
     if ret == 0 {
         return true; // Success - file existed and timestamps updated
     }
@@ -376,12 +370,12 @@ fn touch_file(
 
     // Close the file
     libsyscall::close(ret as usize);
-    
+
     // If we created the file and have a specific time, set it now
     if let TimeSource::Epoch(_) = time_source {
         let _ = utimensat(AT_FDCWD, path, Some(&times), 0);
     }
-    
+
     true
 }
 
@@ -390,13 +384,7 @@ fn touch_file(
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut no_create = false;
     let mut atime_only = false;
     let mut mtime_only = false;
@@ -416,7 +404,7 @@ pub extern "C" fn _start() -> ! {
                     libsyscall::write(2, b"touch: invalid date format '");
                     libsyscall::write(2, arg.as_bytes());
                     libsyscall::write(2, b"'\n");
-                    libsyscall::exit(1);
+                    return 1;
                 }
             }
             continue;
@@ -433,7 +421,7 @@ pub extern "C" fn _start() -> ! {
                         libsyscall::write(2, b"touch: invalid date '");
                         libsyscall::write(2, arg.as_bytes());
                         libsyscall::write(2, b"'\n");
-                        libsyscall::exit(1);
+                        return 1;
                     }
                 }
             }
@@ -448,10 +436,10 @@ pub extern "C" fn _start() -> ! {
         // Parse options
         if arg == "--help" {
             print_help();
-            libsyscall::exit(0);
+            return 0;
         } else if arg == "--version" {
             print_version();
-            libsyscall::exit(0);
+            return 0;
         } else if arg == "-c" || arg == "--no-create" {
             no_create = true;
         } else if arg == "-a" {
@@ -475,7 +463,7 @@ pub extern "C" fn _start() -> ! {
                         libsyscall::write(2, b"touch: invalid date '");
                         libsyscall::write(2, date_str.as_bytes());
                         libsyscall::write(2, b"'\n");
-                        libsyscall::exit(1);
+                        return 1;
                     }
                 }
             }
@@ -493,7 +481,7 @@ pub extern "C" fn _start() -> ! {
                     'm' => mtime_only = true,
                     't' => {
                         // Rest of arg is timestamp
-                        let rest: String = chars[i+1..].iter().collect();
+                        let rest: String = chars[i + 1..].iter().collect();
                         if rest.is_empty() {
                             expect_t_arg = true;
                         } else {
@@ -503,14 +491,14 @@ pub extern "C" fn _start() -> ! {
                                     libsyscall::write(2, b"touch: invalid date format '");
                                     libsyscall::write(2, rest.as_bytes());
                                     libsyscall::write(2, b"'\n");
-                                    libsyscall::exit(1);
+                                    return 1;
                                 }
                             }
                         }
                         break;
                     }
                     'd' => {
-                        let rest: String = chars[i+1..].iter().collect();
+                        let rest: String = chars[i + 1..].iter().collect();
                         if rest.is_empty() {
                             expect_d_arg = true;
                         } else {
@@ -522,7 +510,7 @@ pub extern "C" fn _start() -> ! {
                         break;
                     }
                     'r' => {
-                        let rest: String = chars[i+1..].iter().collect();
+                        let rest: String = chars[i + 1..].iter().collect();
                         if rest.is_empty() {
                             expect_r_arg = true;
                         } else {
@@ -534,7 +522,7 @@ pub extern "C" fn _start() -> ! {
                         libsyscall::write(2, b"touch: invalid option -- '");
                         libsyscall::write(2, &[chars[i] as u8]);
                         libsyscall::write(2, b"'\n");
-                        libsyscall::exit(1);
+                        return 1;
                     }
                 }
                 i += 1;
@@ -547,21 +535,21 @@ pub extern "C" fn _start() -> ! {
     // Check for missing arguments
     if expect_t_arg {
         libsyscall::write(2, b"touch: option requires an argument -- 't'\n");
-        libsyscall::exit(1);
+        return 1;
     }
     if expect_d_arg {
         libsyscall::write(2, b"touch: option requires an argument -- 'd'\n");
-        libsyscall::exit(1);
+        return 1;
     }
     if expect_r_arg {
         libsyscall::write(2, b"touch: option requires an argument -- 'r'\n");
-        libsyscall::exit(1);
+        return 1;
     }
 
     if files.is_empty() {
         libsyscall::write(2, b"touch: missing file operand\n");
         libsyscall::write(2, b"Try 'touch --help' for more information.\n");
-        libsyscall::exit(1);
+        return 1;
     }
 
     let mut exit_code = 0;
@@ -571,5 +559,5 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    libsyscall::exit(exit_code);
+    exit_code
 }

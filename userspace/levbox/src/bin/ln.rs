@@ -10,13 +10,7 @@ extern crate alloc;
 extern crate ulib;
 
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, symlinkat, println};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{println, symlinkat};
 
 // ============================================================================
 // Constants
@@ -84,13 +78,7 @@ fn create_link(target: &str, linkpath: &str, symbolic: bool, force: bool) -> boo
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut symbolic = false;
     let mut force = false;
     let mut paths: Vec<alloc::string::String> = Vec::new();
@@ -98,10 +86,10 @@ pub extern "C" fn _start() -> ! {
     for arg in ulib::env::args().skip(1) {
         if arg == "--help" {
             print_help();
-            libsyscall::exit(0);
+            return 0;
         } else if arg == "--version" {
             print_version();
-            libsyscall::exit(0);
+            return 0;
         } else if arg == "-s" || arg == "--symbolic" {
             symbolic = true;
         } else if arg == "-f" || arg == "--force" {
@@ -116,7 +104,7 @@ pub extern "C" fn _start() -> ! {
                         libsyscall::write(2, b"ln: invalid option -- '");
                         libsyscall::write(2, &[c as u8]);
                         libsyscall::write(2, b"'\n");
-                        libsyscall::exit(1);
+                        return 1;
                     }
                 }
             }
@@ -128,20 +116,20 @@ pub extern "C" fn _start() -> ! {
     if paths.len() < 2 {
         libsyscall::write(2, b"ln: missing file operand\n");
         libsyscall::write(2, b"Try 'ln --help' for more information.\n");
-        libsyscall::exit(1);
+        return 1;
     }
 
     if paths.len() > 2 {
         libsyscall::write(2, b"ln: too many arguments\n");
-        libsyscall::exit(1);
+        return 1;
     }
 
     let target = &paths[0];
     let linkpath = &paths[1];
 
     if create_link(target, linkpath, symbolic, force) {
-        libsyscall::exit(0);
+        0
     } else {
-        libsyscall::exit(1);
+        1
     }
 }

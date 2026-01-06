@@ -57,9 +57,10 @@ pub fn install_userspace_to_disk() -> Result<()> {
     
     // TEAM_121: Install/Update userspace apps on the disk
     // We do this even if the disk image already exists to ensure binaries reflect latest build
-    println!("📦 Installing/Updating userspace apps on disk image...");
+    let binaries = crate::get_binaries()?;
+    print!("💿 Installing userspace apps to disk ({} binaries)... ", binaries.len());
     let disk_path = "tinyos_disk.img";
-    let binaries = ["cat", "init", "shell", "repro"];
+    let mut count = 0;
     for bin in binaries {
         let src = format!("userspace/target/aarch64-unknown-none/release/{}", bin);
         if std::path::Path::new(&src).exists() {
@@ -68,10 +69,11 @@ pub fn install_userspace_to_disk() -> Result<()> {
                 .status()
                 .context(format!("Failed to copy {} to disk", bin))?;
             if status.success() {
-                println!("  - Installed '{}' to disk", bin);
+                count += 1;
             }
         }
     }
+    println!("[DONE] ({} installed)", count);
 
     Ok(())
 }

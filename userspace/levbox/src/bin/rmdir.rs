@@ -10,13 +10,7 @@ extern crate alloc;
 extern crate ulib;
 
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println, unlinkat};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{println, unlinkat};
 
 // ============================================================================
 // Help and Version
@@ -68,13 +62,7 @@ fn remove_dir(path: &str, verbose: bool) -> bool {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut verbose = false;
     let mut _parents = false;
     let mut dirs = Vec::new();
@@ -84,17 +72,17 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "-p" || arg == "--parents" {
                 _parents = true;
             } else if arg == "-v" || arg == "--verbose" {
                 verbose = true;
             } else if arg.starts_with('-') {
                 println!("rmdir: invalid option -- '{}'", arg);
-                libsyscall::exit(1);
+                return 1;
             } else {
                 dirs.push(arg);
             }
@@ -103,7 +91,7 @@ pub extern "C" fn _start() -> ! {
 
     if dirs.is_empty() {
         println!("rmdir: missing operand");
-        libsyscall::exit(1);
+        return 1;
     }
 
     let mut success = true;
@@ -113,5 +101,9 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    libsyscall::exit(if success { 0 } else { 1 })
+    if success {
+        0
+    } else {
+        1
+    }
 }

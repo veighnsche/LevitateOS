@@ -72,16 +72,17 @@ pub fn create_initramfs() -> Result<()> {
     std::fs::write(root.join("hello.txt"), "Hello from initramfs!\n")?;
     
     // 2. Copy userspace binaries
-    let binaries = ["cat", "init", "shell", "repro"];
-    for bin in binaries {
+    let binaries = crate::get_binaries()?;
+    print!("📦 Creating initramfs ({} binaries)... ", binaries.len());
+    let mut count = 0;
+    for bin in &binaries {
         let src = PathBuf::from(format!("userspace/target/aarch64-unknown-none/release/{}", bin));
         if src.exists() {
             std::fs::copy(&src, root.join(bin))?;
-            println!("  - Added '{}' binary", bin);
-        } else {
-            println!("  - WARNING: userspace binary '{}' not found, skipping", bin);
+            count += 1;
         }
     }
+    println!("[DONE] ({} added)", count);
 
     // 3. Create CPIO archive
     // usage: find . | cpio -o -H newc > ../initramfs.cpio

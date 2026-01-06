@@ -321,6 +321,17 @@ impl PageFlags {
 
     /// User stack (same as USER_DATA, explicit name for clarity)
     pub const USER_STACK: PageFlags = Self::USER_DATA;
+
+    /// TEAM_212: User code+data (RWX) for pages shared between code and data segments
+    /// This is less secure but necessary when segments share pages.
+    /// - Accessible from EL0 (user)
+    /// - Read-write AND executable in user mode
+    pub const USER_CODE_DATA: PageFlags = PageFlags::VALID
+        .union(PageFlags::AF)
+        .union(PageFlags::SH_INNER)
+        .union(PageFlags::AP_RW_ALL) // R/W from EL0/EL1
+        .union(PageFlags::NG) // Not Global (per-process)
+        .union(PageFlags::PXN); // Don't execute in kernel (but allow in user - no UXN)
 }
 
 // ============================================================================

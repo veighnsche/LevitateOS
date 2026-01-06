@@ -145,3 +145,27 @@ fn project_root() -> Result<PathBuf> {
         Ok(manifest_dir)
     }
 }
+
+pub fn get_binaries() -> Result<Vec<String>> {
+    let mut bins = Vec::new();
+    let release_dir = PathBuf::from("userspace/target/aarch64-unknown-none/release");
+    if !release_dir.exists() {
+        return Ok(bins);
+    }
+
+    for entry in std::fs::read_dir(release_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                // Binaries in our setup don't have extensions.
+                // We skip common files like .cargo-lock, .fingerprint, etc.
+                if !name.contains('.') && name != "build" {
+                    bins.push(name.to_string());
+                }
+            }
+        }
+    }
+    bins.sort();
+    Ok(bins)
+}

@@ -10,23 +10,17 @@ extern crate alloc;
 extern crate ulib;
 
 use alloc::vec::Vec;
-use core::panic::PanicInfo;
-use libsyscall::{common_panic_handler, println, unlinkat};
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    common_panic_handler(info)
-}
+use libsyscall::{println, unlinkat};
 
 // ============================================================================
 // Options
 // ============================================================================
 
 struct Options {
-    force: bool,       // -f
-    recursive: bool,   // -r, -R
-    dir: bool,         // -d (remove empty directories)
-    verbose: bool,     // -v
+    force: bool,     // -f
+    recursive: bool, // -r, -R
+    dir: bool,       // -d (remove empty directories)
+    verbose: bool,   // -v
 }
 
 impl Default for Options {
@@ -110,13 +104,7 @@ fn remove_file(path: &str, opts: &Options) -> bool {
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    let sp: *const usize;
-    unsafe {
-        core::arch::asm!("mov {}, sp", out(reg) sp);
-        ulib::env::init_args(sp);
-    }
-
+pub fn main() -> i32 {
     let mut opts = Options::default();
     let mut files = Vec::new();
 
@@ -125,10 +113,10 @@ pub extern "C" fn _start() -> ! {
         if let Some(arg) = ulib::env::arg(i) {
             if arg == "--help" {
                 print_help();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "--version" {
                 print_version();
-                libsyscall::exit(0);
+                return 0;
             } else if arg == "-f" || arg == "--force" {
                 opts.force = true;
             } else if arg == "-r" || arg == "-R" || arg == "--recursive" {
@@ -150,7 +138,7 @@ pub extern "C" fn _start() -> ! {
                         'v' => opts.verbose = true,
                         _ => {
                             println!("rm: invalid option -- '{}'", c);
-                            libsyscall::exit(1);
+                            return 1;
                         }
                     }
                 }
@@ -162,7 +150,7 @@ pub extern "C" fn _start() -> ! {
 
     if files.is_empty() {
         println!("rm: missing operand");
-        libsyscall::exit(1);
+        return 1;
     }
 
     let mut success = true;
@@ -172,5 +160,9 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    libsyscall::exit(if success { 0 } else { 1 })
+    if success {
+        0
+    } else {
+        1
+    }
 }

@@ -8,6 +8,12 @@ description = "Userspace standard library for LevitateOS"
 
 [dependencies]
 libsyscall = { path = "../libsyscall" }
+spin = "0.10.0"
+
+[features]
+default = []
+# Enable ulib-provided _start entry point (apps just define main())
+entry = []
 
 [lints]
 workspace = true
