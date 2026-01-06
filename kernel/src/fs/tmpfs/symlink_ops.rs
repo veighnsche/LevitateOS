@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::vfs::error::{VfsError, VfsResult};
 use crate::fs::vfs::inode::Inode;
@@ -21,7 +21,7 @@ pub(super) struct TmpfsSymlinkOps;
 impl InodeOps for TmpfsSymlinkOps {
     fn readlink(&self, inode: &Inode) -> VfsResult<String> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
         let node_inner = node.lock();
         if !node_inner.is_symlink() {
@@ -32,7 +32,7 @@ impl InodeOps for TmpfsSymlinkOps {
 
     fn setattr(&self, inode: &Inode, attr: &crate::fs::vfs::ops::SetAttr) -> VfsResult<()> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
         let mut node_inner = node.lock();
 

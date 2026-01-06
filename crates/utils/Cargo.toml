@@ -12,3 +12,4 @@ std = []
 
 [dependencies]
 spin = { workspace = true }
+hashbrown = { workspace = true }

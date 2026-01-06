@@ -21,14 +21,14 @@
 extern crate alloc;
 
 use crate::virtio::{StaticMmioTransport, VirtioHal};
-use los_utils::Spinlock;
+use los_utils::Mutex;
 use virtio_drivers::device::net::VirtIONet;
 
 const QUEUE_SIZE: usize = 16;
 const RX_BUFFER_LEN: usize = 2048;
 
-static NET_DEVICE: Spinlock<Option<VirtIONet<VirtioHal, StaticMmioTransport, QUEUE_SIZE>>> =
-    Spinlock::new(None);
+static NET_DEVICE: Mutex<Option<VirtIONet<VirtioHal, StaticMmioTransport, QUEUE_SIZE>>> =
+    Mutex::new(None);
 
 use los_error::define_kernel_error;
 

@@ -40,7 +40,7 @@ pub struct Page {
     pub prev: Option<NonNull<Page>>,
 }
 
-// SAFETY: Page is just a descriptor, we manage access via Spinlock in BuddyAllocator
+// SAFETY: Page is just a descriptor, we manage access via Mutex in BuddyAllocator
 unsafe impl Send for Page {}
 unsafe impl Sync for Page {}
 

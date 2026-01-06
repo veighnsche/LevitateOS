@@ -13,7 +13,7 @@ use crate::fs::vfs::file::FileRef;
 
 /// TEAM_168: Type of file descriptor entry.
 /// TEAM_194: Removed Copy derive to support Arc<> for tmpfs nodes.
-/// TEAM_195: Removed Debug derive since Spinlock<TmpfsNode> doesn't implement Debug.
+/// TEAM_195: Removed Debug derive since Mutex<TmpfsNode> doesn't implement Debug.
 /// TEAM_203: Added VfsFile variant and removed legacy Tmpfs variants.
 #[derive(Clone)]
 pub enum FdType {

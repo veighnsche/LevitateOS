@@ -65,20 +65,94 @@ pub fn transition_to(stage: BootStage) {
     println!("[BOOT] Stage {}: {}", stage_val + 1, stage.name());
 }
 
-/// TEAM_063: Minimal failsafe shell for critical boot failures.
+/// TEAM_063: Robust failsafe shell for critical boot failures.
 pub fn maintenance_shell() -> ! {
+    use alloc::string::String;
+    use alloc::vec::Vec;
+
     println!("\n[BOOT] Entering Maintenance Shell (FAILSAFE)");
-    println!("Type 'reboot' to restart (not implemented) or interact via serial.");
+    println!("Type 'help' for available commands.");
+
+    let mut buffer = String::new();
+
     loop {
         print!("FAILSAFE> ");
-        if let Some(c) = los_hal::console::read_byte() {
-            let ch = c as char;
-            match ch {
-                '\r' | '\n' => println!(""),
-                _ => print!("{}", ch),
+
+        // Loop for a single command line
+        loop {
+            if let Some(c) = los_hal::console::read_byte() {
+                let ch = c as char;
+                match ch {
+                    '\r' | '\n' => {
+                        println!(""); // New line
+                        break;
+                    }
+                    '\x08' | '\x7f' => {
+                        // Backspace / Delete
+                        if !buffer.is_empty() {
+                            buffer.pop();
+                            // Move back, overwrite with space, move back again
+                            print!("\x08 \x08");
+                        }
+                    }
+                    c if c.is_control() => {
+                        // Ignore other control characters
+                    }
+                    _ => {
+                        // Echo and buffer
+                        print!("{}", ch);
+                        buffer.push(ch);
+                    }
+                }
+            }
+            core::hint::spin_loop();
+        }
+
+        // Process command
+        let input = buffer.trim();
+        if !input.is_empty() {
+            let mut parts = input.split_whitespace();
+            let cmd = parts.next().unwrap_or("");
+            let _args: Vec<&str> = parts.collect();
+
+            match cmd {
+                "help" => {
+                    println!("Available commands:");
+                    println!("  help    - Show this help message");
+                    println!("  reboot  - Reboot the system");
+                    println!("  info    - Show system information");
+                    println!("  clear   - Clear the screen");
+                    println!("  panic   - Trigger a kernel panic (for testing)");
+                }
+                "reboot" => {
+                    println!("Rebooting...");
+                    // TEAM_063: Simple spin-wait reboot stub until PSCI is fully integrated
+                    println!("Reboot not implemented. Use QEMU monitor to reset.");
+                    loop {
+                        core::hint::spin_loop();
+                    }
+                }
+                "info" => {
+                    println!("System Status: FAILSAFE MODE");
+                    println!(
+                        "Stage: {:?}",
+                        CURRENT_STAGE.load(core::sync::atomic::Ordering::Relaxed)
+                    );
+                }
+                "clear" => {
+                    // ANSI escape code to clear screen
+                    print!("\x1b[2J\x1b[1;1H");
+                }
+                "panic" => {
+                    panic!("Manual panic triggered from maintenance shell");
+                }
+                _ => {
+                    println!("Unknown command: '{}'. Type 'help' for list.", cmd);
+                }
             }
         }
-        core::hint::spin_loop();
+
+        buffer.clear();
     }
 }
 

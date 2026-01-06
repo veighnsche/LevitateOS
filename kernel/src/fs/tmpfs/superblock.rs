@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::{Arc, Weak};
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::mode;
 use crate::fs::vfs::error::VfsResult;
@@ -21,23 +21,23 @@ use super::{TMPFS_DIR_OPS, TMPFS_FILE_OPS, TMPFS_SYMLINK_OPS};
 /// TEAM_194: The tmpfs filesystem state
 pub struct Tmpfs {
     /// Root directory node
-    pub(super) root: Arc<Spinlock<TmpfsNode>>,
+    pub(super) root: Arc<Mutex<TmpfsNode>>,
     /// Next inode number
     pub(super) next_ino: AtomicU64,
     /// Total bytes used
     pub(super) bytes_used: AtomicUsize,
     /// VFS root inode (cached)
-    pub(super) vfs_root: Spinlock<Option<Arc<Inode>>>,
+    pub(super) vfs_root: Mutex<Option<Arc<Inode>>>,
 }
 
 impl Tmpfs {
     /// TEAM_194: Create a new tmpfs instance
     pub fn new() -> Self {
         Self {
-            root: Arc::new(Spinlock::new(TmpfsNode::new_dir(1, ""))),
+            root: Arc::new(Mutex::new(TmpfsNode::new_dir(1, ""))),
             next_ino: AtomicU64::new(2),
             bytes_used: AtomicUsize::new(0),
-            vfs_root: Spinlock::new(None),
+            vfs_root: Mutex::new(None),
         }
     }
 
@@ -54,7 +54,7 @@ impl Tmpfs {
     /// TEAM_203: Convert a TmpfsNode to a VFS Inode
     pub fn make_inode(
         &self,
-        node: Arc<Spinlock<TmpfsNode>>,
+        node: Arc<Mutex<TmpfsNode>>,
         sb: Weak<dyn Superblock>,
     ) -> Arc<Inode> {
         let node_locked = node.lock();

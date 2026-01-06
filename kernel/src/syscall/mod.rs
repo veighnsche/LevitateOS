@@ -17,6 +17,7 @@ pub mod errno {
     pub const EBADF: i64 = -9;
     pub const EFAULT: i64 = -14;
     pub const EINVAL: i64 = -22;
+    #[allow(dead_code)]
     pub const EROFS: i64 = -30;
     #[allow(dead_code)]
     pub const EEXIST: i64 = -17;

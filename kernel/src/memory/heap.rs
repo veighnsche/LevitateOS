@@ -1,6 +1,6 @@
 //! TEAM_208: Process heap management for LevitateOS.
 
-use los_hal::mmu::PAGE_SIZE;
+// use los_hal::mmu::PAGE_SIZE;
 
 /// TEAM_166: Maximum heap size per process (64MB)
 pub const USER_HEAP_MAX_SIZE: usize = 64 * 1024 * 1024;

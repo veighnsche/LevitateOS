@@ -18,14 +18,16 @@ pub extern "C" fn handle_sync_lower_el(frame: *mut crate::arch::SyscallFrame) {
         crate::syscall::syscall_dispatch(frame);
     } else {
         // Other exception from user mode - kill process
-        use aarch64_cpu::registers::ELR_EL1;
+        use aarch64_cpu::registers::{ELR_EL1, FAR_EL1};
         let elr: u64 = ELR_EL1.get();
+        let far: u64 = FAR_EL1.get(); // TEAM_212: Add faulting address for debugging
 
         let ec = crate::syscall::esr_exception_class(esr);
         crate::println!("\n*** USER EXCEPTION ***");
         crate::println!("Exception Class: 0x{:02x}", ec);
         crate::println!("ESR: 0x{:016x}", esr);
-        crate::println!("ELR (fault address): 0x{:016x}", elr);
+        crate::println!("ELR (instruction): 0x{:016x}", elr);
+        crate::println!("FAR (fault addr):  0x{:016x}", far);
 
         // Decode common exception classes
         match ec {

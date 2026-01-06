@@ -19,7 +19,7 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::vfs::superblock::Superblock;
 
@@ -31,7 +31,7 @@ mod superblock;
 mod symlink_ops;
 
 // Re-exports for public API
-pub use node::{MAX_FILE_SIZE, MAX_TOTAL_SIZE, TmpfsError, TmpfsNode, TmpfsNodeType};
+// pub use node::{TmpfsError, TmpfsNode, TmpfsNodeType};
 pub use superblock::Tmpfs;
 
 // Internal static ops for use in superblock.rs
@@ -44,7 +44,7 @@ pub(self) static TMPFS_DIR_OPS: TmpfsDirOps = TmpfsDirOps;
 pub(self) static TMPFS_SYMLINK_OPS: TmpfsSymlinkOps = TmpfsSymlinkOps;
 
 /// TEAM_194: Global tmpfs instance
-pub static TMPFS: Spinlock<Option<Arc<Tmpfs>>> = Spinlock::new(None);
+pub static TMPFS: Mutex<Option<Arc<Tmpfs>>> = Mutex::new(None);
 
 /// TEAM_194: Initialize the tmpfs
 pub fn init() {

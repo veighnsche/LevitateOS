@@ -238,7 +238,7 @@ mod tests {
 }
 
 // TEAM_051: SAFETY: SlabCache is safe to Send/Sync because:
-// - All pointer operations are protected by global Spinlock in SLAB_ALLOCATOR
+// - All pointer operations are protected by global Mutex in SLAB_ALLOCATOR
 // - NonNull pointers are only dereferenced under lock protection
 unsafe impl Send for SlabCache {}
 unsafe impl Sync for SlabCache {}

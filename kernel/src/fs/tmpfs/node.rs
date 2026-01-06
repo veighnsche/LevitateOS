@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::vfs::error::{VfsError, VfsResult};
 
@@ -52,7 +52,7 @@ pub enum TmpfsNodeType {
 }
 
 /// TEAM_194: A node in the tmpfs tree (file or directory)
-/// Note: No Debug derive to avoid Spinlock<TmpfsNode> Debug requirement in FdType
+/// Note: No Debug derive to avoid Mutex<TmpfsNode> Debug requirement in FdType
 pub struct TmpfsNode {
     /// Unique inode number
     pub ino: u64,
@@ -63,7 +63,7 @@ pub struct TmpfsNode {
     /// File content (for files only)
     pub data: Vec<u8>,
     /// Child nodes (for directories only)
-    pub children: Vec<Arc<Spinlock<TmpfsNode>>>,
+    pub children: Vec<Arc<Mutex<TmpfsNode>>>,
     /// TEAM_198: Access time (seconds since boot)
     pub atime: u64,
     /// TEAM_198: Modification time (seconds since boot)
@@ -71,7 +71,7 @@ pub struct TmpfsNode {
     /// TEAM_198: Creation time (seconds since boot)
     pub ctime: u64,
     /// Parent node (Weak reference to avoid cycles)
-    pub parent: Weak<Spinlock<TmpfsNode>>,
+    pub parent: Weak<Mutex<TmpfsNode>>,
     /// TEAM_209: Number of hard links
     pub nlink: u32,
 }
@@ -183,8 +183,8 @@ impl TmpfsNode {
 
 /// TEAM_203: Shared logic for creating nodes
 pub(super) fn add_child(
-    parent: &Arc<Spinlock<TmpfsNode>>,
-    child: Arc<Spinlock<TmpfsNode>>,
+    parent: &Arc<Mutex<TmpfsNode>>,
+    child: Arc<Mutex<TmpfsNode>>,
 ) -> VfsResult<()> {
     let mut parent_node = parent.lock();
     if !parent_node.is_dir() {

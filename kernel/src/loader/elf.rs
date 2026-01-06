@@ -313,6 +313,10 @@ impl<'a> Elf<'a> {
                 max_vaddr = segment_end;
             }
 
+            // TEAM_212: Debug segment loading
+            los_hal::println!("[ELF] Segment: vaddr=0x{:x} filesz=0x{:x} memsz=0x{:x} end=0x{:x}",
+                              vaddr, filesz, memsz, segment_end);
+
             // Allocate pages for this segment
             let page_start = vaddr & !0xFFF;
             let page_end = (vaddr + memsz + 0xFFF) & !0xFFF;

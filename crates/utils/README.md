@@ -21,24 +21,26 @@ crates/utils/src/
 
 ## Key Components
 
-### Spinlock (`lib.rs`)
+### Synchronization Primitives
 
-A basic spinlock for mutual exclusion in `no_std` environments:
+This crate re-exports synchronization primitives from the `spin` crate:
 
-```rust
-let lock = Spinlock::new(42);
-{
-    let mut guard = lock.lock();  // Spins until acquired
-    *guard = 43;                   // Exclusive access
-}  // Released on drop
-```
+- **Mutex**: Re-exported from `spin::Mutex`.
+- **RwLock**: Alias for `spin::RwLock`.
+- **Once**: Alias for `spin::Once`.
+- **Lazy**: Alias for `spin::Lazy`.
+- **Barrier**: Alias for `spin::Barrier`.
 
-**Behaviors (S1-S6):**
-- **S1**: Exclusive access while held
-- **S2**: Blocks (spins) until released
-- **S3**: Guard releases lock on drop
-- **S4/S5**: Read/write access via `Deref`/`DerefMut`
-- **S6**: Multiple acquire/release cycles work correctly
+Reference the [spin crate documentation](https://docs.rs/spin) for detailed behaviors.
+
+### Collections
+
+This crate re-exports collections from the `hashbrown` crate:
+
+- **HashMap**: High-performance hash map.
+- **HashSet**: High-performance hash set.
+
+**Note**: Usage requires `extern crate alloc` in your crate root, as these collections are heap-allocated.
 
 ### RingBuffer (`lib.rs`)
 
@@ -127,7 +129,7 @@ cargo test -p los_utils --features std --target x86_64-unknown-linux-gnu
 
 ## Design Principles
 
-1. **Zero Dependencies**: Only uses `core` (no external crates)
+1. **Minimal Dependencies**: Uses `spin` and `hashbrown`, relies on `core` and `alloc`.
 2. **Const-Friendly**: All constructors are `const fn` for static initialization
 3. **No Panics**: Functions return `Option` or `bool` instead of panicking
 4. **Testable**: All logic can be tested on the host with `--features std`
@@ -140,7 +142,8 @@ los_utils = { path = "../utils" }
 ```
 
 ```rust
-use los_utils::{Spinlock, RingBuffer};
+use los_utils::{Mutex, RingBuffer};
+use los_utils::{HashMap, HashSet};
 use los_utils::cpio::CpioArchive;
 use los_utils::hex::{format_hex, nibble_to_hex};
 ```

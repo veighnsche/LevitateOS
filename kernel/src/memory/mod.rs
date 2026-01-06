@@ -1,6 +1,6 @@
 use los_hal::fdt;
 use los_hal::mmu::{self, PageAllocator};
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 // pub mod buddy; // Moved to HAL
 // pub mod page; // Moved to HAL
@@ -12,7 +12,7 @@ pub mod user; // TEAM_208: User-space memory management
 pub mod heap; // TEAM_208: Process heap management
 
 /// Global Frame Allocator
-pub struct FrameAllocator(Spinlock<BuddyAllocator>);
+pub struct FrameAllocator(Mutex<BuddyAllocator>);
 
 impl PageAllocator for FrameAllocator {
     fn alloc_page(&self) -> Option<usize> {
@@ -23,7 +23,7 @@ impl PageAllocator for FrameAllocator {
     }
 }
 
-pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator(Spinlock::new(BuddyAllocator::new()));
+pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator(Mutex::new(BuddyAllocator::new()));
 
 /// Initialize physical memory management.
 pub fn init(dtb: &[u8]) {

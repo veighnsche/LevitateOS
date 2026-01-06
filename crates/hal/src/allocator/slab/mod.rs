@@ -11,13 +11,13 @@ pub use page::{DATA_SIZE, PAGE_SIZE, SlabPage};
 
 use core::alloc::Layout;
 use core::ptr::NonNull;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 /// [SA1] Top-level slab allocator managing all size classes.
 /// Initializes 6 caches (one per size class).
 ///
 /// Routes allocation requests to the appropriate size class cache.
-/// Thread-safety is provided by a global Spinlock.
+/// Thread-safety is provided by a global Mutex.
 pub struct SlabAllocator {
     caches: [SlabCache; 6], // [SA1] 6 caches
 }
@@ -99,7 +99,7 @@ impl SlabAllocator {
 
 /// Global slab allocator instance.
 ///
-/// Protected by Spinlock for thread-safety.
+/// Protected by Mutex for thread-safety.
 ///
 /// # Usage
 /// ```rust
@@ -109,7 +109,7 @@ impl SlabAllocator {
 /// let layout = Layout::from_size_align(128, 8).unwrap();
 /// let ptr = SLAB_ALLOCATOR.lock().alloc(layout);
 /// ```
-pub static SLAB_ALLOCATOR: Spinlock<SlabAllocator> = Spinlock::new(SlabAllocator::new());
+pub static SLAB_ALLOCATOR: Mutex<SlabAllocator> = Mutex::new(SlabAllocator::new());
 
 #[cfg(test)]
 mod tests {

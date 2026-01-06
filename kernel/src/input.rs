@@ -5,20 +5,20 @@
 
 use crate::virtio::{StaticMmioTransport, VirtioHal};
 use alloc::vec::Vec;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 use virtio_drivers::device::input::VirtIOInput;
 
 // TEAM_032: Use StaticMmioTransport (MmioTransport<'static>) for static storage
-static INPUT_DEVICES: Spinlock<Vec<VirtIOInput<VirtioHal, StaticMmioTransport>>> =
-    Spinlock::new(Vec::new());
+static INPUT_DEVICES: Mutex<Vec<VirtIOInput<VirtioHal, StaticMmioTransport>>> =
+    Mutex::new(Vec::new());
 
 /// Character buffer for keyboard input
 /// TEAM_156: Increased from 256 to 1024 to prevent drops during rapid input
-static KEYBOARD_BUFFER: Spinlock<los_utils::RingBuffer<char, 1024>> =
-    Spinlock::new(los_utils::RingBuffer::new('\0'));
+static KEYBOARD_BUFFER: Mutex<los_utils::RingBuffer<char, 1024>> =
+    Mutex::new(los_utils::RingBuffer::new('\0'));
 
 /// Track shift key state
-static SHIFT_PRESSED: Spinlock<bool> = Spinlock::new(false);
+static SHIFT_PRESSED: Mutex<bool> = Mutex::new(false);
 
 pub fn init(transport: StaticMmioTransport) {
     crate::verbose!("Initializing Input...");

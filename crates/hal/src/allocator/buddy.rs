@@ -27,7 +27,7 @@ pub struct BuddyAllocator {
     phys_base: usize,
 }
 
-// SAFETY: BuddyAllocator is managed via Spinlock in the FrameAllocator global
+// SAFETY: BuddyAllocator is managed via Mutex in the FrameAllocator global
 unsafe impl Send for BuddyAllocator {}
 unsafe impl Sync for BuddyAllocator {}
 

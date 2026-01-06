@@ -106,7 +106,8 @@ pub fn sys_getcwd(buf: usize, size: usize) -> i64 {
         return errno::EFAULT;
     }
 
-    let path = "/";
+    let cwd_lock = task.cwd.lock();
+    let path = cwd_lock.as_str();
     let path_len = path.len();
     if size < path_len + 1 {
         return -34; // ERANGE
@@ -221,9 +222,7 @@ pub fn sys_renameat(
     let task = crate::task::current_task();
 
     // Validate and read old path
-    if mm_user::validate_user_buffer(task.ttbr0, old_path, old_path_len, false)
-        .is_err()
-    {
+    if mm_user::validate_user_buffer(task.ttbr0, old_path, old_path_len, false).is_err() {
         return errno::EFAULT;
     }
     let mut old_path_buf = [0u8; 256];
@@ -240,9 +239,7 @@ pub fn sys_renameat(
     };
 
     // Validate and read new path
-    if mm_user::validate_user_buffer(task.ttbr0, new_path, new_path_len, false)
-        .is_err()
-    {
+    if mm_user::validate_user_buffer(task.ttbr0, new_path, new_path_len, false).is_err() {
         return errno::EFAULT;
     }
     let mut new_path_buf = [0u8; 256];

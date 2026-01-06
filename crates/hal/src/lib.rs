@@ -43,18 +43,18 @@ pub mod virtio;
 pub use virtio::{StaticMmioTransport, VirtioHal};
 
 use core::mem::ManuallyDrop;
-use los_utils::{Spinlock, SpinlockGuard};
+use los_utils::{Mutex, MutexGuard};
 
 /// IRQ-safe lock that disables interrupts while held.
 /// Behaviors: [L1]-[L4] interrupt-safe locking
 pub struct IrqSafeLock<T> {
-    inner: Spinlock<T>,
+    inner: Mutex<T>,
 }
 
 impl<T> IrqSafeLock<T> {
     pub const fn new(data: T) -> Self {
         Self {
-            inner: Spinlock::new(data),
+            inner: Mutex::new(data),
         }
     }
 
@@ -87,7 +87,7 @@ impl<T> IrqSafeLock<T> {
 }
 
 pub struct IrqSafeLockGuard<'a, T> {
-    guard: ManuallyDrop<SpinlockGuard<'a, T>>,
+    guard: ManuallyDrop<MutexGuard<'a, T>>,
     state: u64,
 }
 

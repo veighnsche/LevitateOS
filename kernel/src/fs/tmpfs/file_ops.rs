@@ -6,7 +6,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::vfs::error::{VfsError, VfsResult};
 use crate::fs::vfs::inode::Inode;
@@ -21,7 +21,7 @@ pub(super) struct TmpfsFileOps;
 impl InodeOps for TmpfsFileOps {
     fn read(&self, inode: &Inode, offset: u64, buf: &mut [u8]) -> VfsResult<usize> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let node_inner = node.lock();
@@ -43,7 +43,7 @@ impl InodeOps for TmpfsFileOps {
 
     fn write(&self, inode: &Inode, offset: u64, buf: &[u8]) -> VfsResult<usize> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let mut node_inner = node.lock();
@@ -96,7 +96,7 @@ impl InodeOps for TmpfsFileOps {
 
     fn truncate(&self, inode: &Inode, size: u64) -> VfsResult<()> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let mut node_inner = node.lock();
@@ -144,7 +144,7 @@ impl InodeOps for TmpfsFileOps {
 
     fn setattr(&self, inode: &Inode, attr: &crate::fs::vfs::ops::SetAttr) -> VfsResult<()> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
         let mut node_inner = node.lock();
 

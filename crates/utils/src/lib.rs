@@ -1,13 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod cpio;
 pub mod hex;
 
 // TEAM_211: Re-export spin crate types as our lock API
-// Note: spin::Mutex is re-exported as Spinlock for API compatibility
+// Note: spin::Mutex is re-exported as Mutex for API compatibility
 pub use spin::{Barrier, Lazy, Once};
-pub use spin::{Mutex as Spinlock, MutexGuard as SpinlockGuard};
+pub use spin::{Mutex, MutexGuard};
 pub use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+
+// TEAM_212: Re-export hashbrown collections
+pub use hashbrown::{HashMap, HashSet};
 
 pub struct RingBuffer<T: Copy, const N: usize> {
     buffer: [T; N],
@@ -75,7 +80,7 @@ mod tests {
     /// Tests: [S1] exclusive access, [S3] release on drop, [S4] read, [S5] write, [S6] cycles
     #[test]
     fn test_spinlock_basic() {
-        let lock = Spinlock::new(42);
+        let lock = Mutex::new(42);
         {
             let mut guard = lock.lock(); // [S1] acquire
             assert_eq!(*guard, 42); // [S4] read access
@@ -91,7 +96,7 @@ mod tests {
         use std::thread;
         use std::time::Duration;
 
-        let lock = Arc::new(Spinlock::new(()));
+        let lock = Arc::new(Mutex::new(()));
         let lock_clone = lock.clone();
 
         let start = std::time::Instant::now();
@@ -156,5 +161,15 @@ mod tests {
         assert!(!rb.is_empty()); // [R8] false when has data
         rb.push(43);
         assert!(!rb.is_empty());
+    }
+
+    /// Tests: HashMap insert/get
+    #[test]
+    fn test_hashmap_basic() {
+        let mut map = HashMap::new();
+        map.insert(1, "one");
+        map.insert(2, "two");
+        assert_eq!(map.get(&1), Some(&"one"));
+        assert_eq!(map.get(&3), None);
     }
 }

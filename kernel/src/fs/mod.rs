@@ -12,7 +12,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 pub mod ext4;
 pub mod fat;
@@ -59,8 +59,8 @@ pub enum FsType {
 }
 
 /// Mount status
-static FAT32_MOUNTED: Spinlock<bool> = Spinlock::new(false);
-static EXT4_MOUNTED: Spinlock<bool> = Spinlock::new(false);
+static FAT32_MOUNTED: Mutex<bool> = Mutex::new(false);
+static EXT4_MOUNTED: Mutex<bool> = Mutex::new(false);
 
 /// Initialize filesystems
 ///
@@ -68,7 +68,7 @@ static EXT4_MOUNTED: Spinlock<bool> = Spinlock::new(false);
 /// ext4 root partition is optional and can be mounted later.
 pub mod initramfs;
 
-pub static INITRAMFS: Spinlock<Option<Arc<initramfs::InitramfsSuperblock>>> = Spinlock::new(None);
+pub static INITRAMFS: Mutex<Option<Arc<initramfs::InitramfsSuperblock>>> = Mutex::new(None);
 
 pub fn init() -> Result<(), FsError> {
     // TEAM_152: Updated to use FsError

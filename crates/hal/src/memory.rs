@@ -4,12 +4,12 @@
 
 use crate::allocator::BuddyAllocator;
 use crate::mmu::PageAllocator;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 /// Global Frame Allocator wrapper around BuddyAllocator
-pub struct FrameAllocator(pub Spinlock<BuddyAllocator>);
+pub struct FrameAllocator(pub Mutex<BuddyAllocator>);
 
-// TEAM_051: SAFETY: Protected by Spinlock, all access is synchronized
+// TEAM_051: SAFETY: Protected by Mutex, all access is synchronized
 unsafe impl Send for FrameAllocator {}
 unsafe impl Sync for FrameAllocator {}
 
@@ -24,4 +24,4 @@ impl PageAllocator for FrameAllocator {
 }
 
 /// Global frame allocator instance
-pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator(Spinlock::new(BuddyAllocator::new()));
+pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator(Mutex::new(BuddyAllocator::new()));

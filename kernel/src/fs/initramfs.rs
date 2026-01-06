@@ -4,7 +4,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::sync::{Arc, Weak};
 use core::sync::atomic::{AtomicU64, Ordering};
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::mode;
 use crate::fs::vfs::error::{VfsError, VfsResult};
@@ -148,7 +148,7 @@ impl InodeOps for InitramfsInodeOps {
 /// TEAM_205: Initramfs Superblock
 pub struct InitramfsSuperblock {
     pub archive: CpioArchive<'static>,
-    root_inode: Spinlock<Option<Arc<Inode>>>,
+    root_inode: Mutex<Option<Arc<Inode>>>,
     next_ino: AtomicU64,
 }
 
@@ -156,7 +156,7 @@ impl InitramfsSuperblock {
     pub fn new(data: &'static [u8]) -> Self {
         Self {
             archive: CpioArchive::new(data),
-            root_inode: Spinlock::new(None),
+            root_inode: Mutex::new(None),
             next_ino: AtomicU64::new(1000), // Start above CPIO inos
         }
     }

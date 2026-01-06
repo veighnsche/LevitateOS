@@ -1,4 +1,4 @@
-use crate::memory::user as mm_user;
+// use crate::memory::user as mm_user;
 
 use crate::syscall::{errno, errno_file};
 use core::convert::TryFrom;

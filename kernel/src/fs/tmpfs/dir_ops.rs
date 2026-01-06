@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
-use los_utils::Spinlock;
+use los_utils::Mutex;
 
 use crate::fs::mode;
 use crate::fs::vfs::error::{VfsError, VfsResult};
@@ -23,7 +23,7 @@ pub(super) struct TmpfsDirOps;
 impl InodeOps for TmpfsDirOps {
     fn lookup(&self, inode: &Inode, name: &str) -> VfsResult<Arc<Inode>> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let node_inner = node.lock();
@@ -46,7 +46,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn readdir(&self, inode: &Inode, offset: usize) -> VfsResult<Option<DirEntry>> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let node_inner = node.lock();
@@ -96,7 +96,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn create(&self, inode: &Inode, name: &str, _mode: u32) -> VfsResult<Arc<Inode>> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let sb = inode.sb.upgrade().ok_or(VfsError::IoError)?;
@@ -104,7 +104,7 @@ impl InodeOps for TmpfsDirOps {
         let tmpfs = tmpfs_lock.as_ref().ok_or(VfsError::IoError)?;
 
         let ino = tmpfs.alloc_ino();
-        let new_node = Arc::new(Spinlock::new(TmpfsNode::new_file(ino, name)));
+        let new_node = Arc::new(Mutex::new(TmpfsNode::new_file(ino, name)));
         add_child(node, Arc::clone(&new_node))?;
 
         Ok(tmpfs.make_inode(new_node, Arc::downgrade(&sb)))
@@ -112,7 +112,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn mkdir(&self, inode: &Inode, name: &str, _mode: u32) -> VfsResult<Arc<Inode>> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let sb = inode.sb.upgrade().ok_or(VfsError::IoError)?;
@@ -120,7 +120,7 @@ impl InodeOps for TmpfsDirOps {
         let tmpfs = tmpfs_lock.as_ref().ok_or(VfsError::IoError)?;
 
         let ino = tmpfs.alloc_ino();
-        let new_node = Arc::new(Spinlock::new(TmpfsNode::new_dir(ino, name)));
+        let new_node = Arc::new(Mutex::new(TmpfsNode::new_dir(ino, name)));
         add_child(node, Arc::clone(&new_node))?;
 
         Ok(tmpfs.make_inode(new_node, Arc::downgrade(&sb)))
@@ -128,7 +128,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn symlink(&self, inode: &Inode, name: &str, target: &str) -> VfsResult<Arc<Inode>> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let sb = inode.sb.upgrade().ok_or(VfsError::IoError)?;
@@ -136,7 +136,7 @@ impl InodeOps for TmpfsDirOps {
         let tmpfs = tmpfs_lock.as_ref().ok_or(VfsError::IoError)?;
 
         let ino = tmpfs.alloc_ino();
-        let new_node = Arc::new(Spinlock::new(TmpfsNode::new_symlink(ino, name, target)));
+        let new_node = Arc::new(Mutex::new(TmpfsNode::new_symlink(ino, name, target)));
         add_child(node, Arc::clone(&new_node))?;
 
         Ok(tmpfs.make_inode(new_node, Arc::downgrade(&sb)))
@@ -150,16 +150,16 @@ impl InodeOps for TmpfsDirOps {
         new_name: &str,
     ) -> VfsResult<()> {
         let old_node = old_dir
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
         let new_node = new_dir
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         // TEAM_204: Rename cycle check
         {
             let old_node_locked = old_dir
-                .private::<Arc<Spinlock<TmpfsNode>>>()
+                .private::<Arc<Mutex<TmpfsNode>>>()
                 .ok_or(VfsError::IoError)?
                 .lock();
             let mut to_move = None;
@@ -291,7 +291,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn unlink(&self, inode: &Inode, name: &str) -> VfsResult<()> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let mut parent_node = node.lock();
@@ -330,7 +330,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn rmdir(&self, inode: &Inode, name: &str) -> VfsResult<()> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         let mut parent_node = node.lock();
@@ -361,11 +361,11 @@ impl InodeOps for TmpfsDirOps {
 
     fn link(&self, inode: &Inode, _name: &str, target: &Inode) -> VfsResult<()> {
         let parent_node_arc = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
         
         let target_node_arc = target
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
 
         // Standard Unix restriction: no hard links to directories
@@ -385,7 +385,7 @@ impl InodeOps for TmpfsDirOps {
 
     fn setattr(&self, inode: &Inode, attr: &crate::fs::vfs::ops::SetAttr) -> VfsResult<()> {
         let node = inode
-            .private::<Arc<Spinlock<TmpfsNode>>>()
+            .private::<Arc<Mutex<TmpfsNode>>>()
             .ok_or(VfsError::IoError)?;
         let mut node_inner = node.lock();
 

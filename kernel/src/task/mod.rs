@@ -204,7 +204,7 @@ impl TaskControlBlock {
 }
 
 use crate::memory::heap::ProcessHeap;
-use crate::memory::user as mm_user;
+// use crate::memory::user as mm_user;
 use crate::task::user::UserTask;
 
 impl From<UserTask> for TaskControlBlock {
