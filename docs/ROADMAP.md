@@ -1,6 +1,6 @@
 # LevitateOS Roadmap
 
-**Last Updated:** 2026-01-06 (TEAM_193)
+**Last Updated:** 2026-01-06 (TEAM_197)
 
 This document outlines the planned development phases for LevitateOS. Each completed item includes the responsible team for traceability.
 
@@ -226,9 +226,9 @@ The goal of Part II is to build a rich, POSIX-like userspace environment on top 
 | `read` / `write` | Basic I/O | 🟢 Implemented | 8 |
 | `fstat` / `lstat` | File metadata | 🟢 Implemented | 10 |
 | `getdents64` | Read directory | 🟢 Implemented | 10 |
-| `unlinkat` | Remove files | 🟡 Wrapper exists, kernel TBD | 11 |
-| `mkdirat` | Create directory | 🟡 Wrapper exists, kernel TBD | 11 |
-| `renameat` | Rename/move | 🟡 Wrapper exists, kernel TBD | 11 |
+| `unlinkat` | Remove files | 🟢 Implemented (tmpfs) | 11 |
+| `mkdirat` | Create directory | 🟢 Implemented (tmpfs) | 11 |
+| `renameat` | Rename/move | 🟢 Implemented (tmpfs) | 11 |
 | `linkat` / `symlinkat` | Create links | 🔴 Not implemented | 11 |
 | `getcwd` | Current directory | 🟢 Implemented | 11 |
 | `chdir` / `fchdir` | Change directory | 🔴 Not implemented | 11 |
@@ -240,19 +240,28 @@ Legend: 🟢 Complete | 🟡 Partial/Wrapper Only | 🔴 Not Started
 
 ### ⚠️ Phase 11 Blockers (Levbox Utilities)
 
-> **Updated:** 2026-01-06 (TEAM_193)
+> **Updated:** 2026-01-06 (TEAM_197)
 
-The following syscalls are **blocking full functionality** of levbox utilities:
+#### ✅ Resolved Blockers (Tmpfs Complete)
+
+TEAM_194 implemented tmpfs at `/tmp` with full write support:
+
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `mkdirat` (34) | 🟢 Complete | Works for `/tmp/*` paths |
+| `unlinkat` (35) | 🟢 Complete | Works for `/tmp/*` paths |
+| `renameat` (38) | 🟢 Complete | Works for `/tmp/*` paths |
+| `openat` with O_CREAT | 🟢 Complete | Creates files in `/tmp` |
+| `openat` with O_TRUNC | 🟢 Complete | Truncates files in `/tmp` |
+| `read`/`write` for tmpfs | 🟢 Complete | Full read/write support |
+
+#### Remaining Blockers
 
 | Blocker | Affects | Status | Notes |
 |---------|---------|--------|-------|
-| `utimensat` (88) | `touch` | 🔴 Kernel not implemented | Cannot set file timestamps |
-| `linkat` (37) | `ln` | 🔴 Kernel not implemented | Cannot create hard links |
-| `symlinkat` (36) | `ln -s` | 🔴 Kernel not implemented | Cannot create symbolic links |
-| `openat` write mode | `cp`, `touch` | 🔴 Write to files not supported | Only read-only open works |
-| `mkdirat` kernel | `mkdir` | 🟡 Wrapper exists | Needs kernel syscall handler |
-| `unlinkat` kernel | `rm`, `rmdir` | 🟡 Wrapper exists | Needs kernel syscall handler |
-| `renameat` kernel | `mv` | 🟡 Wrapper exists | Needs kernel syscall handler |
+| `utimensat` (88) | `touch` | 🔴 Not implemented | Set file timestamps |
+| `symlinkat` (36) | `ln -s` | 🔴 Not implemented | Create symbolic links |
+| `linkat` (37) | `ln` | 🔴 Deferred | Hard links — complex, low priority |
 
 #### Current Utility Status
 
@@ -261,13 +270,13 @@ The following syscalls are **blocking full functionality** of levbox utilities:
 | `cat` | 🟢 Complete | None |
 | `ls` | 🟢 Complete | None |
 | `pwd` | 🟢 Complete | None |
-| `mkdir` | 🟡 Stub | `mkdirat` kernel handler |
-| `rmdir` | 🟡 Stub | `unlinkat` kernel handler |
-| `rm` | 🟡 Stub | `unlinkat` kernel handler |
-| `mv` | 🟡 Stub | `renameat` kernel handler |
-| `cp` | 🟡 Stub | `openat` write mode |
+| `mkdir` | 🟢 Works | Tmpfs at `/tmp` |
+| `rmdir` | 🟢 Works | Tmpfs at `/tmp` |
+| `rm` | 🟢 Works | Tmpfs at `/tmp` |
+| `mv` | 🟢 Works | Tmpfs at `/tmp` |
+| `cp` | 🟢 Works | Tmpfs at `/tmp` |
 | `touch` | 🔴 Not started | `utimensat` syscall |
-| `ln` | 🔴 Not started | `linkat`/`symlinkat` syscalls |
+| `ln` | 🔴 Not started | `symlinkat` syscall |
 
 ---
 

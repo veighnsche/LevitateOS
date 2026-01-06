@@ -47,6 +47,10 @@ pub const SYS_MKDIRAT: u64 = 34;
 pub const SYS_UNLINKAT: u64 = 35;
 /// TEAM_192: Rename/move file or directory
 pub const SYS_RENAMEAT: u64 = 38;
+/// TEAM_198: Set file timestamps
+pub const SYS_UTIMENSAT: u64 = 88;
+/// TEAM_198: Create symbolic link
+pub const SYS_SYMLINKAT: u64 = 36;
 
 /// TEAM_142: Shutdown flags
 pub mod shutdown_flags {
@@ -598,6 +602,74 @@ pub fn renameat(old_dfd: i32, old_path: &str, new_dfd: i32, new_path: &str) -> i
             in("x3") new_dfd,
             in("x4") new_path.as_ptr(),
             in("x5") new_path.len(),
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_198: Create a symbolic link.
+///
+/// # Arguments
+/// * `target` - Target path the symlink points to
+/// * `linkdirfd` - Directory fd for link path (use AT_FDCWD)
+/// * `linkpath` - Path for the new symlink
+#[inline]
+pub fn symlinkat(target: &str, linkdirfd: i32, linkpath: &str) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_SYMLINKAT,
+            in("x0") target.as_ptr(),
+            in("x1") target.len(),
+            in("x2") linkdirfd,
+            in("x3") linkpath.as_ptr(),
+            in("x4") linkpath.len(),
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_198: Timespec structure for utimensat.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Timespec {
+    pub tv_sec: u64,
+    pub tv_nsec: u64,
+}
+
+/// TEAM_198: UTIME_NOW - set to current time
+pub const UTIME_NOW: u64 = 0x3FFFFFFF;
+/// TEAM_198: UTIME_OMIT - don't change
+pub const UTIME_OMIT: u64 = 0x3FFFFFFE;
+
+/// TEAM_198: Set file access and modification times.
+///
+/// # Arguments
+/// * `dirfd` - Directory fd (use AT_FDCWD for cwd)
+/// * `path` - Path to file
+/// * `times` - Optional pointer to [atime, mtime] Timespec array. None = now.
+/// * `flags` - AT_SYMLINK_NOFOLLOW to not follow symlinks
+#[inline]
+pub fn utimensat(dirfd: i32, path: &str, times: Option<&[Timespec; 2]>, flags: u32) -> isize {
+    let ret: i64;
+    let times_ptr = match times {
+        Some(t) => t.as_ptr() as usize,
+        None => 0,
+    };
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_UTIMENSAT,
+            in("x0") dirfd,
+            in("x1") path.as_ptr(),
+            in("x2") path.len(),
+            in("x3") times_ptr,
+            in("x4") flags,
             lateout("x0") ret,
             options(nostack)
         );

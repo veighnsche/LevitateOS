@@ -2,6 +2,15 @@
 
 use crate::syscall::{Timespec, errno};
 
+/// TEAM_198: Get uptime in seconds (for tmpfs timestamps).
+pub fn uptime_seconds() -> u64 {
+    let freq = read_timer_frequency();
+    if freq == 0 {
+        return 0;
+    }
+    read_timer_counter() / freq
+}
+
 /// TEAM_170: Read the ARM generic timer counter.
 #[inline]
 fn read_timer_counter() -> u64 {

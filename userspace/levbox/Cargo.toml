@@ -39,6 +39,16 @@ path = "src/bin/rm.rs"
 name = "mv"
 path = "src/bin/mv.rs"
 
+# TEAM_198: touch utility
+[[bin]]
+name = "touch"
+path = "src/bin/touch.rs"
+
+# TEAM_198: ln utility
+[[bin]]
+name = "ln"
+path = "src/bin/ln.rs"
+
 [dependencies]
 libsyscall = { path = "../libsyscall" }
 ulib = { path = "../ulib" }

@@ -15,20 +15,21 @@ Plus: Adding levbox utilities to the initramfs for testing.
 
 ## Phases
 
-1. **Phase 1 - Discovery**: Understand requirements and current state
-2. **Phase 2 - Design**: Define syscall interfaces and tmpfs extensions
+1. **Phase 1 - Discovery**: Understand requirements and current state ✅
+2. **Phase 2 - Design**: Define syscall interfaces and tmpfs extensions ✅
 3. **Phase 3 - Implementation**: Implement syscalls
-4. **Phase 4 - Integration**: Add utilities to initramfs, test
-5. **Phase 5 - Polish**: Update docs, cleanup
+
+> **Note:** Integration and polish steps are included in Phase 3.
 
 ## Success Criteria
 
 - [ ] `touch /tmp/file` creates file with current timestamp
 - [ ] `touch -c /tmp/nonexistent` doesn't create file
-- [ ] `ln /tmp/a /tmp/b` creates hard link (deferred - complex)
 - [ ] `ln -s /tmp/a /tmp/link` creates symbolic link
 - [ ] All levbox utilities available in initramfs
 - [ ] `ls`, `mkdir`, `rm`, `mv` work in QEMU
+
+> **Note:** Hard links (`linkat`) deferred to future — complexity not justified for Phase 11.
 
 ## Priority Order
 

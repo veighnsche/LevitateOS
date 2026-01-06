@@ -60,6 +60,10 @@ pub enum SyscallNumber {
     Unlinkat = 35,
     /// TEAM_192: Rename/move file or directory
     Renameat = 38,
+    /// TEAM_198: Set file timestamps
+    Utimensat = 88,
+    /// TEAM_198: Create symbolic link
+    Symlinkat = 36,
 }
 
 impl SyscallNumber {
@@ -86,18 +90,24 @@ impl SyscallNumber {
             34 => Some(Self::Mkdirat),
             35 => Some(Self::Unlinkat),
             38 => Some(Self::Renameat),
+            88 => Some(Self::Utimensat),
+            36 => Some(Self::Symlinkat),
             _ => None,
         }
     }
 }
 
 /// TEAM_168: Stat structure returned by fstat.
+/// TEAM_198: Added timestamp fields (atime, mtime, ctime).
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Stat {
     pub st_size: u64,
     pub st_mode: u32,
     pub _pad: u32,
+    pub st_atime: u64,
+    pub st_mtime: u64,
+    pub st_ctime: u64,
 }
 
 /// TEAM_170: Timespec structure for clock_gettime.
@@ -180,6 +190,22 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg3() as i32,
             frame.arg4() as usize,
             frame.arg5() as usize,
+        ),
+        // TEAM_198: Set file timestamps
+        Some(SyscallNumber::Utimensat) => fs::sys_utimensat(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as usize,
+            frame.arg4() as u32,
+        ),
+        // TEAM_198: Create symbolic link
+        Some(SyscallNumber::Symlinkat) => fs::sys_symlinkat(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as i32,
+            frame.arg3() as usize,
+            frame.arg4() as usize,
         ),
         None => {
             println!("[SYSCALL] Unknown syscall number: {}", nr);

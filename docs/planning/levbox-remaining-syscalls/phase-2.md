@@ -1,7 +1,7 @@
 # Phase 2: Design — Remaining Levbox Syscalls
 
 **Phase:** Design  
-**Status:** Draft  
+**Status:** ✅ COMPLETE  
 **Team:** TEAM_196
 
 ---
@@ -190,7 +190,15 @@ pub fn sys_symlinkat(
 
 ## 6. Questions Summary
 
-All questions have recommended answers above. No user input needed unless you disagree with any decision.
+**Status:** All design decisions confirmed by USER (2026-01-06).
+
+| Q# | Decision | Confirmed |
+|----|----------|-----------|
+| Q1-Q4 | utimensat behavior | ✅ |
+| Q5-Q8 | symlinkat behavior | ✅ |
+| Q9-Q12 | touch utility behavior | ✅ |
+
+> **Note:** Hard links (`linkat`) deferred — not needed for Phase 11 goals.
 
 ---
 

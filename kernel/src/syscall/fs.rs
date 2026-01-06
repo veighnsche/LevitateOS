@@ -516,6 +516,9 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
             st_size: 0,
             st_mode: 2,
             _pad: 0,
+            st_atime: 0,
+            st_mtime: 0,
+            st_ctime: 0,
         },
         crate::task::fd_table::FdType::InitramfsFile { file_index, .. } => {
             let initramfs_guard = crate::fs::INITRAMFS.lock();
@@ -534,6 +537,9 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
                 st_size: file_size as u64,
                 st_mode: 1, // Regular file
                 _pad: 0,
+                st_atime: 0,
+                st_mtime: 0,
+                st_ctime: 0,
             }
         }
         // TEAM_176: Directory fd returns directory mode
@@ -541,22 +547,36 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
             st_size: 0,
             st_mode: 2, // Directory
             _pad: 0,
+            st_atime: 0,
+            st_mtime: 0,
+            st_ctime: 0,
         },
         // TEAM_195: Tmpfs file fd
+        // TEAM_198: Added timestamp support
         FdType::TmpfsFile { ref node, .. } => {
             let node_guard = node.lock();
             Stat {
                 st_size: node_guard.size() as u64,
                 st_mode: 1, // Regular file
                 _pad: 0,
+                st_atime: node_guard.atime,
+                st_mtime: node_guard.mtime,
+                st_ctime: node_guard.ctime,
             }
         }
         // TEAM_195: Tmpfs directory fd
-        FdType::TmpfsDir { .. } => Stat {
-            st_size: 0,
-            st_mode: 2, // Directory
-            _pad: 0,
-        },
+        // TEAM_198: Added timestamp support
+        FdType::TmpfsDir { ref node, .. } => {
+            let node_guard = node.lock();
+            Stat {
+                st_size: 0,
+                st_mode: 2, // Directory
+                _pad: 0,
+                st_atime: node_guard.atime,
+                st_mtime: node_guard.mtime,
+                st_ctime: node_guard.ctime,
+            }
+        }
     };
 
     let stat_bytes =
@@ -959,6 +979,206 @@ pub fn sys_renameat(
 
     match tmpfs.rename(old_tmpfs_path, new_tmpfs_path) {
         Ok(()) => 0,
+        Err(TmpfsError::NotFound) => errno_file::ENOENT,
+        Err(TmpfsError::NotADirectory) => errno_file::ENOTDIR,
+        Err(_) => errno::EINVAL,
+    }
+}
+
+/// TEAM_198: UTIME_NOW constant - set time to current time
+const UTIME_NOW: u64 = 0x3FFFFFFF;
+/// TEAM_198: UTIME_OMIT constant - don't change time
+const UTIME_OMIT: u64 = 0x3FFFFFFE;
+
+/// TEAM_198: sys_utimensat - Set file access and modification times.
+///
+/// # Arguments
+/// * `_dirfd` - Directory fd (AT_FDCWD for cwd) - currently ignored
+/// * `path` - Path to file
+/// * `path_len` - Length of path
+/// * `times` - Pointer to [atime, mtime] timespec array (0 = use current time)
+/// * `_flags` - AT_SYMLINK_NOFOLLOW - currently ignored
+pub fn sys_utimensat(_dirfd: i32, path: usize, path_len: usize, times: usize, _flags: u32) -> i64 {
+    if path_len == 0 || path_len > 256 {
+        return errno::EINVAL;
+    }
+
+    let task = crate::task::current_task();
+
+    // Read path from userspace
+    let mut path_buf = [0u8; 256];
+    for i in 0..path_len {
+        if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, path + i) {
+            path_buf[i] = unsafe { *ptr };
+        } else {
+            return errno::EFAULT;
+        }
+    }
+    let path_str = match core::str::from_utf8(&path_buf[..path_len]) {
+        Ok(s) => s,
+        Err(_) => return errno::EINVAL,
+    };
+
+    // Only tmpfs paths are writable
+    if !tmpfs::is_tmpfs_path(path_str) {
+        return errno::EROFS;
+    }
+
+    let tmpfs_path = tmpfs::strip_tmp_prefix(path_str);
+
+    let tmpfs_guard = TMPFS.lock();
+    let tmpfs = match tmpfs_guard.as_ref() {
+        Some(t) => t,
+        None => return errno::EROFS,
+    };
+
+    // Lookup the node
+    let node = match tmpfs.lookup(tmpfs_path) {
+        Some(n) => n,
+        None => return errno_file::ENOENT,
+    };
+
+    // Get current time
+    let now = crate::syscall::time::uptime_seconds();
+
+    // Determine new atime and mtime
+    let (new_atime, new_mtime) = if times == 0 {
+        // NULL times means set both to current time
+        (Some(now), Some(now))
+    } else {
+        // Read timespec array from userspace
+        // struct timespec { u64 tv_sec; u64 tv_nsec; }
+        // times[0] = atime, times[1] = mtime
+        let timespec_size = 16; // 2 x u64
+        
+        let mut atime_sec: u64 = 0;
+        let mut atime_nsec: u64 = 0;
+        let mut mtime_sec: u64 = 0;
+        let mut mtime_nsec: u64 = 0;
+
+        // Read atime
+        for i in 0..8 {
+            if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, times + i) {
+                atime_sec |= (unsafe { *ptr } as u64) << (i * 8);
+            } else {
+                return errno::EFAULT;
+            }
+        }
+        for i in 0..8 {
+            if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, times + 8 + i) {
+                atime_nsec |= (unsafe { *ptr } as u64) << (i * 8);
+            } else {
+                return errno::EFAULT;
+            }
+        }
+        // Read mtime
+        for i in 0..8 {
+            if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, times + timespec_size + i) {
+                mtime_sec |= (unsafe { *ptr } as u64) << (i * 8);
+            } else {
+                return errno::EFAULT;
+            }
+        }
+        for i in 0..8 {
+            if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, times + timespec_size + 8 + i) {
+                mtime_nsec |= (unsafe { *ptr } as u64) << (i * 8);
+            } else {
+                return errno::EFAULT;
+            }
+        }
+
+        // Handle UTIME_NOW and UTIME_OMIT
+        let new_atime = if atime_nsec == UTIME_OMIT {
+            None
+        } else if atime_nsec == UTIME_NOW {
+            Some(now)
+        } else {
+            Some(atime_sec)
+        };
+
+        let new_mtime = if mtime_nsec == UTIME_OMIT {
+            None
+        } else if mtime_nsec == UTIME_NOW {
+            Some(now)
+        } else {
+            Some(mtime_sec)
+        };
+
+        (new_atime, new_mtime)
+    };
+
+    // Update timestamps
+    match tmpfs.update_timestamps(&node, new_atime, new_mtime) {
+        Ok(()) => 0,
+        Err(_) => errno::EINVAL,
+    }
+}
+
+/// TEAM_198: sys_symlinkat - Create a symbolic link.
+///
+/// # Arguments
+/// * `target` - Target path the symlink points to
+/// * `target_len` - Length of target
+/// * `_linkdirfd` - Directory fd for link path (ignored, use AT_FDCWD)
+/// * `linkpath` - Path for the new symlink
+/// * `linkpath_len` - Length of link path
+pub fn sys_symlinkat(
+    target: usize,
+    target_len: usize,
+    _linkdirfd: i32,
+    linkpath: usize,
+    linkpath_len: usize,
+) -> i64 {
+    if target_len == 0 || target_len > 256 || linkpath_len == 0 || linkpath_len > 256 {
+        return errno::EINVAL;
+    }
+
+    let task = crate::task::current_task();
+
+    // Read target from userspace
+    let mut target_buf = [0u8; 256];
+    for i in 0..target_len {
+        if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, target + i) {
+            target_buf[i] = unsafe { *ptr };
+        } else {
+            return errno::EFAULT;
+        }
+    }
+    let target_str = match core::str::from_utf8(&target_buf[..target_len]) {
+        Ok(s) => s,
+        Err(_) => return errno::EINVAL,
+    };
+
+    // Read linkpath from userspace
+    let mut linkpath_buf = [0u8; 256];
+    for i in 0..linkpath_len {
+        if let Some(ptr) = crate::task::user_mm::user_va_to_kernel_ptr(task.ttbr0, linkpath + i) {
+            linkpath_buf[i] = unsafe { *ptr };
+        } else {
+            return errno::EFAULT;
+        }
+    }
+    let linkpath_str = match core::str::from_utf8(&linkpath_buf[..linkpath_len]) {
+        Ok(s) => s,
+        Err(_) => return errno::EINVAL,
+    };
+
+    // Only tmpfs paths are writable
+    if !tmpfs::is_tmpfs_path(linkpath_str) {
+        return errno::EROFS;
+    }
+
+    let tmpfs_path = tmpfs::strip_tmp_prefix(linkpath_str);
+
+    let tmpfs_guard = TMPFS.lock();
+    let tmpfs = match tmpfs_guard.as_ref() {
+        Some(t) => t,
+        None => return errno::EROFS,
+    };
+
+    match tmpfs.create_symlink(tmpfs_path, target_str) {
+        Ok(_) => 0,
+        Err(TmpfsError::AlreadyExists) => -17, // EEXIST
         Err(TmpfsError::NotFound) => errno_file::ENOENT,
         Err(TmpfsError::NotADirectory) => errno_file::ENOTDIR,
         Err(_) => errno::EINVAL,

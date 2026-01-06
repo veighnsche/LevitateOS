@@ -49,10 +49,12 @@ pub enum TmpfsError {
 }
 
 /// TEAM_194: Node type enumeration
+/// TEAM_198: Added Symlink variant
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TmpfsNodeType {
     File,
     Directory,
+    Symlink,
 }
 
 /// TEAM_194: A node in the tmpfs tree (file or directory)
@@ -68,28 +70,59 @@ pub struct TmpfsNode {
     pub data: Vec<u8>,
     /// Child nodes (for directories only)
     pub children: Vec<Arc<Spinlock<TmpfsNode>>>,
+    /// TEAM_198: Access time (seconds since boot)
+    pub atime: u64,
+    /// TEAM_198: Modification time (seconds since boot)
+    pub mtime: u64,
+    /// TEAM_198: Creation time (seconds since boot)
+    pub ctime: u64,
 }
 
 impl TmpfsNode {
     /// TEAM_194: Create a new file node
+    /// TEAM_198: Added timestamp fields
     pub fn new_file(ino: u64, name: &str) -> Self {
+        let now = crate::syscall::time::uptime_seconds();
         Self {
             ino,
             name: String::from(name),
             node_type: TmpfsNodeType::File,
             data: Vec::new(),
             children: Vec::new(),
+            atime: now,
+            mtime: now,
+            ctime: now,
         }
     }
 
     /// TEAM_194: Create a new directory node
+    /// TEAM_198: Added timestamp fields
     pub fn new_dir(ino: u64, name: &str) -> Self {
+        let now = crate::syscall::time::uptime_seconds();
         Self {
             ino,
             name: String::from(name),
             node_type: TmpfsNodeType::Directory,
             data: Vec::new(),
             children: Vec::new(),
+            atime: now,
+            mtime: now,
+            ctime: now,
+        }
+    }
+
+    /// TEAM_198: Create a new symlink node
+    pub fn new_symlink(ino: u64, name: &str, target: &str) -> Self {
+        let now = crate::syscall::time::uptime_seconds();
+        Self {
+            ino,
+            name: String::from(name),
+            node_type: TmpfsNodeType::Symlink,
+            data: target.as_bytes().to_vec(), // Store target path in data
+            children: Vec::new(),
+            atime: now,
+            mtime: now,
+            ctime: now,
         }
     }
 
@@ -101,6 +134,20 @@ impl TmpfsNode {
     /// TEAM_194: Check if this is a directory
     pub fn is_dir(&self) -> bool {
         self.node_type == TmpfsNodeType::Directory
+    }
+
+    /// TEAM_198: Check if this is a symlink
+    pub fn is_symlink(&self) -> bool {
+        self.node_type == TmpfsNodeType::Symlink
+    }
+
+    /// TEAM_198: Get symlink target (returns None if not a symlink)
+    pub fn symlink_target(&self) -> Option<&[u8]> {
+        if self.is_symlink() {
+            Some(&self.data)
+        } else {
+            None
+        }
     }
 
     /// TEAM_194: Get file size
@@ -256,6 +303,31 @@ impl Tmpfs {
         Ok(new_dir)
     }
 
+    /// TEAM_198: Create a symbolic link at the given path
+    pub fn create_symlink(&self, path: &str, target: &str) -> Result<Arc<Spinlock<TmpfsNode>>, TmpfsError> {
+        let (parent, name) = self.lookup_parent(path).ok_or(TmpfsError::InvalidPath)?;
+        
+        let mut parent_node = parent.lock();
+        if !parent_node.is_dir() {
+            return Err(TmpfsError::NotADirectory);
+        }
+
+        // Check if already exists
+        for child in &parent_node.children {
+            let child_node = child.lock();
+            if child_node.name == name {
+                return Err(TmpfsError::AlreadyExists);
+            }
+        }
+
+        // Create new symlink
+        let ino = self.alloc_ino();
+        let new_symlink = Arc::new(Spinlock::new(TmpfsNode::new_symlink(ino, &name, target)));
+        parent_node.children.push(Arc::clone(&new_symlink));
+
+        Ok(new_symlink)
+    }
+
     /// TEAM_194: Remove a file or empty directory
     pub fn remove(&self, path: &str, remove_dir: bool) -> Result<(), TmpfsError> {
         let (parent, name) = self.lookup_parent(path).ok_or(TmpfsError::InvalidPath)?;
@@ -392,7 +464,27 @@ impl Tmpfs {
         // Write data
         node_inner.data[offset..offset + data.len()].copy_from_slice(data);
 
+        // TEAM_198: Update mtime on write
+        node_inner.mtime = crate::syscall::time::uptime_seconds();
+
         Ok(data.len())
+    }
+
+    /// TEAM_198: Update timestamps on a node
+    pub fn update_timestamps(
+        &self,
+        node: &Arc<Spinlock<TmpfsNode>>,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+    ) -> Result<(), TmpfsError> {
+        let mut node_inner = node.lock();
+        if let Some(a) = atime {
+            node_inner.atime = a;
+        }
+        if let Some(m) = mtime {
+            node_inner.mtime = m;
+        }
+        Ok(())
     }
 
     /// TEAM_194: Read data from a file
