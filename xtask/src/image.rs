@@ -59,7 +59,7 @@ pub fn install_userspace_to_disk() -> Result<()> {
     // We do this even if the disk image already exists to ensure binaries reflect latest build
     println!("📦 Installing/Updating userspace apps on disk image...");
     let disk_path = "tinyos_disk.img";
-    let binaries = ["init", "shell", "repro"];
+    let binaries = ["cat", "init", "shell", "repro"];
     for bin in binaries {
         let src = format!("userspace/target/aarch64-unknown-none/release/{}", bin);
         if std::path::Path::new(&src).exists() {

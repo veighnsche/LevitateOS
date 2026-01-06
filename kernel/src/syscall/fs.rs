@@ -429,8 +429,17 @@ pub fn sys_getdents(fd: usize, buf: usize, buf_len: usize) -> i64 {
         let name_bytes = entry.name.as_bytes();
         let name_len = name_bytes.len();
         
-        // Record size: header (19 bytes) + name + null + padding to 8-byte alignment
-        let reclen = ((19 + name_len + 1 + 7) / 8) * 8;
+        // TEAM_183: Record size with checked arithmetic to prevent overflow
+        // Header (19 bytes) + name + null + padding to 8-byte alignment
+        let reclen = match (19usize)
+            .checked_add(name_len)
+            .and_then(|n| n.checked_add(1))
+            .and_then(|n| n.checked_add(7))
+            .map(|n| (n / 8) * 8)
+        {
+            Some(r) if r <= u16::MAX as usize => r,
+            _ => continue, // Skip entry if reclen overflows or exceeds u16::MAX
+        };
         
         if bytes_written + reclen > buf_len {
             break; // Buffer full

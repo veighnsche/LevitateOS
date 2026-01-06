@@ -1,0 +1,16 @@
+[package]
+name = "coreutils"
+version = "0.1.0"
+edition = "2021"
+description = "Core utilities for LevitateOS"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "cat"
+path = "src/bin/cat.rs"
+
+[dependencies]
+libsyscall = { path = "../libsyscall" }
+ulib = { path = "../ulib" }

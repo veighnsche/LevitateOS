@@ -113,6 +113,55 @@ fn execute(line: &[u8]) {
         return;
     }
 
+    // [SH8] External command execution with argument passing
+    // TEAM_186: Parse command line and spawn with arguments
+    let (parts, argc) = split_args(cmd);
+    if argc > 0 {
+        // Convert parts to str slices
+        let mut argv_strs: [&str; 16] = [""; 16];
+        let mut valid = true;
+        for i in 0..argc {
+            match core::str::from_utf8(parts[i]) {
+                Ok(s) => argv_strs[i] = s,
+                Err(_) => {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+
+        if valid {
+            // First part is the command name
+            let cmd_name = argv_strs[0];
+
+            // Build path (prepend / if needed)
+            // Use a static buffer since we can't allocate
+            static mut PATH_BUF: [u8; 64] = [0; 64];
+            let path = if cmd_name.starts_with('/') {
+                cmd_name
+            } else {
+                unsafe {
+                    PATH_BUF[0] = b'/';
+                    let len = cmd_name.len().min(62);
+                    PATH_BUF[1..1 + len].copy_from_slice(&cmd_name.as_bytes()[..len]);
+                    // SAFETY: We just wrote valid UTF-8 bytes
+                    core::str::from_utf8_unchecked(&PATH_BUF[..1 + len])
+                }
+            };
+
+            // Spawn with all arguments
+            let result = libsyscall::spawn_args(path, &argv_strs[..argc]);
+            if result >= 0 {
+                // Process spawned successfully with PID = result
+                // TEAM_188: Wait for child process to complete
+                let child_pid = result as i32;
+                let mut status: i32 = 0;
+                libsyscall::waitpid(child_pid, Some(&mut status));
+                return;
+            }
+        }
+    }
+
     // Unknown command
     print!("Unknown: ");
     if let Ok(s) = core::str::from_utf8(cmd) {
@@ -120,6 +169,34 @@ fn execute(line: &[u8]) {
     } else {
         println!("<invalid utf8>");
     }
+}
+
+/// TEAM_186: Split command line into whitespace-separated parts
+fn split_args(cmd: &[u8]) -> ([&[u8]; 16], usize) {
+    let mut parts: [&[u8]; 16] = [&[]; 16];
+    let mut count = 0;
+    let mut i = 0;
+
+    while i < cmd.len() && count < 16 {
+        // Skip whitespace
+        while i < cmd.len() && (cmd[i] == b' ' || cmd[i] == b'\t') {
+            i += 1;
+        }
+        if i >= cmd.len() {
+            break;
+        }
+
+        // Find end of word
+        let start = i;
+        while i < cmd.len() && cmd[i] != b' ' && cmd[i] != b'\t' {
+            i += 1;
+        }
+
+        parts[count] = &cmd[start..i];
+        count += 1;
+    }
+
+    (parts, count)
 }
 
 /// [SH1] Entry point for the shell - prints banner on startup.
@@ -143,7 +220,7 @@ pub extern "C" fn _start() -> ! {
             let n = libsyscall::read(0, &mut c_buf);
             if n > 0 {
                 let b = c_buf[0];
-                
+
                 if b == b'\n' || b == b'\r' {
                     // Echo newline and execute
                     libsyscall::write(1, b"\n");

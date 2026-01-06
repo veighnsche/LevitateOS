@@ -144,10 +144,14 @@ impl Instant {
     /// TEAM_170: Get the current instant.
     pub fn now() -> Self {
         let mut ts = libsyscall::Timespec::default();
-        let _ = libsyscall::clock_gettime(&mut ts);
+        // TEAM_186: Check syscall return, use zeros on error
+        if libsyscall::clock_gettime(&mut ts) < 0 {
+            return Self { secs: 0, nanos: 0 };
+        }
         Self {
             secs: ts.tv_sec,
-            nanos: ts.tv_nsec as u32,
+            // TEAM_186: Clamp tv_nsec to valid range in case of corruption
+            nanos: (ts.tv_nsec.min(999_999_999)) as u32,
         }
     }
 

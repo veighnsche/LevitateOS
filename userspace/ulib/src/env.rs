@@ -51,6 +51,10 @@ pub unsafe fn init_args(sp: *const usize) {
     // Read argc
     let argc = unsafe { *sp };
 
+    // TEAM_185: Sanity check argc to prevent reading invalid memory
+    const MAX_ARGC: usize = 4096;
+    let argc = argc.min(MAX_ARGC);
+
     // Read argv pointers (starts at sp + 1)
     let argv_base = unsafe { sp.add(1) };
     for i in 0..argc {
@@ -65,7 +69,9 @@ pub unsafe fn init_args(sp: *const usize) {
     // Read envp pointers (starts after argv NULL terminator)
     let envp_base = unsafe { argv_base.add(argc + 1) };
     let mut env_idx = 0;
-    loop {
+    // TEAM_185: Limit envp iteration to prevent infinite loop if NULL is missing
+    const MAX_ENVP: usize = 4096;
+    while env_idx < MAX_ENVP {
         let env_ptr = unsafe { *envp_base.add(env_idx) } as *const u8;
         if env_ptr.is_null() {
             break;
@@ -168,15 +174,26 @@ impl Iterator for Vars {
     type Item = (String, String);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let var_str = self.inner.as_mut()?.next()?;
-        // Split on first '='
-        if let Some(eq_pos) = var_str.find('=') {
-            let key = var_str[..eq_pos].to_string();
-            let value = var_str[eq_pos + 1..].to_string();
-            Some((key, value))
-        } else {
-            // Malformed env var, skip
-            self.next()
+        // TEAM_185: Use loop instead of recursion to avoid stack overflow
+        // on many consecutive malformed env vars
+        loop {
+            let var_str = self.inner.as_mut()?.next()?;
+            // Split on first '='
+            if let Some(eq_pos) = var_str.find('=') {
+                let key = var_str[..eq_pos].to_string();
+                let value = var_str[eq_pos + 1..].to_string();
+                return Some((key, value));
+            }
+            // Malformed env var (no '='), continue to next
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // TEAM_185: Add size_hint - upper bound is inner length,
+        // lower bound is 0 since we skip malformed entries
+        match &self.inner {
+            Some(iter) => (0, Some(iter.len())),
+            None => (0, Some(0)),
         }
     }
 }

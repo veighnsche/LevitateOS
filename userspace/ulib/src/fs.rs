@@ -55,7 +55,7 @@ impl File {
         }
         Ok(Metadata {
             size: stat.st_size,
-            is_file: stat.st_mode == 1,
+            mode: stat.st_mode,
         })
     }
 }
@@ -84,8 +84,8 @@ impl Drop for File {
 pub struct Metadata {
     /// File size in bytes
     pub size: u64,
-    /// Whether this is a regular file
-    pub is_file: bool,
+    /// TEAM_182: File mode (1=file, 2=dir/device)
+    mode: u32,
 }
 
 impl Metadata {
@@ -101,7 +101,12 @@ impl Metadata {
 
     /// TEAM_168: Check if this is a regular file.
     pub fn is_file(&self) -> bool {
-        self.is_file
+        self.mode == 1
+    }
+
+    /// TEAM_182: Check if this is a directory.
+    pub fn is_dir(&self) -> bool {
+        self.mode == 2
     }
 }
 

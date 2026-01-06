@@ -35,6 +35,10 @@ pub const SYS_FSTAT: u64 = 11;
 pub const SYS_NANOSLEEP: u64 = 12;
 /// TEAM_170: Get monotonic time
 pub const SYS_CLOCK_GETTIME: u64 = 13;
+/// TEAM_186: Spawn process with arguments
+pub const SYS_SPAWN_ARGS: u64 = 15;
+/// TEAM_188: Wait for child process
+pub const SYS_WAITPID: u64 = 16;
 
 /// TEAM_142: Shutdown flags
 pub mod shutdown_flags {
@@ -184,6 +188,84 @@ pub fn exec(path: &str) -> isize {
             in("x8") SYS_EXEC,
             in("x0") path.as_ptr(),
             in("x1") path.len(),
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_186: Argv entry for spawn_args syscall.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ArgvEntry {
+    /// Pointer to argument string
+    pub ptr: *const u8,
+    /// Length of argument string
+    pub len: usize,
+}
+
+/// TEAM_186: Spawn a process with command-line arguments.
+///
+/// # Arguments
+/// * `path` - Path to the executable
+/// * `argv` - Command-line arguments (including program name as argv[0])
+///
+/// # Returns
+/// PID of the new process, or negative error code.
+#[inline]
+pub fn spawn_args(path: &str, argv: &[&str]) -> isize {
+    // Build ArgvEntry array on stack (max 16 args)
+    let mut entries = [ArgvEntry {
+        ptr: core::ptr::null(),
+        len: 0,
+    }; 16];
+    let argc = argv.len().min(16);
+    for (i, arg) in argv.iter().take(argc).enumerate() {
+        entries[i] = ArgvEntry {
+            ptr: arg.as_ptr(),
+            len: arg.len(),
+        };
+    }
+
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_SPAWN_ARGS,
+            in("x0") path.as_ptr(),
+            in("x1") path.len(),
+            in("x2") entries.as_ptr(),
+            in("x3") argc,
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_188: Wait for a child process to exit.
+///
+/// # Arguments
+/// * `pid` - PID of child to wait for (must be > 0)
+/// * `status` - Optional pointer to store exit status
+///
+/// # Returns
+/// PID of exited child on success, negative error code on failure.
+#[inline]
+pub fn waitpid(pid: i32, status: Option<&mut i32>) -> isize {
+    let status_ptr = match status {
+        Some(s) => s as *mut i32 as usize,
+        None => 0,
+    };
+
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_WAITPID,
+            in("x0") pid,
+            in("x1") status_ptr,
             lateout("x0") ret,
             options(nostack)
         );

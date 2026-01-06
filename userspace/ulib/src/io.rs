@@ -11,26 +11,32 @@ use core::fmt;
 
 /// TEAM_168: Error codes from syscalls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(i32)]
 pub enum ErrorKind {
-    /// Function not implemented
-    NotImplemented = -1,
-    /// Bad file descriptor
-    BadFd = -2,
-    /// Bad address
-    BadAddress = -3,
-    /// Invalid argument
-    InvalidArgument = -4,
-    /// No such file or directory
-    NotFound = -5,
-    /// Too many open files
-    TooManyFiles = -6,
+    /// Function not implemented (ENOSYS = -1)
+    NotImplemented,
+    /// Bad file descriptor (EBADF = -2)
+    BadFd,
+    /// Bad address (EFAULT = -3)
+    BadAddress,
+    /// Invalid argument (EINVAL = -4)
+    InvalidArgument,
+    /// No such file or directory (ENOENT = -5)
+    NotFound,
+    /// Too many open files (EMFILE = -6)
+    TooManyFiles,
+    /// TEAM_183: Not a directory (ENOTDIR = -7)
+    NotADirectory,
+    /// TEAM_182: Unexpected end of file (internal, not from syscall)
+    UnexpectedEof,
+    /// TEAM_182: Write returned zero bytes (internal, not from syscall)
+    WriteZero,
     /// Unknown error
-    Unknown = -99,
+    Unknown,
 }
 
 impl ErrorKind {
     /// TEAM_168: Convert from syscall return value.
+    /// TEAM_183: Added ENOTDIR mapping.
     pub fn from_errno(errno: isize) -> Self {
         match errno {
             -1 => Self::NotImplemented,
@@ -39,6 +45,7 @@ impl ErrorKind {
             -4 => Self::InvalidArgument,
             -5 => Self::NotFound,
             -6 => Self::TooManyFiles,
+            -7 => Self::NotADirectory,
             _ => Self::Unknown,
         }
     }
@@ -53,13 +60,17 @@ impl fmt::Display for ErrorKind {
             Self::InvalidArgument => write!(f, "invalid argument"),
             Self::NotFound => write!(f, "no such file or directory"),
             Self::TooManyFiles => write!(f, "too many open files"),
+            Self::NotADirectory => write!(f, "not a directory"),
+            Self::UnexpectedEof => write!(f, "unexpected end of file"),
+            Self::WriteZero => write!(f, "write returned zero bytes"),
             Self::Unknown => write!(f, "unknown error"),
         }
     }
 }
 
 /// TEAM_168: I/O Error type.
-#[derive(Debug, Clone, Copy)]
+/// TEAM_187: Added PartialEq, Eq for error comparison.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Error {
     kind: ErrorKind,
 }
@@ -87,6 +98,9 @@ impl fmt::Display for Error {
     }
 }
 
+/// TEAM_187: Implement core::error::Error for consistency with kernel errors.
+impl core::error::Error for Error {}
+
 /// TEAM_168: Result type for I/O operations.
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -98,12 +112,14 @@ pub trait Read {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
 
     /// Read exactly `buf.len()` bytes.
+    ///
+    /// TEAM_182: Returns UnexpectedEof if EOF is reached before filling buffer.
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
         let mut offset = 0;
         while offset < buf.len() {
             let n = self.read(&mut buf[offset..])?;
             if n == 0 {
-                return Err(Error::new(ErrorKind::Unknown)); // EOF
+                return Err(Error::new(ErrorKind::UnexpectedEof));
             }
             offset += n;
         }
@@ -122,12 +138,14 @@ pub trait Write {
     fn flush(&mut self) -> Result<()>;
 
     /// Write all bytes from a buffer.
+    ///
+    /// TEAM_182: Returns WriteZero if write returns 0 before all bytes written.
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
         let mut offset = 0;
         while offset < buf.len() {
             let n = self.write(&buf[offset..])?;
             if n == 0 {
-                return Err(Error::new(ErrorKind::Unknown));
+                return Err(Error::new(ErrorKind::WriteZero));
             }
             offset += n;
         }
@@ -170,9 +188,12 @@ impl<R: Read> BufReader<R> {
     }
 
     /// TEAM_180: Create a new BufReader with custom buffer capacity.
+    ///
+    /// TEAM_182: Capacity of 0 is treated as DEFAULT_BUF_CAPACITY to avoid edge cases.
     pub fn with_capacity(capacity: usize, inner: R) -> Self {
-        let mut buf = Vec::with_capacity(capacity);
-        buf.resize(capacity, 0);
+        let actual_capacity = if capacity == 0 { DEFAULT_BUF_CAPACITY } else { capacity };
+        let mut buf = Vec::with_capacity(actual_capacity);
+        buf.resize(actual_capacity, 0);
         Self {
             inner,
             buf,
@@ -212,8 +233,9 @@ impl<R: Read> BufReader<R> {
     }
 
     /// TEAM_180: Consume n bytes from the buffer.
+    /// TEAM_184: Use saturating_add to prevent overflow.
     fn consume(&mut self, amt: usize) {
-        self.pos = (self.pos + amt).min(self.cap);
+        self.pos = self.pos.saturating_add(amt).min(self.cap);
     }
 
     /// TEAM_180: Read a line into the provided String (Q5: includes newline, Q7: appends).
@@ -275,6 +297,11 @@ impl<R: Read> BufReader<R> {
 
 impl<R: Read> Read for BufReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        // TEAM_184: Handle empty buffer without syscall (per Read trait contract)
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
         // Q2: Return buffered data immediately if available
         let available = self.fill_buf()?;
         if available.is_empty() {
@@ -313,10 +340,13 @@ impl<W: Write> BufWriter<W> {
     }
 
     /// TEAM_180: Create a new BufWriter with custom buffer capacity.
+    ///
+    /// TEAM_182: Capacity of 0 is treated as DEFAULT_BUF_CAPACITY to avoid edge cases.
     pub fn with_capacity(capacity: usize, inner: W) -> Self {
+        let actual_capacity = if capacity == 0 { DEFAULT_BUF_CAPACITY } else { capacity };
         Self {
             inner: Some(inner),
-            buf: Vec::with_capacity(capacity),
+            buf: Vec::with_capacity(actual_capacity),
         }
     }
 
@@ -356,7 +386,8 @@ impl<W: Write> BufWriter<W> {
         while written < self.buf.len() {
             let n = inner.write(&self.buf[written..])?;
             if n == 0 {
-                return Err(Error::new(ErrorKind::Unknown));
+                // TEAM_184: Use WriteZero instead of Unknown for consistency
+                return Err(Error::new(ErrorKind::WriteZero));
             }
             written += n;
         }

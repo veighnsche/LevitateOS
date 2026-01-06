@@ -2,6 +2,7 @@
 
 pub mod fd_table; // TEAM_168: File descriptor table (Phase 10)
 pub mod process;
+pub mod process_table; // TEAM_188: Process table for waitpid
 pub mod scheduler;
 pub mod user; // TEAM_073: Userspace support (Phase 8)
 pub mod user_mm; // TEAM_073: User memory management (Phase 8) // TEAM_073: Process spawning (Phase 8)

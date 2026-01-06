@@ -31,7 +31,7 @@ Initializing Input...
 VirtIO Input initialized successfully.
 BOOT_REGS: x0=48200000 x1=0 x2=0 x3=0
 Detecting Initramfs...
-Initramfs found at 0x48000000 - 0x48047800 (292864 bytes)
+Initramfs found at 0x48000000 - 0x4805cc00 (379904 bytes)
 Files in initramfs:
  - .
  - hello.txt
@@ -40,6 +40,7 @@ Files in initramfs:
  - init
  - repro_crash
  - repro
+ - cat
 [BOOT] spawning init task...
 [SPAWN] Parsing ELF header (75488 bytes)...
 ELF Header e_ident verified
@@ -59,7 +60,7 @@ ELF Header e_ident verified
 Mounting filesystems...
 FAT32 mounted. Root contains 0 entries.
 [BOOT] Filesystem initialized successfully.
-[GPU_TEST] Flush count: 42
+[GPU_TEST] Flush count: 43
 [GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
 
 [SUCCESS] LevitateOS System Ready.
@@ -68,7 +69,7 @@ FAT32 mounted. Root contains 0 entries.
 [INIT] PID 1 starting...
 [INIT] Spawning shell...
 [SYSCALL] spawn('shell')
-[SPAWN] Parsing ELF header (80848 bytes)...
+[SPAWN] Parsing ELF header (82192 bytes)...
 ELF Header e_ident verified
 [SPAWN] ELF parsed.
 [SPAWN] Creating user page table...
@@ -76,9 +77,9 @@ ELF Header e_ident verified
 [MMU] Allocated L0 table at phys [MASKED]
 [MMU] Zeroing L0 table at va [MASKED]
 [SPAWN] Loading segments...
-[ELF] Copying segment: src[0]=ff to VA 10000
+[ELF] Copying segment: src[0]=fd to VA 10000
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=c0 to VA 11fd0
+[ELF] Copying segment: src[0]=c0 to VA 12448
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [SPAWN] Setting up stack...
 [SPAWN] Success: PID=2 entry=0x10000 sp=0x7fffffff0000

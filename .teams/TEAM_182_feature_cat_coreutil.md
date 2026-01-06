@@ -33,12 +33,18 @@ Implement the `cat` utility as the first utility in Phase 11's "Busybox" Phase c
 
 ## Progress Log
 
-- [ ] Phase 1: Discovery
-- [ ] Phase 2: Design
-- [ ] Phase 3: Implementation
-- [ ] Phase 4: Integration & Testing
+- [x] Phase 1: Discovery
+- [x] Phase 2: Design
+- [x] Phase 3: Implementation
+- [x] Phase 4: Integration & Testing
 - [ ] Phase 5: Polish & Cleanup
 
 ## Handoff Notes
 
-*(To be updated)*
+The `cat` utility has been implemented with the following caveats:
+
+1. **No argument passing yet**: The kernel's `sys_spawn` doesn't pass argv to spawned processes. Running `cat file.txt` will spawn `cat` but it won't receive "file.txt" as an argument. A new kernel syscall `sys_spawn_with_args` is needed.
+
+2. **Shell updated**: The shell now tries to spawn external commands from initramfs when builtins don't match.
+
+3. **Testing stdin mode**: Running just `cat` will work (reads from stdin), but `cat <file>` requires argument passing.

@@ -24,17 +24,30 @@ fn read_timer_frequency() -> u64 {
 
 /// TEAM_170: sys_nanosleep - Sleep for specified duration.
 pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> i64 {
+    // TEAM_186: Normalize nanoseconds if > 1e9
+    let extra_secs = nanoseconds / 1_000_000_000;
+    let norm_nanos = nanoseconds % 1_000_000_000;
+    let total_secs = seconds.saturating_add(extra_secs);
+
     let freq = read_timer_frequency();
     if freq == 0 {
-        for _ in 0..((seconds * 1000 + nanoseconds / 1_000_000) as usize) {
+        // TEAM_186: Use saturating arithmetic for fallback path
+        let millis = total_secs.saturating_mul(1000).saturating_add(norm_nanos / 1_000_000);
+        for _ in 0..(millis.min(u64::MAX as u64) as usize).min(1_000_000) {
             crate::task::yield_now();
         }
         return 0;
     }
 
     let start = read_timer_counter();
-    let total_ns = seconds * 1_000_000_000 + nanoseconds;
-    let ticks_to_wait = (total_ns * freq) / 1_000_000_000;
+    
+    // TEAM_186: Calculate ticks with overflow protection
+    // ticks = seconds * freq + (nanoseconds * freq) / 1e9
+    // Split calculation to avoid overflow
+    let ticks_from_secs = total_secs.saturating_mul(freq);
+    let ticks_from_nanos = (norm_nanos as u128 * freq as u128 / 1_000_000_000) as u64;
+    let ticks_to_wait = ticks_from_secs.saturating_add(ticks_from_nanos);
+    
     let target = start.saturating_add(ticks_to_wait);
 
     while read_timer_counter() < target {

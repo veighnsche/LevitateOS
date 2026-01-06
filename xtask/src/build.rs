@@ -72,7 +72,7 @@ pub fn create_initramfs() -> Result<()> {
     std::fs::write(root.join("hello.txt"), "Hello from initramfs!\n")?;
     
     // 2. Copy userspace binaries
-    let binaries = ["init", "shell", "repro"];
+    let binaries = ["cat", "init", "shell", "repro"];
     for bin in binaries {
         let src = PathBuf::from(format!("userspace/target/aarch64-unknown-none/release/{}", bin));
         if src.exists() {

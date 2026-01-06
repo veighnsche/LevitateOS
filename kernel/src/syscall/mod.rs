@@ -46,6 +46,10 @@ pub enum SyscallNumber {
     ClockGettime = 13,
     /// TEAM_176: Read directory entries
     Getdents = 14,
+    /// TEAM_186: Spawn process with arguments
+    SpawnArgs = 15,
+    /// TEAM_188: Wait for child process
+    Waitpid = 16,
 }
 
 impl SyscallNumber {
@@ -66,6 +70,8 @@ impl SyscallNumber {
             12 => Some(Self::Nanosleep),
             13 => Some(Self::ClockGettime),
             14 => Some(Self::Getdents),
+            15 => Some(Self::SpawnArgs),
+            16 => Some(Self::Waitpid),
             _ => None,
         }
     }
@@ -129,6 +135,17 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as usize,
             frame.arg2() as usize,
         ),
+        // TEAM_186: Spawn process with arguments
+        Some(SyscallNumber::SpawnArgs) => process::sys_spawn_args(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as usize,
+        ),
+        // TEAM_188: Wait for child process
+        Some(SyscallNumber::Waitpid) => {
+            process::sys_waitpid(frame.arg0() as i32, frame.arg1() as usize)
+        }
         None => {
             println!("[SYSCALL] Unknown syscall number: {}", nr);
             errno::ENOSYS
