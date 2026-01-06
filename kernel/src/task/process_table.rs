@@ -22,6 +22,8 @@ pub struct ProcessEntry {
     /// The task control block (None if zombie — task exited but not reaped)
     pub task: Option<Arc<TaskControlBlock>>,
     /// Parent process ID (0 for init/orphans)
+    /// TEAM_191: Reserved for waitpid(-1) - wait for any child process
+    #[allow(dead_code)]
     pub parent_pid: Pid,
     /// Exit code (Some after exit, None while running)
     pub exit_code: Option<i32>,
@@ -87,6 +89,8 @@ pub fn try_wait(pid: Pid) -> Option<i32> {
 }
 
 /// TEAM_188: Check if a process exists in the table.
+/// TEAM_191: Reserved for waitpid validation and future process queries
+#[allow(dead_code)]
 pub fn process_exists(pid: Pid) -> bool {
     let table = PROCESS_TABLE.lock();
     table.contains_key(&pid)
