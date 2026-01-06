@@ -4,6 +4,7 @@
 - [ ] Full build for `aarch64`.
 - [ ] `cargo xtask test all` passes.
 - [ ] Golden boot log matches `tests/golden_boot.txt`.
+- [ ] Visual verification: `cargo xtask run-vnc` → Shell prompt visible in browser.
 
 ## Documentation Updates
 - [ ] Update `kernel/README.md` to describe the new architecture abstraction.

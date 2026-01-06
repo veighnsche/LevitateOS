@@ -18,7 +18,7 @@ use los_hal::mmu;
 use los_hal::timer::{self, Timer};
 use los_hal::{print, println};
 
-use crate::boot;
+use crate::arch;
 use crate::task;
 
 // =============================================================================
@@ -145,13 +145,13 @@ static UART_HANDLER: UartHandler = UartHandler;
 pub fn run() -> ! {
     // --- Stage 2: Memory & MMU (already done in kmain, just transition) ---
     transition_to(BootStage::MemoryMMU);
-    boot::init_mmu();
+    arch::init_mmu();
 
-    crate::exceptions::init();
+    arch::exceptions::init();
     crate::verbose!("Exceptions initialized.");
 
     // --- GIC and Timer Setup ---
-    let dtb_phys = boot::get_dtb_phys();
+    let dtb_phys = arch::get_dtb_phys();
     let dtb_slice = dtb_phys.map(|phys| {
         let ptr = phys as *const u8;
         // Assume 1MB for early discovery
@@ -205,7 +205,7 @@ pub fn run() -> ! {
     // --- Stage 4: Discovery (VirtIO, Filesystem, Init) ---
     transition_to(BootStage::Discovery);
     init_devices();
-    boot::print_boot_regs();
+    arch::print_boot_regs();
 
     let initrd_found = init_userspace(dtb_slice);
 

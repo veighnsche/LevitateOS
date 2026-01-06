@@ -72,80 +72,7 @@ impl SyscallNumber {
     }
 }
 
-/// TEAM_073: Saved user context during syscall.
-/// TEAM_148: Added ttbr0 field to support yielding during syscalls.
-///
-/// When a syscall is invoked via `svc #0`, the exception handler saves
-/// the user's registers so we can access arguments and return values.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SyscallFrame {
-    /// General purpose registers x0-x30
-    pub regs: [u64; 31],
-    /// Stack pointer (SP_EL0)
-    pub sp: u64,
-    /// Program counter (ELR_EL1 - return address)
-    pub pc: u64,
-    /// Saved program status (SPSR_EL1)
-    pub pstate: u64,
-    /// TEAM_148: User page table base (TTBR0_EL1)
-    /// Saved on syscall entry, restored before eret to ensure correct
-    /// address space after yielding to other tasks.
-    pub ttbr0: u64,
-}
-
-impl SyscallFrame {
-    /// Get syscall number (x8)
-    #[inline]
-    pub fn syscall_number(&self) -> u64 {
-        self.regs[8]
-    }
-
-    /// Get syscall argument 0 (x0)
-    #[inline]
-    pub fn arg0(&self) -> u64 {
-        self.regs[0]
-    }
-
-    /// Get syscall argument 1 (x1)
-    #[inline]
-    pub fn arg1(&self) -> u64 {
-        self.regs[1]
-    }
-
-    /// Get syscall argument 2 (x2)
-    #[inline]
-    pub fn arg2(&self) -> u64 {
-        self.regs[2]
-    }
-
-    /// Get syscall argument 3 (x3)
-    #[inline]
-    #[allow(dead_code)]
-    pub fn arg3(&self) -> u64 {
-        self.regs[3]
-    }
-
-    /// Get syscall argument 4 (x4)
-    #[inline]
-    #[allow(dead_code)]
-    pub fn arg4(&self) -> u64 {
-        self.regs[4]
-    }
-
-    /// Get syscall argument 5 (x5)
-    #[inline]
-    #[allow(dead_code)]
-    pub fn arg5(&self) -> u64 {
-        self.regs[5]
-    }
-
-    /// Set return value (x0)
-    #[inline]
-    pub fn set_return(&mut self, value: i64) {
-        self.regs[0] = value as u64;
-    }
-}
+use crate::arch::SyscallFrame;
 
 /// TEAM_073: Main syscall dispatch function.
 ///
@@ -207,7 +134,9 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
 fn write_to_user_buf(ttbr0: usize, user_buf_base: usize, offset: usize, byte: u8) -> bool {
     let user_va = user_buf_base + offset;
     if let Some(kernel_ptr) = crate::task::user_mm::user_va_to_kernel_ptr(ttbr0, user_va) {
-        unsafe { *kernel_ptr = byte; }
+        unsafe {
+            *kernel_ptr = byte;
+        }
         true
     } else {
         false
@@ -297,7 +226,8 @@ fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
     // will fire, be marked "Unhandled", and DISABLED by the GIC.
     // Valid 'wfi' wakeups would then cease, causing a hang.
     // Until a proper UART driver with buffering is implemented, we must busy-poll.
-    loop { // [SYS6][SYS7] blocking read from keyboard
+    loop {
+        // [SYS6][SYS7] blocking read from keyboard
         // TEAM_156: Pass ttbr0 and buf address for proper page table translation
         poll_input_devices(ttbr0, buf, &mut bytes_read, max_read);
         if bytes_read > 0 {

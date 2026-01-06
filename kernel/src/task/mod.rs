@@ -6,57 +6,10 @@ pub mod user; // TEAM_073: Userspace support (Phase 8)
 pub mod user_mm; // TEAM_073: User memory management (Phase 8) // TEAM_073: Process spawning (Phase 8)
 
 extern crate alloc;
+use crate::arch::{Context, cpu_switch_to, task_entry_trampoline};
 use crate::println;
 use alloc::boxed::Box;
-use core::arch::global_asm;
 use core::sync::atomic::{AtomicU8, Ordering};
-
-// [MT1] cpu_switch_to saves x19-x29, lr, sp to old context
-// [MT2] cpu_switch_to restores x19-x29, lr, sp from new context
-global_asm!(
-    r#"
-.global cpu_switch_to
-cpu_switch_to:
-    /* x0 = old_context, x1 = new_context */
-    /* [MT1] Save callee-saved registers to old context */
-    mov     x10, sp
-    stp     x19, x20, [x0, #16 * 0]
-    stp     x21, x22, [x0, #16 * 1]
-    stp     x23, x24, [x0, #16 * 2]
-    stp     x25, x26, [x0, #16 * 3]
-    stp     x27, x28, [x0, #16 * 4]
-    stp     x29, x30, [x0, #16 * 5]
-    str     x10,      [x0, #16 * 6]
-
-    /* [MT2] Restore callee-saved registers from new context */
-    ldp     x19, x20, [x1, #16 * 0]
-    ldp     x21, x22, [x1, #16 * 1]
-    ldp     x23, x24, [x1, #16 * 2]
-    ldp     x25, x26, [x1, #16 * 3]
-    ldp     x27, x28, [x1, #16 * 4]
-    ldp     x29, x30, [x1, #16 * 5]
-    ldr     x10,      [x1, #16 * 6]
-    mov     sp, x10
-    ret
-
-.global task_entry_trampoline
-task_entry_trampoline:
-    /* x19 = entry_point, preserved by switch */
-    bl      post_switch_hook
-    mov     x0, #0              /* arg0 = 0 for now */
-    blr     x19
-    /* If entry point returns, exit properly */
-    bl      task_exit
-    b       .                   /* Should never reach here */
-"#
-);
-
-unsafe extern "C" {
-    /// TEAM_070: Assembly helper to switch CPU context.
-    pub fn cpu_switch_to(old: *mut Context, new: *const Context);
-    /// ASM entry point for new tasks
-    pub fn task_entry_trampoline();
-}
 
 /// TEAM_070: Hook called immediately after a context switch.
 /// Used to release scheduler locks or perform cleanup.
@@ -161,27 +114,6 @@ pub enum TaskState {
     Exited = 3,
 }
 
-/// TEAM_070: Saved CPU state for a task.
-/// Includes callee-saved registers x19-x28, fp (x29), lr (x30), and sp.
-/// Used for context switching.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Context {
-    pub x19: u64,
-    pub x20: u64,
-    pub x21: u64,
-    pub x22: u64,
-    pub x23: u64,
-    pub x24: u64,
-    pub x25: u64,
-    pub x26: u64,
-    pub x27: u64,
-    pub x28: u64,
-    pub x29: u64, // Frame Pointer
-    pub lr: u64,  // Link Register (x30)
-    pub sp: u64,  // Stack Pointer
-}
-
 /// TEAM_070: Default stack size for kernel tasks (64KB).
 #[allow(dead_code)]
 pub const DEFAULT_STACK_SIZE: usize = 65536;
@@ -274,9 +206,9 @@ fn user_task_entry_wrapper() -> ! {
     );
 
     unsafe {
-        // Switch TTBR0
-        los_hal::mmu::switch_ttbr0(task.ttbr0);
-        // Enter EL0
+        // Switch TTBR0 (AArch64) or CR3 (x86_64)
+        crate::arch::switch_mmu_config(task.ttbr0);
+        // Enter EL0 (AArch64) or Ring 3 (x86_64)
         crate::task::user::enter_user_mode(task.user_entry, task.user_sp);
     }
 }

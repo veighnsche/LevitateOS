@@ -20,9 +20,8 @@ use los_hal::println;
 // Kernel Modules
 // =============================================================================
 
+mod arch;
 mod block;
-mod boot;
-mod exceptions;
 mod fs;
 mod gpu;
 mod init;
@@ -69,7 +68,7 @@ pub extern "C" fn kmain() -> ! {
     init::transition_to(init::BootStage::EarlyHAL);
 
     // Initialize heap (required for alloc)
-    boot::init_heap();
+    arch::init_heap();
 
     // Hand off to init sequence (never returns)
     init::run()
