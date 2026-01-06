@@ -215,6 +215,36 @@ pub unsafe fn destroy_user_page_table(_ttbr0_phys: usize) -> Result<(), MmuError
     Ok(())
 }
 
+/// TEAM_156: Translate a user virtual address to a kernel-accessible pointer.
+///
+/// This walks the user's page table to find the physical address,
+/// then converts it to a kernel VA that can be safely accessed.
+///
+/// # Safety
+/// - `ttbr0_phys` must be a valid user page table
+/// - The user VA must be mapped
+/// - Caller must ensure proper synchronization
+pub fn user_va_to_kernel_ptr(ttbr0_phys: usize, user_va: usize) -> Option<*mut u8> {
+    // Get L0 table
+    let l0_va = mmu::phys_to_virt(ttbr0_phys);
+    let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
+
+    // Walk page tables to find physical address
+    let page_va = user_va & !0xFFF;
+    let page_offset = user_va & 0xFFF;
+
+    if let Ok(walk) = mmu::walk_to_entry(l0, page_va, 3, false) {
+        let entry = walk.table.entry(walk.index);
+        if entry.is_valid() {
+            let entry_phys = entry.address();
+            let dst_phys = entry_phys + page_offset;
+            let kernel_va = mmu::phys_to_virt(dst_phys);
+            return Some(kernel_va as *mut u8);
+        }
+    }
+    None
+}
+
 /// TEAM_137: Validate a user buffer range.
 /// Checks that all pages in the range are mapped and have correct permissions for EL0.
 pub fn validate_user_buffer(

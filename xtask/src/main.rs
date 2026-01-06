@@ -80,8 +80,9 @@ fn main() -> Result<()> {
             "regress" | "regression" => tests::regression::run()?,
             "gicv3" => tests::behavior::run_gicv3()?,
             "serial" => tests::serial_input::run()?,
+            "keyboard" => tests::keyboard_input::run()?,
             "shutdown" => tests::shutdown::run()?,
-            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'shutdown', or 'all'", other),
+            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'keyboard', 'shutdown', or 'all'", other),
         },
         Commands::Clean => {
             clean::clean()?;

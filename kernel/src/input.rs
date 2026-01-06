@@ -13,7 +13,8 @@ static INPUT_DEVICES: Spinlock<Vec<VirtIOInput<VirtioHal, StaticMmioTransport>>>
     Spinlock::new(Vec::new());
 
 /// Character buffer for keyboard input
-static KEYBOARD_BUFFER: Spinlock<levitate_utils::RingBuffer<char, 256>> =
+/// TEAM_156: Increased from 256 to 1024 to prevent drops during rapid input
+static KEYBOARD_BUFFER: Spinlock<levitate_utils::RingBuffer<char, 1024>> =
     Spinlock::new(levitate_utils::RingBuffer::new('\0'));
 
 /// Track shift key state
@@ -79,7 +80,10 @@ pub fn poll() -> bool {
                         }
                         code if pressed => {
                             if let Some(c) = linux_code_to_ascii(code, *SHIFT_PRESSED.lock()) {
-                                let _ = KEYBOARD_BUFFER.lock().push(c);
+                                // TEAM_156: Don't silently drop - log overflow
+                                if !KEYBOARD_BUFFER.lock().push(c) {
+                                    crate::verbose!("KEYBOARD_BUFFER overflow, char dropped");
+                                }
                             }
                         }
                         _ => {}

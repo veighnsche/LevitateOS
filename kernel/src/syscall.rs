@@ -201,15 +201,29 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
 /// - fd 0 (stdin) -> Keyboard input (VirtIO keyboard + UART)
 ///
 /// This is a blocking read that waits for at least one character.
+// TEAM_156: Helper to write a byte to user buffer via page table translation
+fn write_to_user_buf(ttbr0: usize, user_buf_base: usize, offset: usize, byte: u8) -> bool {
+    let user_va = user_buf_base + offset;
+    if let Some(kernel_ptr) = crate::task::user_mm::user_va_to_kernel_ptr(ttbr0, user_va) {
+        unsafe { *kernel_ptr = byte; }
+        true
+    } else {
+        false
+    }
+}
+
 // TEAM_148: Helper to poll all input sources
-fn poll_input_devices(user_buf: &mut [u8], bytes_read: &mut usize, max_read: usize) {
+// TEAM_156: Now takes ttbr0 and user_buf address instead of direct slice
+fn poll_input_devices(ttbr0: usize, user_buf: usize, bytes_read: &mut usize, max_read: usize) {
     // Poll VirtIO input devices to process any pending events
     crate::input::poll();
 
     // Try to read from VirtIO keyboard buffer
     while *bytes_read < max_read {
         if let Some(ch) = crate::input::read_char() {
-            user_buf[*bytes_read] = ch as u8;
+            if !write_to_user_buf(ttbr0, user_buf, *bytes_read, ch as u8) {
+                return; // Failed to write to user buffer
+            }
             *bytes_read += 1;
             // For line-buffered input, break on newline
             if ch == '\n' {
@@ -225,7 +239,9 @@ fn poll_input_devices(user_buf: &mut [u8], bytes_read: &mut usize, max_read: usi
         while let Some(byte) = levitate_hal::console::read_byte() {
             // Convert CR to LF for consistency
             let byte = if byte == b'\r' { b'\n' } else { byte };
-            user_buf[*bytes_read] = byte;
+            if !write_to_user_buf(ttbr0, user_buf, *bytes_read, byte) {
+                return; // Failed to write to user buffer
+            }
             *bytes_read += 1;
             // For line-buffered input, break on newline
             if byte == b'\n' {
@@ -268,8 +284,8 @@ fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
     // Block until at least one character is available
     let mut bytes_read = 0usize;
 
-    // SAFETY: We've validated mapping and permissions.
-    let user_buf = unsafe { core::slice::from_raw_parts_mut(buf as *mut u8, max_read) };
+    // TEAM_156: Get ttbr0 for page table translation
+    let ttbr0 = task.ttbr0;
 
     // TEAM_148: Busy-yield loop for input
     // NOTE: We cannot use 'wfi' here because we don't have a UART ISR.
@@ -278,7 +294,8 @@ fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
     // Valid 'wfi' wakeups would then cease, causing a hang.
     // Until a proper UART driver with buffering is implemented, we must busy-poll.
     loop {
-        poll_input_devices(user_buf, &mut bytes_read, max_read);
+        // TEAM_156: Pass ttbr0 and buf address for proper page table translation
+        poll_input_devices(ttbr0, buf, &mut bytes_read, max_read);
         if bytes_read > 0 {
             break;
         }
