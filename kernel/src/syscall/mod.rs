@@ -15,6 +15,8 @@ pub mod errno {
     pub const EBADF: i64 = -2;
     pub const EFAULT: i64 = -3;
     pub const EINVAL: i64 = -4;
+    /// TEAM_192: Read-only file system
+    pub const EROFS: i64 = -30;
 }
 
 /// TEAM_168: Additional errno values for file operations.
@@ -50,6 +52,14 @@ pub enum SyscallNumber {
     SpawnArgs = 15,
     /// TEAM_188: Wait for child process
     Waitpid = 16,
+    /// TEAM_192: Get current working directory
+    Getcwd = 17,
+    /// TEAM_192: Create directory
+    Mkdirat = 34,
+    /// TEAM_192: Remove file or directory
+    Unlinkat = 35,
+    /// TEAM_192: Rename/move file or directory
+    Renameat = 38,
 }
 
 impl SyscallNumber {
@@ -72,6 +82,10 @@ impl SyscallNumber {
             14 => Some(Self::Getdents),
             15 => Some(Self::SpawnArgs),
             16 => Some(Self::Waitpid),
+            17 => Some(Self::Getcwd),
+            34 => Some(Self::Mkdirat),
+            35 => Some(Self::Unlinkat),
+            38 => Some(Self::Renameat),
             _ => None,
         }
     }
@@ -146,6 +160,27 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         Some(SyscallNumber::Waitpid) => {
             process::sys_waitpid(frame.arg0() as i32, frame.arg1() as usize)
         }
+        Some(SyscallNumber::Getcwd) => fs::sys_getcwd(frame.arg0() as usize, frame.arg1() as usize),
+        Some(SyscallNumber::Mkdirat) => fs::sys_mkdirat(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as u32,
+        ),
+        Some(SyscallNumber::Unlinkat) => fs::sys_unlinkat(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as u32,
+        ),
+        Some(SyscallNumber::Renameat) => fs::sys_renameat(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as i32,
+            frame.arg4() as usize,
+            frame.arg5() as usize,
+        ),
         None => {
             println!("[SYSCALL] Unknown syscall number: {}", nr);
             errno::ENOSYS

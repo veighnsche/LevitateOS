@@ -11,6 +11,7 @@ extern crate alloc;
 use crate::arch::{Context, cpu_switch_to, task_entry_trampoline};
 use crate::println;
 use alloc::boxed::Box;
+use alloc::string::String;
 use core::sync::atomic::{AtomicU8, Ordering};
 
 /// TEAM_070: Hook called immediately after a context switch.
@@ -148,6 +149,8 @@ pub struct TaskControlBlock {
     pub heap: IrqSafeLock<ProcessHeap>,
     /// TEAM_168: File descriptor table
     pub fd_table: fd_table::SharedFdTable,
+    /// TEAM_192: Current working directory
+    pub cwd: IrqSafeLock<String>,
 }
 
 impl TaskControlBlock {
@@ -174,6 +177,8 @@ impl TaskControlBlock {
             heap: IrqSafeLock::new(ProcessHeap::new(0)),
             // TEAM_168: Bootstrap task has minimal fd table (kernel task)
             fd_table: fd_table::new_shared_fd_table(),
+            // TEAM_192: Bootstrap task starts in root
+            cwd: IrqSafeLock::new(String::from("/")),
         }
     }
 }
@@ -206,6 +211,9 @@ impl From<UserTask> for TaskControlBlock {
             user_entry,
             heap: IrqSafeLock::new(heap), // TEAM_166: Wrap in lock for syscall access
             fd_table: fd_table::new_shared_fd_table(), // TEAM_168: Fresh fd table for user process
+            // TEAM_192: New user processes start in root for now
+            // TODO: Inherit from parent once fork/spawn inherit TCB fields
+            cwd: IrqSafeLock::new(String::from("/")),
         }
     }
 }

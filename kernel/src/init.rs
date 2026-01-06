@@ -373,6 +373,10 @@ fn init_filesystem() {
             println!("  (Check tinyos_disk.img format/presence)");
         }
     }
+
+    // TEAM_195: Initialize tmpfs for writable /tmp
+    crate::fs::tmpfs::init();
+    println!("[BOOT] Tmpfs initialized at /tmp");
 }
 
 /// TEAM_129: GPU regression test verification.

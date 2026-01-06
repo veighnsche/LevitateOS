@@ -64,9 +64,11 @@ All utilities follow standard exit code conventions:
 
 ## Implementation Status
 
+For a detailed feature-by-feature checklist, see [CHECKLIST.md](CHECKLIST.md).
+
 | Utility | Status | Notes |
 |---------|--------|-------|
-| cat | 🔴 Planned | |
+| cat | � In Progress | Basic implementation done; missing `--help`, `--version`. |
 | ls | 🔴 Planned | |
 | cp | 🔴 Planned | |
 | mv | 🔴 Planned | |

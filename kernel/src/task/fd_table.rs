@@ -1,16 +1,21 @@
 //! TEAM_168: File Descriptor Table for LevitateOS.
 //!
 //! Per-process file descriptor management for syscalls.
-//! Supports stdin/stdout/stderr (fd 0/1/2) and initramfs files.
+//! Supports stdin/stdout/stderr (fd 0/1/2), initramfs files, and tmpfs files.
 
-use los_hal::IrqSafeLock;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
+use crate::fs::tmpfs::TmpfsNode;
+use los_hal::IrqSafeLock;
+use los_utils::Spinlock;
 
 /// TEAM_168: Maximum number of open file descriptors per process.
 pub const MAX_FDS: usize = 64;
 
 /// TEAM_168: Type of file descriptor entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// TEAM_194: Removed Copy derive to support Arc<> for tmpfs nodes.
+/// TEAM_195: Removed Debug derive since Spinlock<TmpfsNode> doesn't implement Debug.
+#[derive(Clone)]
 pub enum FdType {
     /// Standard input (keyboard)
     Stdin,
@@ -33,10 +38,26 @@ pub enum FdType {
         /// Current entry offset for iteration
         offset: usize,
     },
+    /// TEAM_194: File from tmpfs (read-write)
+    TmpfsFile {
+        /// Reference to the tmpfs node
+        node: Arc<Spinlock<TmpfsNode>>,
+        /// Current read/write position
+        offset: usize,
+    },
+    /// TEAM_194: Directory from tmpfs for getdents
+    TmpfsDir {
+        /// Reference to the tmpfs directory node
+        node: Arc<Spinlock<TmpfsNode>>,
+        /// Current entry offset for iteration
+        offset: usize,
+    },
 }
 
 /// TEAM_168: A single file descriptor entry.
-#[derive(Debug, Clone, Copy)]
+/// TEAM_194: Removed Copy derive since FdType no longer implements Copy.
+/// TEAM_195: Removed Debug derive since FdType no longer implements Debug.
+#[derive(Clone)]
 pub struct FdEntry {
     /// Type and state of this fd
     pub fd_type: FdType,
@@ -56,7 +77,7 @@ impl FdEntry {
 }
 
 /// TEAM_168: Per-process file descriptor table.
-#[derive(Debug)]
+/// TEAM_195: Removed Debug derive since FdEntry no longer implements Debug.
 pub struct FdTable {
     /// Sparse array of file descriptors (None = unused slot)
     entries: Vec<Option<FdEntry>>,

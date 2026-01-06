@@ -21,7 +21,7 @@ extern crate alloc;
 extern crate ulib;
 
 use core::panic::PanicInfo;
-use libsyscall::common_panic_handler;
+use libsyscall::{common_panic_handler, println};
 
 // File descriptors
 const STDIN: usize = 0;
@@ -117,6 +117,29 @@ fn cat_file(path: &str) -> bool {
 }
 
 // ============================================================================
+// Help and Version
+// ============================================================================
+
+fn print_help() {
+    println!("Usage: cat [OPTION]... [FILE]...");
+    println!("Concatenate FILE(s) to standard output.");
+    println!();
+    println!("With no FILE, or when FILE is -, read standard input.");
+    println!();
+    println!("  -u                  (ignored)");
+    println!("      --help          display this help and exit");
+    println!("      --version       output version information and exit");
+    println!();
+    println!("Examples:");
+    println!("  cat f - g  Output f's contents, then standard input, then g's contents.");
+    println!("  cat        Copy standard input to standard output.");
+}
+
+fn print_version() {
+    println!("cat (LevitateOS levbox) 0.1.0");
+}
+
+// ============================================================================
 // Entry Point
 // ============================================================================
 
@@ -132,6 +155,19 @@ pub extern "C" fn _start() -> ! {
 
     let mut exit_code = 0i32;
     let argc = ulib::env::args_len();
+
+    // Check for --help or --version first [CAT-EXT]
+    for i in 1..argc {
+        if let Some(arg) = ulib::env::arg(i) {
+            if arg == "--help" {
+                print_help();
+                libsyscall::exit(0);
+            } else if arg == "--version" {
+                print_version();
+                libsyscall::exit(0);
+            }
+        }
+    }
 
     if argc <= 1 {
         // [CAT2] No arguments: read from stdin
@@ -149,8 +185,13 @@ pub extern "C" fn _start() -> ! {
                     }
                 } else if arg == "-u" {
                     // Unbuffered mode - no-op (we're already unbuffered)
-                } else if arg.starts_with('-') {
-                    // Unknown option
+                } else if arg.starts_with("--") {
+                    // Unknown long option (already handled --help/--version)
+                    eprint("cat: unrecognized option: ");
+                    eprintln(arg);
+                    exit_code = 1;
+                } else if arg.starts_with('-') && arg.len() > 1 {
+                    // Unknown short option
                     eprint("cat: invalid option: ");
                     eprintln(arg);
                     exit_code = 1;

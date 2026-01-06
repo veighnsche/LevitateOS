@@ -39,6 +39,14 @@ pub const SYS_CLOCK_GETTIME: u64 = 13;
 pub const SYS_SPAWN_ARGS: u64 = 15;
 /// TEAM_188: Wait for child process
 pub const SYS_WAITPID: u64 = 16;
+/// TEAM_192: Get current working directory
+pub const SYS_GETCWD: u64 = 17;
+/// TEAM_192: Create directory
+pub const SYS_MKDIRAT: u64 = 34;
+/// TEAM_192: Remove file or directory
+pub const SYS_UNLINKAT: u64 = 35;
+/// TEAM_192: Rename/move file or directory
+pub const SYS_RENAMEAT: u64 = 38;
 
 /// TEAM_142: Shutdown flags
 pub mod shutdown_flags {
@@ -508,6 +516,88 @@ pub fn getdents(fd: usize, buf: &mut [u8]) -> isize {
             in("x0") fd,
             in("x1") buf.as_mut_ptr(),
             in("x2") buf.len(),
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_192: Get current working directory.
+///
+/// # Arguments
+/// * `buf` - Buffer to write CWD string
+///
+/// # Returns
+/// * Length of the CWD string (including NUL) on success, or negative error code.
+#[inline]
+pub fn getcwd(buf: &mut [u8]) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_GETCWD,
+            in("x0") buf.as_mut_ptr(),
+            in("x1") buf.len(),
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_192: Create directory.
+#[inline]
+pub fn mkdirat(dfd: i32, path: &str, mode: u32) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_MKDIRAT,
+            in("x0") dfd,
+            in("x1") path.as_ptr(),
+            in("x2") path.len(),
+            in("x3") mode,
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_192: Remove file or directory.
+#[inline]
+pub fn unlinkat(dfd: i32, path: &str, flags: u32) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_UNLINKAT,
+            in("x0") dfd,
+            in("x1") path.as_ptr(),
+            in("x2") path.len(),
+            in("x3") flags,
+            lateout("x0") ret,
+            options(nostack)
+        );
+    }
+    ret as isize
+}
+
+/// TEAM_192: Rename/move file or directory.
+#[inline]
+pub fn renameat(old_dfd: i32, old_path: &str, new_dfd: i32, new_path: &str) -> isize {
+    let ret: i64;
+    unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") SYS_RENAMEAT,
+            in("x0") old_dfd,
+            in("x1") old_path.as_ptr(),
+            in("x2") old_path.len(),
+            in("x3") new_dfd,
+            in("x4") new_path.as_ptr(),
+            in("x5") new_path.len(),
             lateout("x0") ret,
             options(nostack)
         );

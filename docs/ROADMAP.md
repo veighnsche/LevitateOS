@@ -1,6 +1,6 @@
 # LevitateOS Roadmap
 
-**Last Updated:** 2026-01-06 (TEAM_164)
+**Last Updated:** 2026-01-06 (TEAM_193)
 
 This document outlines the planned development phases for LevitateOS. Each completed item includes the responsible team for traceability.
 
@@ -226,15 +226,48 @@ The goal of Part II is to build a rich, POSIX-like userspace environment on top 
 | `read` / `write` | Basic I/O | 🟢 Implemented | 8 |
 | `fstat` / `lstat` | File metadata | 🟢 Implemented | 10 |
 | `getdents64` | Read directory | 🟢 Implemented | 10 |
-| `unlinkat` | Remove files | 🔴 Not implemented | 11 |
-| `mkdirat` | Create directory | 🔴 Not implemented | 11 |
-| `renameat` | Rename/move | 🔴 Not implemented | 11 |
+| `unlinkat` | Remove files | 🟡 Wrapper exists, kernel TBD | 11 |
+| `mkdirat` | Create directory | 🟡 Wrapper exists, kernel TBD | 11 |
+| `renameat` | Rename/move | 🟡 Wrapper exists, kernel TBD | 11 |
 | `linkat` / `symlinkat` | Create links | 🔴 Not implemented | 11 |
-| `getcwd` | Current directory | 🔴 Not implemented | 11 |
+| `getcwd` | Current directory | 🟢 Implemented | 11 |
 | `chdir` / `fchdir` | Change directory | 🔴 Not implemented | 11 |
 | `utimensat` | Set timestamps | 🔴 Not implemented | 11 |
 
-Legend: 🟢 Complete | 🟡 Partial | 🔴 Not Started
+Legend: 🟢 Complete | 🟡 Partial/Wrapper Only | 🔴 Not Started
+
+---
+
+### ⚠️ Phase 11 Blockers (Levbox Utilities)
+
+> **Updated:** 2026-01-06 (TEAM_193)
+
+The following syscalls are **blocking full functionality** of levbox utilities:
+
+| Blocker | Affects | Status | Notes |
+|---------|---------|--------|-------|
+| `utimensat` (88) | `touch` | 🔴 Kernel not implemented | Cannot set file timestamps |
+| `linkat` (37) | `ln` | 🔴 Kernel not implemented | Cannot create hard links |
+| `symlinkat` (36) | `ln -s` | 🔴 Kernel not implemented | Cannot create symbolic links |
+| `openat` write mode | `cp`, `touch` | 🔴 Write to files not supported | Only read-only open works |
+| `mkdirat` kernel | `mkdir` | 🟡 Wrapper exists | Needs kernel syscall handler |
+| `unlinkat` kernel | `rm`, `rmdir` | 🟡 Wrapper exists | Needs kernel syscall handler |
+| `renameat` kernel | `mv` | 🟡 Wrapper exists | Needs kernel syscall handler |
+
+#### Current Utility Status
+
+| Utility | Status | Blocker |
+|---------|--------|----------|
+| `cat` | 🟢 Complete | None |
+| `ls` | 🟢 Complete | None |
+| `pwd` | 🟢 Complete | None |
+| `mkdir` | 🟡 Stub | `mkdirat` kernel handler |
+| `rmdir` | 🟡 Stub | `unlinkat` kernel handler |
+| `rm` | 🟡 Stub | `unlinkat` kernel handler |
+| `mv` | 🟡 Stub | `renameat` kernel handler |
+| `cp` | 🟡 Stub | `openat` write mode |
+| `touch` | 🔴 Not started | `utimensat` syscall |
+| `ln` | 🔴 Not started | `linkat`/`symlinkat` syscalls |
 
 ---
 

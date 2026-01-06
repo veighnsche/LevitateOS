@@ -11,6 +11,34 @@ workspace = true
 name = "cat"
 path = "src/bin/cat.rs"
 
+[[bin]]
+name = "ls"
+path = "src/bin/ls.rs"
+
+[[bin]]
+name = "pwd"
+path = "src/bin/pwd.rs"
+
+[[bin]]
+name = "cp"
+path = "src/bin/cp.rs"
+
+[[bin]]
+name = "mkdir"
+path = "src/bin/mkdir.rs"
+
+[[bin]]
+name = "rmdir"
+path = "src/bin/rmdir.rs"
+
+[[bin]]
+name = "rm"
+path = "src/bin/rm.rs"
+
+[[bin]]
+name = "mv"
+path = "src/bin/mv.rs"
+
 [dependencies]
 libsyscall = { path = "../libsyscall" }
 ulib = { path = "../ulib" }
