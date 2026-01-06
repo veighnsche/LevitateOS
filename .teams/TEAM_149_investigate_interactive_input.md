@@ -35,14 +35,25 @@
 - **Theory:** Shell userspace buffering is swallowing input.
 - **Status:** Unlikely given `sys_read` refactor was the major change.
 
-## 4. Phase 3 - Test & Verification
+## 4. Root Cause Analysis (Confirmed)
 
-1. **Inspect `sys_read` state:** Confirm if `enable()` is missing.
-2. **Breadcrumb:** Add breadcrumb to `sys_read`.
-3. **Fix Plan:** Re-introduce explicit interrupt window in `sys_read` loop.
+**Interrupt Starvation via Syscall Masking:**
+1. Syscalls (`svc`) automatically set `PSTATE.I=1` (Interrupts Masked).
+2. The `sys_read` polling loop (`loop { poll(); yield_now(); }`) preserves this masked state because `yield_now()` switches between tasks that are *also* in syscall context (`init` in `sys_yield`, `shell` in `sys_read`).
+3. Result: The CPU spins/yields indefinitely with interrupts disabled.
+4. Effect: Device ISRs (UART, VirtIO) never fire to drain FIFOs or update shared buffers.
 
-## 5. Breadcrumbs
-- `kernel/src/syscall.rs`
+## 5. Resolution
 
-## 6. Decision
-- If confirmed, this is a Critical Fix (Rule 14).
+**Implemented Fix:**
+- Re-introduced an explicit **Interrupt Window** in `sys_read` (Step 358):
+  ```rust
+  unsafe { levitate_hal::interrupts::enable(); }
+  let _ = levitate_hal::interrupts::disable();
+  ```
+- This unmasks interrupts briefly before yielding, allowing pending ISRs to fire and update input buffers.
+- Timer Preemption remains **Disabled** (Step 284) to prevent unsafe context usage.
+
+## 6. Verification
+- `cargo xtask test serial`: **PASS**
+- `cargo xtask test behavior`: **PASS** (No regressions)

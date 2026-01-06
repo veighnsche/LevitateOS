@@ -402,10 +402,34 @@ task::process::run_from_initramfs("init", &archive);
 
 ---
 
-## Adding New Gotchas
+### 19. Interactive Input Starvation via Syscall Masking (TEAM_149)
 
-When you discover a non-obvious issue:
-1. Add it to this file with your TEAM_XXX
-2. Include: Location, Problem, Symptom, Fix
-3. Leave breadcrumbs in the code too
+**Location:** `kernel/src/syscall.rs` (`sys_read`)
+
+**Problem:** Syscalls (`svc`) automatically mask interrupts (PSTATE.I=1). If a syscall handler loops tightly (e.g., polling input) and yields to another task that is *also* in a syscall (e.g., `init` calling `sys_yield`), the CPU effectively spins with interrupts permanently disabled.
+
+**Symptom:** Interactive shell is unresponsive. Typing produces no output. `run-term.sh` appears hung.
+
+**Fix:** You must explicitly unmask interrupts briefly within any long-running syscall loop to allow device ISRs to fire:
+```rust
+loop {
+    poll();
+    // Allow ISRs (UART, VirtIO) to run
+    unsafe { levitate_hal::interrupts::enable(); }
+    let _ = levitate_hal::interrupts::disable();
+    yield_now();
+}
+```
+
+---
+
+### 20. Unsafe Preemption in IRQ Handlers (TEAM_149)
+
+**Location:** `kernel/src/init.rs` (`TimerHandler`)
+
+**Problem:** Calling `yield_now()` from an IRQ handler is unsafe because the interrupted context's state (stack, registers, PSTATE) is saved on the stack, but switching tasks replaces the stack pointer. If the scheduler switches back, it must restore exact state. This is extremely fragile without dedicated IRQ stacks and careful PSTATE management.
+
+**Symptom:** Random hangs or corruption during interactive sessions.
+
+**Rule:** **IRQ Handlers Should NOT Yield.** Use `scheduler::SCHEDULER.schedule()` only at the *end* of the exception handler (in assembly return path), or rely on cooperative multitasking until full preemption is implemented safely.
 

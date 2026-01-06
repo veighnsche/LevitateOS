@@ -283,6 +283,14 @@ fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
             break;
         }
 
+        // TEAM_149: Unmask interrupts briefly to allow ISRs (UART/VirtIO) to run.
+        // Syscalls enter with PSTATE.I=1 (Masked). If we don't unmask, no IRQs
+        // ever fire, starving input.
+        unsafe {
+            levitate_hal::interrupts::enable();
+        }
+        let _ = levitate_hal::interrupts::disable();
+
         crate::task::yield_now();
     }
 
