@@ -116,6 +116,18 @@ Per Phase 2 Decision 3: IRQ handlers (`irq_lower_el_entry`) do NOT save/restore 
 
 **Fix:** Disabled `[TICK]` logging in `kernel/src/init.rs` to ensure clean serial output.
 
+### Timer Preemption Disabled
+
+**Problem:** Timer IRQ Handler was calling `yield_now()`.
+- **Violation:** "IRQ Handlers Should NOT Yield" (Phase 2 Decision 3).
+- **Effect:** Context switching from IRQ context is dangerous/undefined if not carefully managed. Likely caused random corruption/hangs in interactive sessions.
+
+**Fix:** Removed `yield_now()` from Timer Handler.
+- System now relies on **Cooperative Multitasking**.
+- `init` process (PID 1) yields voluntarily in a loop.
+- `shell` (PID 2) yields voluntarily in `sys_read`.
+- This ensures stability during syscalls and interrupts.
+
 ## Status: COMPLETE
 
 ## Purpose
