@@ -1,4 +1,120 @@
-# TEAM_148: Review of TTBR0 Restoration Plan
+# TEAM_148: TTBR0 Restoration Feature Implementation
+
+## Status: COMPLETE ✅
+
+## Summary
+
+Implemented TTBR0 save/restore in syscall path to enable preemptive multitasking during blocking syscalls.
+
+## Changes Made
+
+### Step 1: Extended SyscallFrame
+- Added `ttbr0: u64` field to `kernel/src/syscall.rs`
+- Frame size: 272 → 280 bytes
+
+### Step 2: Updated Assembly  
+- Modified `sync_lower_el_entry` in `kernel/src/exceptions.rs`
+- Save TTBR0 on syscall entry at offset 272
+- Restore TTBR0 before eret with full TLB flush (`tlbi vmalle1; dsb sy; isb`)
+
+### Step 3: Re-enabled yield_now
+- `sys_read` now calls `yield_now()` when waiting for input
+- Blocking reads can now yield to other tasks safely
+
+## Verification
+
+```
+✅ SUCCESS: Current behavior matches Golden Log.
+✅ VERIFIED: Shell spawned successfully.
+✅ VERIFIED: Shell was scheduled.
+✅ VERIFIED: Shell executed successfully.
+✅ VERIFIED: GPU flush count is 42
+✅ VERIFIED: No userspace crashes detected.
+```
+
+## Handoff Checklist
+
+- [x] Project builds
+- [x] Behavior tests pass
+- [x] No regressions
+- [x] Code comments with TEAM_148
+
+---
+
+## Notes for Future Teams
+
+### SyscallFrame Layout (Important!)
+
+The `SyscallFrame` struct in `syscall.rs` must match the assembly offsets in `exceptions.rs` exactly:
+
+| Field | Offset | Size |
+|-------|--------|------|
+| regs[0-30] | 0-240 | 248 bytes |
+| sp | 248 | 8 bytes |
+| pc | 256 | 8 bytes |
+| pstate | 264 | 8 bytes |
+| ttbr0 | 272 | 8 bytes |
+| **Total** | — | **280 bytes** |
+
+**If you add a new field**, you must update:
+1. The struct in `syscall.rs`
+2. The `sub sp, sp, #XXX` and `add sp, sp, #XXX` in assembly
+3. The save/restore instructions at the correct offsets
+
+### TLB Handling When Switching TTBR0
+
+Since LevitateOS does NOT use ASIDs (Address Space Identifiers), **full TLB flush is required** after switching TTBR0:
+
+```asm
+msr     ttbr0_el1, x0
+tlbi    vmalle1         // Invalidate all TLB entries
+dsb     sy              // Data barrier (wait for TLB invalidation)
+isb                     // Instruction barrier
+```
+
+Without TLB flush, the CPU may use stale TLB entries from the previous address space, causing:
+- Data aborts on valid memory
+- Instruction aborts on valid code
+- Subtle memory corruption
+
+### Yielding from Syscall Handlers
+
+**Safe pattern (after TTBR0 restoration):**
+```rust
+if blocking_condition {
+    crate::task::yield_now();  // Other tasks run
+    aarch64_cpu::asm::wfi();   // Wait for interrupt
+}
+// TTBR0 is automatically restored by eret path
+```
+
+**Previous bug:** Calling `yield_now()` would switch to another task's TTBR0, but `eret` wouldn't restore the original, causing crashes on return to userspace.
+
+### IRQ Handlers Should NOT Yield
+
+Per Phase 2 Decision 3: IRQ handlers (`irq_lower_el_entry`) do NOT save/restore TTBR0. This means:
+- `yield_now()` must NOT be called from IRQ context
+- Timer-based preemption works via `schedule()` at end of handler, not mid-handler
+- Keep IRQ handlers fast and non-blocking
+
+### Serial Input & WFI Deadlock
+
+**Problem:** `sys_read` was deadlocking when using `wfi()` because:
+1. UART IRQ fires -> `handle_irq` -> "Unhandled IRQ" -> **GIC masks/disables the interrupt**.
+2. Loop cleans FIFO (clearing source) but GIC keeps IRQ masked.
+3. Subsequent characters assert UART signal, but GIC drops them.
+4. `wfi()` never wakes.
+
+**Fix:** Use a **busy-yield loop** (`poll(); yield_now(); loop`) instead of `wfi()` until a proper Buffered UART Driver with ISR is implemented.
+
+### Behavior Tests & Interleaving
+
+**Problem:** Enabling `yield_now` allows other tasks (like `init`) to run during blocking syscalls.
+- `init` enables interrupts -> Timer IRQ fires -> Prints `[TICK]`.
+- Output: `# ` (shell) + `[TICK]...` (interleaved).
+- Fails behavior test matching.
+
+**Fix:** Disabled `[TICK]` logging in `kernel/src/init.rs` to ensure clean serial output.
 
 ## Status: COMPLETE
 

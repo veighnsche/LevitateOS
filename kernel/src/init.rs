@@ -103,9 +103,10 @@ impl gic::InterruptHandler for TimerHandler {
 
         // TEAM_092: Verify timer is actually advancing (verbose-only)
         // TEAM_122: Removed verbose log to prevent deadlocks with UART lock
-        if count % 100 == 0 {
-            crate::verbose!("[TICK] count={}", count);
-        }
+        // TEAM_148: Disabled [TICK] output to prevents prompt interleaving failures in behavior tests
+        // if count % 100 == 0 {
+        //     crate::verbose!("[TICK] count={}", count);
+        // }
 
         // TEAM_129: GPU flush was commented out, causing black screen
         if count % 5 == 0 {

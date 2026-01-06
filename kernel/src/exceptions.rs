@@ -59,9 +59,19 @@ exception_hang:
     b       exception_hang
 
 /* TEAM_073: Sync handler for lower EL (userspace) - supports returning to user */
+/* TEAM_148: Added TTBR0 save/restore for yield during syscalls
+ *
+ * SyscallFrame layout (must match kernel/src/syscall.rs):
+ *   Offset 0-240:   regs[31]  (x0-x30)
+ *   Offset 248:     sp        (SP_EL0)
+ *   Offset 256:     pc        (ELR_EL1) 
+ *   Offset 264:     pstate    (SPSR_EL1)
+ *   Offset 272:     ttbr0     (TTBR0_EL1)
+ *   Total: 280 bytes
+ */
 sync_lower_el_entry:
     /* Save full user context to stack */
-    sub     sp, sp, #272        // 31 regs * 8 + sp + pc + pstate = 272 bytes
+    sub     sp, sp, #280
     stp     x0, x1, [sp, #0]
     stp     x2, x3, [sp, #16]
     stp     x4, x5, [sp, #32]
@@ -79,17 +89,29 @@ sync_lower_el_entry:
     stp     x28, x29, [sp, #224]
     str     x30, [sp, #240]
     
-    /* Save SP_EL0, ELR_EL1, SPSR_EL1 */
+    /* Save SP_EL0, ELR_EL1, SPSR_EL1, TTBR0_EL1 */
     mrs     x0, sp_el0
     str     x0, [sp, #248]
     mrs     x0, elr_el1
     str     x0, [sp, #256]
     mrs     x0, spsr_el1
     str     x0, [sp, #264]
+    /* TEAM_148: Save TTBR0 for yield support */
+    mrs     x0, ttbr0_el1
+    str     x0, [sp, #272]
     
     /* Pass stack pointer as syscall frame */
     mov     x0, sp
     bl      handle_sync_lower_el
+    
+    /* TEAM_148: Restore TTBR0 first (before other system regs) */
+    /* This ensures correct page tables if we yielded to another task */
+    ldr     x0, [sp, #272]
+    msr     ttbr0_el1, x0
+    /* TLB invalidation: required since we don't use ASIDs */
+    tlbi    vmalle1
+    dsb     sy
+    isb
     
     /* Restore SPSR and ELR */
     ldr     x0, [sp, #264]
@@ -116,7 +138,7 @@ sync_lower_el_entry:
     ldp     x26, x27, [sp, #208]
     ldp     x28, x29, [sp, #224]
     ldr     x30, [sp, #240]
-    add     sp, sp, #272
+    add     sp, sp, #280
     
     eret
 
@@ -247,7 +269,7 @@ irq_entry:
 pub extern "C" fn handle_sync_lower_el(frame: *mut SyscallFrame) {
     // Read ESR to determine exception type
     // TEAM_133: Migrate ESR_EL1 to aarch64-cpu
-    use aarch64_cpu::registers::{Readable, ESR_EL1};
+    use aarch64_cpu::registers::{ESR_EL1, Readable};
     let esr: u64 = ESR_EL1.get();
 
     if syscall::is_svc_exception(esr) {
@@ -333,7 +355,7 @@ pub fn init() {
         static vectors: u8;
     }
     // TEAM_133: Migrate VBAR_EL1 to aarch64-cpu
-    use aarch64_cpu::registers::{Writeable, VBAR_EL1};
+    use aarch64_cpu::registers::{VBAR_EL1, Writeable};
     let vectors_ptr = unsafe { &vectors as *const u8 as u64 };
     VBAR_EL1.set(vectors_ptr);
 }

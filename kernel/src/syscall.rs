@@ -71,6 +71,7 @@ impl SyscallNumber {
 }
 
 /// TEAM_073: Saved user context during syscall.
+/// TEAM_148: Added ttbr0 field to support yielding during syscalls.
 ///
 /// When a syscall is invoked via `svc #0`, the exception handler saves
 /// the user's registers so we can access arguments and return values.
@@ -85,6 +86,10 @@ pub struct SyscallFrame {
     pub pc: u64,
     /// Saved program status (SPSR_EL1)
     pub pstate: u64,
+    /// TEAM_148: User page table base (TTBR0_EL1)
+    /// Saved on syscall entry, restored before eret to ensure correct
+    /// address space after yielding to other tasks.
+    pub ttbr0: u64,
 }
 
 impl SyscallFrame {
@@ -196,6 +201,49 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
 /// - fd 0 (stdin) -> Keyboard input (VirtIO keyboard + UART)
 ///
 /// This is a blocking read that waits for at least one character.
+// TEAM_148: Helper to poll all input sources
+fn poll_input_devices(user_buf: &mut [u8], bytes_read: &mut usize, max_read: usize) {
+    // Poll VirtIO input devices to process any pending events
+    crate::input::poll();
+
+    // Try to read from VirtIO keyboard buffer
+    while *bytes_read < max_read {
+        if let Some(ch) = crate::input::read_char() {
+            user_buf[*bytes_read] = ch as u8;
+            *bytes_read += 1;
+            // For line-buffered input, break on newline
+            if ch == '\n' {
+                return;
+            }
+        } else {
+            break;
+        }
+    }
+
+    // Also check UART input
+    if *bytes_read < max_read {
+        while let Some(byte) = levitate_hal::console::read_byte() {
+            // Convert CR to LF for consistency
+            let byte = if byte == b'\r' { b'\n' } else { byte };
+            user_buf[*bytes_read] = byte;
+            *bytes_read += 1;
+            // For line-buffered input, break on newline
+            if byte == b'\n' {
+                return;
+            }
+            if *bytes_read >= max_read {
+                return;
+            }
+        }
+    }
+}
+
+/// TEAM_081: sys_read - Read from a file descriptor.
+///
+/// Supports:
+/// - fd 0 (stdin) -> Keyboard input (VirtIO keyboard + UART)
+///
+/// This is a blocking read that waits for at least one character.
 fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
     // Only stdin (fd 0) is supported
     if fd != 0 {
@@ -223,49 +271,19 @@ fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
     // SAFETY: We've validated mapping and permissions.
     let user_buf = unsafe { core::slice::from_raw_parts_mut(buf as *mut u8, max_read) };
 
-    // Block until we get at least one character
-    while bytes_read == 0 {
-        // Poll VirtIO input devices to process any pending events
-        crate::input::poll();
-
-        // Try to read from VirtIO keyboard buffer
-        while bytes_read < max_read {
-            if let Some(ch) = crate::input::read_char() {
-                user_buf[bytes_read] = ch as u8;
-                bytes_read += 1;
-                // For line-buffered input, break on newline
-                if ch == '\n' {
-                    break;
-                }
-            } else {
-                break;
-            }
+    // TEAM_148: Busy-yield loop for input
+    // NOTE: We cannot use 'wfi' here because we don't have a UART ISR.
+    // If 'yield_now' switches to a task with interrupts enabled, the UART IRQ
+    // will fire, be marked "Unhandled", and DISABLED by the GIC.
+    // Valid 'wfi' wakeups would then cease, causing a hang.
+    // Until a proper UART driver with buffering is implemented, we must busy-poll.
+    loop {
+        poll_input_devices(user_buf, &mut bytes_read, max_read);
+        if bytes_read > 0 {
+            break;
         }
 
-        // Also check UART input
-        if bytes_read < max_read {
-            while let Some(byte) = levitate_hal::console::read_byte() {
-                // Convert CR to LF for consistency
-                let byte = if byte == b'\r' { b'\n' } else { byte };
-                user_buf[bytes_read] = byte;
-                bytes_read += 1;
-                // For line-buffered input, break on newline
-                if byte == b'\n' {
-                    break;
-                }
-                if bytes_read >= max_read {
-                    break;
-                }
-            }
-        }
-
-        // TEAM_143: If no input yet, wait for interrupt (keyboard/timer)
-        // TEAM_145: Removed yield_now() - yielding from syscall breaks TTBR0 on return
-        // wfi alone is sufficient: waits for interrupt, then continues polling
-        if bytes_read == 0 {
-            #[cfg(target_arch = "aarch64")]
-            aarch64_cpu::asm::wfi();
-        }
+        crate::task::yield_now();
     }
 
     bytes_read as i64
