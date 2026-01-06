@@ -12,7 +12,14 @@ pub fn sys_sbrk(increment: isize) -> i64 {
             if increment > 0 {
                 let new_break = heap.current;
                 let old_page = old_break / los_hal::mmu::PAGE_SIZE;
-                let new_page = (new_break + los_hal::mmu::PAGE_SIZE - 1) / los_hal::mmu::PAGE_SIZE;
+                // TEAM_181: Use checked arithmetic to prevent overflow
+                let new_page = match new_break.checked_add(los_hal::mmu::PAGE_SIZE - 1) {
+                    Some(n) => n / los_hal::mmu::PAGE_SIZE,
+                    None => {
+                        heap.current = old_break;
+                        return 0; // Overflow
+                    }
+                };
 
                 for page in old_page..new_page {
                     let va = page * los_hal::mmu::PAGE_SIZE;

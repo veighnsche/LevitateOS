@@ -45,9 +45,15 @@ impl LosAllocator {
     /// # Safety
     /// Must be called with proper synchronization (single-threaded or locked).
     unsafe fn grow(&self, min_size: usize) -> bool {
-        // Round up to page boundary
-        let pages_needed = (min_size + PAGE_SIZE - 1) / PAGE_SIZE;
-        let grow_size = pages_needed * PAGE_SIZE;
+        // TEAM_181: Use checked arithmetic to prevent overflow
+        let pages_needed = match min_size.checked_add(PAGE_SIZE - 1) {
+            Some(n) => n / PAGE_SIZE,
+            None => return false, // Overflow, can't allocate
+        };
+        let grow_size = match pages_needed.checked_mul(PAGE_SIZE) {
+            Some(n) => n,
+            None => return false, // Overflow
+        };
 
         // Call sbrk to grow heap
         let old_break = libsyscall::sbrk(grow_size as isize);
@@ -77,25 +83,54 @@ unsafe impl Sync for LosAllocator {}
 
 unsafe impl GlobalAlloc for LosAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        // TEAM_181: Handle zero-size allocations per GlobalAlloc contract.
+        // Zero-size allocations must return a non-null, well-aligned dangling pointer.
+        if layout.size() == 0 {
+            return layout.align() as *mut u8;
+        }
+
         let head = unsafe { &mut *self.head.get() };
         let end = unsafe { &mut *self.end.get() };
 
         // Align the head pointer
         let align = layout.align();
-        let mut aligned = (*head + align - 1) & !(align - 1);
-        let mut new_head = aligned + layout.size();
+        // TEAM_181: Use checked arithmetic to prevent overflow
+        let aligned = match (*head).checked_add(align - 1) {
+            Some(n) => n & !(align - 1),
+            None => return null_mut(), // Overflow
+        };
+        let new_head = match aligned.checked_add(layout.size()) {
+            Some(n) => n,
+            None => return null_mut(), // Overflow
+        };
 
         // Check if we need to grow
         if new_head > *end {
-            let needed = new_head - *end;
+            let needed = new_head.saturating_sub(*end);
             // SAFETY: We are in an unsafe fn, grow is safe to call here
             if unsafe { !self.grow(needed) } {
                 return null_mut(); // OOM - per Q3 decision
             }
             // TEAM_174: After grow(), head may have been initialized from 0 to old_break.
             // Re-compute aligned pointer with the updated head value.
-            aligned = (*head + align - 1) & !(align - 1);
-            new_head = aligned + layout.size();
+            let aligned = match (*head).checked_add(align - 1) {
+                Some(n) => n & !(align - 1),
+                None => return null_mut(),
+            };
+            let new_head = match aligned.checked_add(layout.size()) {
+                Some(n) => n,
+                None => return null_mut(),
+            };
+
+            // TEAM_181: Verify we have enough space after grow
+            if new_head > *end {
+                return null_mut(); // Still not enough space
+            }
+
+            // Bump allocate
+            let ptr = aligned as *mut u8;
+            *head = new_head;
+            return ptr;
         }
 
         // Bump allocate
