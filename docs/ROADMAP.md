@@ -1,6 +1,6 @@
 # LevitateOS Roadmap
 
-**Last Updated:** 2026-01-06 (TEAM_197)
+**Last Updated:** 2026-01-06 (TEAM_200)
 
 This document outlines the planned development phases for LevitateOS. Each completed item includes the responsible team for traceability.
 
@@ -336,12 +336,112 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 
 ---
 
-### 🚦 Phase 12: Process & System Management
+### 🗂️ Phase 12: VFS Foundation (Prerequisites)
+
+> **Planning:** See `docs/planning/vfs/`  
+> **Team:** TEAM_200+
+
+- **Objective**: Build infrastructure required for a proper Linux-style Virtual Filesystem.
+- **Why Now**: Current ad-hoc file handling (FdType dispatch) doesn't scale. VFS is required for proper multi-filesystem support.
+
+#### Prerequisites to Build
+
+| Component | Priority | Description |
+|-----------|----------|-------------|
+| **RwLock** | P0 | Readers-writer lock for inode access |
+| **Path abstraction** | P0 | Proper path parsing, normalization, resolution |
+| **Mount table** | P0 | Track mounted filesystems at mount points |
+| **Extended Stat** | P1 | Full POSIX stat: st_dev, st_ino, st_nlink, st_uid, st_gid, st_rdev, st_blksize, st_blocks |
+| **File mode constants** | P1 | S_IFREG, S_IFDIR, S_IFLNK, permission bits |
+
+#### Units of Work
+
+- [ ] Implement `RwLock` in `los_utils` or `los_hal`
+- [ ] Create `kernel/src/fs/path.rs` with `Path` struct
+- [ ] Create `kernel/src/fs/mount.rs` with mount table
+- [ ] Extend `Stat` struct in `kernel/src/syscall/mod.rs`
+- [ ] Add file mode constants to `kernel/src/fs/mod.rs`
+
+---
+
+### 🗄️ Phase 13: Core VFS Implementation
+
+- **Objective**: Implement Linux-style Virtual Filesystem layer.
+- **Critical for**: Unified file abstraction, proper filesystem extensibility.
+
+#### Core Abstractions
+
+| Component | Description |
+|-----------|-------------|
+| **Inode** | Represents a file/directory on disk (with operations trait) |
+| **Dentry** | Directory entry cache (path → inode mapping) |
+| **File** | Open file handle (inode + offset + flags) |
+| **Superblock** | Filesystem instance metadata |
+| **FileSystem** | Filesystem type (factory for superblocks) |
+
+#### Proposed Trait Design
+
+```rust
+pub trait InodeOps: Send + Sync {
+    fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>>;
+    fn create(&self, name: &str, mode: u32) -> Result<Arc<dyn Inode>>;
+    fn unlink(&self, name: &str) -> Result<()>;
+    fn mkdir(&self, name: &str, mode: u32) -> Result<Arc<dyn Inode>>;
+    fn rmdir(&self, name: &str) -> Result<()>;
+    fn symlink(&self, name: &str, target: &str) -> Result<Arc<dyn Inode>>;
+    fn readlink(&self) -> Result<String>;
+    fn read(&self, offset: u64, buf: &mut [u8]) -> Result<usize>;
+    fn write(&self, offset: u64, buf: &[u8]) -> Result<usize>;
+    fn truncate(&self, size: u64) -> Result<()>;
+    fn stat(&self) -> Result<Stat>;
+}
+
+pub trait SuperblockOps: Send + Sync {
+    fn root(&self) -> Arc<dyn Inode>;
+    fn statfs(&self) -> Result<StatFs>;
+}
+```
+
+#### Units of Work
+
+- [ ] Define `Inode` trait in `kernel/src/fs/inode.rs`
+- [ ] Define `Superblock` trait in `kernel/src/fs/superblock.rs`
+- [ ] Create `File` struct in `kernel/src/fs/file.rs`
+- [ ] Create `Dentry` cache in `kernel/src/fs/dentry.rs`
+- [ ] Implement VFS dispatch layer in `kernel/src/fs/vfs.rs`
+- [ ] Refactor `FdType` to use `Arc<File>` instead of per-fs variants
+
+---
+
+### 🔄 Phase 14: Filesystem Migration
+
+- **Objective**: Migrate existing filesystems to VFS layer.
+
+#### Migrations
+
+| Filesystem | Current | Target |
+|------------|---------|--------|
+| **tmpfs** | `TmpfsNode` + FdType dispatch | Implements `InodeOps` |
+| **initramfs** | CPIO index + FdType dispatch | Implements `InodeOps` (read-only) |
+| **FAT32** | `embedded-sdmmc` wrapper | Implements `InodeOps` |
+| **ext4** | `ext4-view` wrapper | Implements `InodeOps` (read-only) |
+
+#### Units of Work
+
+- [ ] Wrap tmpfs as `TmpfsInode` implementing `InodeOps`
+- [ ] Wrap initramfs as `InitramfsInode` implementing `InodeOps`
+- [ ] Remove old `FdType::TmpfsFile`, `FdType::InitramfsFile` variants
+- [ ] Update all syscalls to use VFS layer
+- [ ] Add mount/umount syscalls
+
+---
+
+### 🚦 Phase 15: Process & System Management
 
 - **Objective**: Full POSIX process lifecycle, signals, and shell pipeline support.
 - **Critical for**: Shell job control, multi-process applications, uutils compatibility.
 
-#### Kernel Syscalls Required (Phase 12)
+#### Kernel Syscalls Required (Phase 15)
 
 | Category | Syscall | Nr (AArch64) | Purpose |
 |----------|---------|--------------|---------|
@@ -372,7 +472,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 
 ---
 
-### 📝 Phase 13: Text Editing & Interaction
+### 📝 Phase 16: Text Editing & Interaction
 
 - **Objective**: Productive text manipulation within the OS.
 - **Units of Work**:
@@ -385,7 +485,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
     - Insert/Normal modes
     - File saving
 
-### 📦 Phase 14: Rust `std` Port & uutils-levbox (The Graduation)
+### 📦 Phase 17: Rust `std` Port & uutils-levbox (The Graduation)
 
 > [!NOTE]
 > **Milestone**: Successfully compile and run `uutils-levbox` on LevitateOS.
@@ -395,7 +495,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 - **Objective**: Port Rust's standard library to LevitateOS and run production Rust binaries.
 - **Prerequisites**: All syscalls from the gap analysis table must be implemented.
 
-#### Phase 14a: Threading & Synchronization
+#### Phase 17a: Threading & Synchronization
 
 | Task | Syscall/Feature | Notes |
 |------|-----------------|-------|
@@ -404,7 +504,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 | `futex` syscall | Blocking sync | FUTEX_WAIT, FUTEX_WAKE |
 | `set_tid_address` | Thread exit notification | For pthread_join |
 
-#### Phase 14b: Memory Management Extension
+#### Phase 17b: Memory Management Extension
 
 | Task | Syscall/Feature | Notes |
 |------|-----------------|-------|
@@ -412,7 +512,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 | `mprotect` | Guard pages | Stack overflow protection |
 | `mremap` | Resize mappings | Optional, for realloc |
 
-#### Phase 14c: Rust `std` Backend
+#### Phase 17c: Rust `std` Backend
 
 | Component | Implementation Approach |
 |-----------|------------------------|
@@ -421,7 +521,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 | **Target spec** | Create `aarch64-unknown-levitateos` target |
 | **Build toolchain** | Cross-compile std with custom target JSON |
 
-#### Phase 14d: uutils Integration
+#### Phase 17d: uutils Integration
 
 | Task | Notes |
 |------|-------|
@@ -442,7 +542,7 @@ TEAM_194 implemented tmpfs at `/tmp` with full write support:
 
 Once the userspace foundation is solid, we move to secure multi-user support.
 
-### 🛡️ Phase 15: Identity & Authentication
+### 🛡️ Phase 18: Identity & Authentication
 
 - **Objective**: Identify users and protect resources.
 - **Units of Work**:
@@ -451,7 +551,7 @@ Once the userspace foundation is solid, we move to secure multi-user support.
   - [ ] **`login`**: The gatekeeper program (replacing direct shell spawn).
   - [ ] **`su`**: Switch User functionality.
 
-### 🔑 Phase 16: Privilege Escalation & Access Control
+### 🔑 Phase 19: Privilege Escalation & Access Control
 
 - **Objective**: Controlled administration access.
 - **Units of Work**:
@@ -479,9 +579,12 @@ Once the userspace foundation is solid, we move to secure multi-user support.
 | 8d | 120+ | Process Management (Init, Spawn) |
 | Maintenance | 121-163 | Bug fixes, refactors, architecture improvements |
 | 10 | 164+ | `ulib` Userspace Library |
-| 11 | TBD | Busybox Coreutils |
-| 12 | TBD | Process & Signals |
-| 13 | TBD | Text Editing & Interaction |
-| 14 | TBD | Rust `std` Port & uutils |
-| 15-16 | TBD | Multi-User Security |
+| 11 | 192-199 | Busybox Coreutils (Levbox) |
+| 12 | 200+ | VFS Foundation (Prerequisites) |
+| 13 | TBD | Core VFS Implementation |
+| 14 | TBD | Filesystem Migration |
+| 15 | TBD | Process & Signals |
+| 16 | TBD | Text Editing & Interaction |
+| 17 | TBD | Rust `std` Port & uutils |
+| 18-19 | TBD | Multi-User Security |
 
