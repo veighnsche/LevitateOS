@@ -8,7 +8,7 @@ The `rmdir` utility removes empty directories.
 |----------|------|
 | **POSIX.1-2017** | [rmdir - remove directories](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/rmdir.html) |
 | **Linux man-pages** | [rmdir(1)](https://man7.org/linux/man-pages/man1/rmdir.1.html) |
-| **GNU Coreutils** | [rmdir invocation](https://www.gnu.org/software/coreutils/manual/html_node/rmdir-invocation.html) |
+| **GNU Coreutils** | [rmdir invocation](https://www.gnu.org/software/levbox/manual/html_node/rmdir-invocation.html) |
 
 ## Synopsis
 
@@ -20,9 +20,11 @@ rmdir [-pv] directory...
 
 | Option | Description |
 |--------|-------------|
-| `-p` | Remove directory and its ancestors. (e.g., `rmdir -p a/b/c` is like `rmdir a/b/c a/b a`) |
-| `-v` | Verbose. Print a message for each removed directory. |
-| `--ignore-fail-on-non-empty` | (GNU extension) Do not error on non-empty directories. |
+| `-p`, `--parents` | Remove directory and its ancestors. (e.g., `rmdir -p a/b/c` is like `rmdir a/b/c a/b a`) |
+| `-v`, `--verbose` | Print a message for each removed directory. |
+| `--ignore-fail-on-non-empty` | Do not error on non-empty directories. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -143,3 +145,26 @@ For `-p`, failures after the first successful removal are often ignored.
 - `rmdir` syscall number: 84 (x86_64), not present on aarch64 (use unlinkat)
 - `unlinkat` with `AT_REMOVEDIR` (0x200): 263 (x86_64), 35 (aarch64)
 - Error `ENOTEMPTY`: 39 (Linux)
+
+## Help and Version Output
+
+### `rmdir --help`
+
+```
+Usage: rmdir [OPTION]... DIRECTORY...
+Remove the DIRECTORY(ies), if they are empty.
+
+      --ignore-fail-on-non-empty
+                    ignore each failure to remove a non-empty directory
+  -p, --parents     remove DIRECTORY and its ancestors;
+                      e.g., 'rmdir -p a/b' is similar to 'rmdir a/b a'
+  -v, --verbose     output a diagnostic for every directory processed
+      --help        display this help and exit
+      --version     output version information and exit
+```
+
+### `rmdir --version`
+
+```
+rmdir (LevitateOS levbox) 0.1.0
+```

@@ -8,7 +8,7 @@ The `touch` utility updates file access and modification times, or creates files
 |----------|------|
 | **POSIX.1-2017** | [touch - change file timestamps](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/touch.html) |
 | **Linux man-pages** | [touch(1)](https://man7.org/linux/man-pages/man1/touch.1.html) |
-| **GNU Coreutils** | [touch invocation](https://www.gnu.org/software/coreutils/manual/html_node/touch-invocation.html) |
+| **GNU Coreutils** | [touch invocation](https://www.gnu.org/software/levbox/manual/html_node/touch-invocation.html) |
 
 ## Synopsis
 
@@ -21,11 +21,13 @@ touch [-acm] [-r ref_file | -t time | -d date] file...
 | Option | Description |
 |--------|-------------|
 | `-a` | Change only the access time. |
-| `-c` | Do not create the file if it does not exist. |
+| `-c`, `--no-create` | Do not create the file if it does not exist. |
 | `-m` | Change only the modification time. |
-| `-r ref_file` | Use the times from `ref_file` instead of current time. |
-| `-t time` | Use the specified time in `[[CC]YY]MMDDhhmm[.SS]` format. |
-| `-d date` | (GNU) Parse date as a human-readable string. |
+| `-r`, `--reference=FILE` | Use the times from `FILE` instead of current time. |
+| `-t STAMP` | Use the specified time in `[[CC]YY]MMDDhhmm[.SS]` format. |
+| `-d`, `--date=STRING` | Parse STRING and use it instead of current time. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -160,3 +162,30 @@ Special values:
 - `AT_FDCWD` for relative paths: -100
 - `AT_SYMLINK_NOFOLLOW` flag: 0x100 (to not follow symlinks)
 - Times use `struct timespec { time_t tv_sec; long tv_nsec; }`
+
+## Help and Version Output
+
+### `touch --help`
+
+```
+Usage: touch [OPTION]... FILE...
+Update the access and modification times of each FILE to the current time.
+
+A FILE argument that does not exist is created empty, unless -c or -h
+is supplied.
+
+  -a                     change only the access time
+  -c, --no-create        do not create any files
+  -d, --date=STRING      parse STRING and use it instead of current time
+  -m                     change only the modification time
+  -r, --reference=FILE   use this file's times instead of current time
+  -t STAMP               use [[CC]YY]MMDDhhmm[.ss] instead of current time
+      --help             display this help and exit
+      --version          output version information and exit
+```
+
+### `touch --version`
+
+```
+touch (LevitateOS levbox) 0.1.0
+```

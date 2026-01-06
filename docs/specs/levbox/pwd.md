@@ -8,7 +8,7 @@ The `pwd` utility prints the absolute pathname of the current working directory.
 |----------|------|
 | **POSIX.1-2017** | [pwd - return working directory name](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pwd.html) |
 | **Linux man-pages** | [pwd(1)](https://man7.org/linux/man-pages/man1/pwd.1.html) |
-| **GNU Coreutils** | [pwd invocation](https://www.gnu.org/software/coreutils/manual/html_node/pwd-invocation.html) |
+| **GNU Coreutils** | [pwd invocation](https://www.gnu.org/software/levbox/manual/html_node/pwd-invocation.html) |
 
 ## Synopsis
 
@@ -20,8 +20,10 @@ pwd [-LP]
 
 | Option | Description |
 |--------|-------------|
-| `-L` | Logical. Use `$PWD` environment variable, even if it contains symlinks. (Default in POSIX) |
-| `-P` | Physical. Resolve all symbolic links to produce the canonical path. |
+| `-L`, `--logical` | Use `$PWD` environment variable, even if it contains symlinks. (Default in POSIX) |
+| `-P`, `--physical` | Resolve all symbolic links to produce the canonical path. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Description
 
@@ -140,3 +142,25 @@ For `-L` mode, the implementation needs to read `$PWD`:
 1. Parse environment from `envp` passed to `main()`.
 2. Or use `getenv("PWD")` if libc is available.
 3. Verify `$PWD` is valid (stat both `$PWD` and `.`, compare `st_dev`/`st_ino`).
+
+## Help and Version Output
+
+### `pwd --help`
+
+```
+Usage: pwd [OPTION]...
+Print the full filename of the current working directory.
+
+  -L, --logical   use PWD from environment, even if it contains symlinks
+  -P, --physical  resolve all symlinks
+      --help      display this help and exit
+      --version   output version information and exit
+
+If no option is specified, -P is assumed.
+```
+
+### `pwd --version`
+
+```
+pwd (LevitateOS levbox) 0.1.0
+```

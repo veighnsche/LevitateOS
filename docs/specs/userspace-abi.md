@@ -170,10 +170,10 @@ Rust `std` requires Thread Local Storage.
 
 ---
 
-## 6. uutils-coreutils Compatibility Gap
+## 6. uutils-levbox Compatibility Gap
 
 > [!IMPORTANT]
-> **End Goal**: Run unmodified [uutils-coreutils](https://github.com/uutils/coreutils) binaries on LevitateOS.
+> **End Goal**: Run unmodified [uutils-levbox](https://github.com/uutils/levbox) binaries on LevitateOS.
 
 Running uutils requires a full Rust `std` port, which in turn requires these syscalls:
 
@@ -217,7 +217,7 @@ Legend: 🟢 Implemented | 🟡 Partial | 🔴 Not Started
 
 ### 6.2 Implementation Strategy
 
-1. **Phase 11 (Busybox)**: Validate basic syscalls with hand-written coreutils
+1. **Phase 11 (Busybox)**: Validate basic syscalls with hand-written levbox
 2. **Phase 12 (Signals)**: Add process/signal infrastructure
 3. **Phase 14 (std port)**: Implement threading, mmap, full syscall set
 4. **Graduation**: Cross-compile & run uutils
@@ -231,7 +231,7 @@ See [ROADMAP.md](file:///home/vince/Projects/LevitateOS/docs/ROADMAP.md) for det
 We stand on the shoulders of giants. The following projects provide the reference implementations and specs we are targeting.
 
 ### 7.1 Rust Ecosystem
-- **[coreutils (uutils)](https://github.com/uutils/coreutils)**: The Rust reimplementation of GNU coreutils. This is our target payload.
+- **[levbox (uutils)](https://github.com/uutils/levbox)**: The Rust reimplementation of GNU levbox. This is our target payload.
 - **[rust-lang/libc](https://github.com/rust-lang/libc)**: Raw FFI bindings to platform libraries. See `src/unix/linux_like/linux/gnu/b64/aarch64` for exact struct layouts.
 - **[redox-os/relibc](https://github.com/redox-os/relibc)**: A POSIX C library written in Rust. Excellent reference for implementing `libc` functions on top of syscalls.
 

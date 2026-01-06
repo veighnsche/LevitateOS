@@ -10,11 +10,11 @@ Enable the kernel's `sys_spawn` syscall to pass command-line arguments (`argv`) 
 
 ## Problem Statement
 
-Currently, the shell can spawn external commands via `sys_spawn`, but the spawned process doesn't receive any arguments. This blocks all coreutils that need command-line arguments (cat, ls, cp, etc.).
+Currently, the shell can spawn external commands via `sys_spawn`, but the spawned process doesn't receive any arguments. This blocks all levbox that need command-line arguments (cat, ls, cp, etc.).
 
 ## References
 
-- **Roadmap:** Phase 11 requires coreutils with argument support
+- **Roadmap:** Phase 11 requires levbox with argument support
 - **Existing code:** `kernel/src/task/process.rs` has `spawn_from_elf_with_args`
 - **Spec:** [`docs/specs/userspace-abi.md`](file:///home/vince/Projects/LevitateOS/docs/specs/userspace-abi.md)
 

@@ -47,7 +47,7 @@ userspace/
 ├── shell/               # Interactive shell
 │   ├── Cargo.toml       # depends on libsyscall
 │   └── src/main.rs      # Shell logic only
-└── coreutils/           # Optional: separate coreutils
+└── levbox/           # Optional: separate levbox
     └── echo/            # Each util as separate binary
 ```
 

@@ -8,7 +8,7 @@ The `cat` utility concatenates and prints files to standard output.
 |----------|------|
 | **POSIX.1-2017** | [cat - concatenate and print files](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cat.html) |
 | **Linux man-pages** | [cat(1)](https://man7.org/linux/man-pages/man1/cat.1.html) |
-| **GNU Coreutils** | [cat invocation](https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html) |
+| **GNU Coreutils** | [cat invocation](https://www.gnu.org/software/levbox/manual/html_node/cat-invocation.html) |
 
 ## Synopsis
 
@@ -21,6 +21,8 @@ cat [-u] [file...]
 | Option | Description |
 |--------|-------------|
 | `-u` | Write bytes from the input file to the standard output without delay as each is read. (Unbuffered mode) |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -95,3 +97,28 @@ cat header.txt - footer.txt
 
 - File descriptor 0 is stdin, 1 is stdout, 2 is stderr.
 - Binary-safe: must handle NUL bytes in files correctly.
+
+## Help and Version Output
+
+### `cat --help`
+
+```
+Usage: cat [OPTION]... [FILE]...
+Concatenate FILE(s) to standard output.
+
+With no FILE, or when FILE is -, read standard input.
+
+  -u                  (ignored)
+      --help          display this help and exit
+      --version       output version information and exit
+
+Examples:
+  cat f - g  Output f's contents, then standard input, then g's contents.
+  cat        Copy standard input to standard output.
+```
+
+### `cat --version`
+
+```
+cat (LevitateOS levbox) 0.1.0
+```

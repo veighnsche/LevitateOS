@@ -1,7 +1,7 @@
 # Research Request: Rust `std` Compatibility & POSIX Requirements
 
 ## Objective
-Identify the **exact, exhaustive list** of system calls, data structures, and ABI conventions required to port the Rust standard library (`std`) to a new operating system ("LevitateOS"). The goal is to enable "Platform Support" (compiling `std` apps like `uutils/coreutils` directly).
+Identify the **exact, exhaustive list** of system calls, data structures, and ABI conventions required to port the Rust standard library (`std`) to a new operating system ("LevitateOS"). The goal is to enable "Platform Support" (compiling `std` apps like `uutils/levbox` directly).
 
 ## Scope
 1.  **Rust `std::sys` Interface**:

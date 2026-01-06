@@ -23,7 +23,7 @@ These utilities are designed to be:
 
 1. **POSIX-Compliant**: Following the IEEE Std 1003.1-2017 specification where applicable.
 2. **Linux ABI Compatible**: Using standard Linux syscall numbers and data structures.
-3. **Familiar Interface**: Providing the same command-line experience as GNU coreutils.
+3. **Familiar Interface**: Providing the same command-line experience as GNU levbox.
 
 ## Reference Resources
 
@@ -31,7 +31,7 @@ These utilities are designed to be:
 |----------|-------------|
 | [POSIX.1-2017 Utilities](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/contents.html) | Official POSIX utility specifications |
 | [Linux man-pages](https://man7.org/linux/man-pages/) | Linux documentation project |
-| [GNU Coreutils Manual](https://www.gnu.org/software/coreutils/manual/) | GNU implementation documentation |
+| [GNU Coreutils Manual](https://www.gnu.org/software/levbox/manual/) | GNU implementation documentation |
 
 ## Syscall Dependencies
 

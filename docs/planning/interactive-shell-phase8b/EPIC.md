@@ -14,7 +14,7 @@ Transform LevitateOS from "Hello from userspace!" into a **real interactive syst
 1. The GPU terminal shows the **full boot sequence** (like classic Unix)
 2. After boot, a **shell prompt** appears
 3. User can type commands and see output
-4. Basic coreutils work (`echo`, `cat`, `ls`)
+4. Basic levbox work (`echo`, `cat`, `ls`)
 5. Single-user root access (no login - we ARE root)
 
 **End Goal:** Boot the kernel, see the boot log scroll by on the GPU, then get a `# ` prompt where you can type commands.
@@ -107,7 +107,7 @@ Transform LevitateOS from "Hello from userspace!" into a **real interactive syst
 - `exit` builtin to return to... (halt? reboot?)
 
 ### Milestone 5: "Real Unix Feel"
-**Deliverable:** Multiple coreutils, feels like a real system.
+**Deliverable:** Multiple levbox, feels like a real system.
 
 - `cat`, `ls` (requires file syscalls)
 - `clear` (ANSI escape codes)

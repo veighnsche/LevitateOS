@@ -6,7 +6,7 @@
 
 ### High-Level Description
 
-Create a `coreutils` crate in the userspace workspace containing a `cat` binary. The binary will follow the POSIX `cat` specification, reading files sequentially and writing their contents to stdout.
+Create a `levbox` crate in the userspace workspace containing a `cat` binary. The binary will follow the POSIX `cat` specification, reading files sequentially and writing their contents to stdout.
 
 ### User-Facing Behavior
 
@@ -36,7 +36,7 @@ cat [-u] [file...]
 
 ```
 userspace/
-├── coreutils/
+├── levbox/
 │   ├── Cargo.toml
 │   ├── link.ld          # Linker script (copy from shell)
 │   ├── build.rs         # Pass linker script to cargo
@@ -45,7 +45,7 @@ userspace/
 │           └── cat.rs   # cat binary
 ```
 
-We use `src/bin/` to create a multi-binary crate that can host all coreutils (ls, pwd, etc.) in the future.
+We use `src/bin/` to create a multi-binary crate that can host all levbox (ls, pwd, etc.) in the future.
 
 ## API Design
 

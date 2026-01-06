@@ -6,11 +6,11 @@
 
 ## Objective
 
-Implement the `cat` utility as the first utility in Phase 11's "Busybox" Phase coreutils suite for LevitateOS.
+Implement the `cat` utility as the first utility in Phase 11's "Busybox" Phase levbox suite for LevitateOS.
 
 ## References
 
-- **Spec:** [`docs/specs/coreutils/cat.md`](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/cat.md)
+- **Spec:** [`docs/specs/levbox/cat.md`](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/cat.md)
 - **Roadmap:** [`docs/ROADMAP.md`](file:///home/vince/Projects/LevitateOS/docs/ROADMAP.md) - Phase 11
 
 ## Discovery Summary

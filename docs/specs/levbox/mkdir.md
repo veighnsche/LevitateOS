@@ -8,7 +8,7 @@ The `mkdir` utility creates directories.
 |----------|------|
 | **POSIX.1-2017** | [mkdir - make directories](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/mkdir.html) |
 | **Linux man-pages** | [mkdir(1)](https://man7.org/linux/man-pages/man1/mkdir.1.html) |
-| **GNU Coreutils** | [mkdir invocation](https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html) |
+| **GNU Coreutils** | [mkdir invocation](https://www.gnu.org/software/levbox/manual/html_node/mkdir-invocation.html) |
 
 ## Synopsis
 
@@ -20,9 +20,11 @@ mkdir [-pvm mode] directory...
 
 | Option | Description |
 |--------|-------------|
-| `-p` | Create intermediate directories as required. Do not error if directory exists. |
-| `-m mode` | Set file mode (permissions) for created directories. |
-| `-v` | Verbose. Print a message for each created directory. |
+| `-p`, `--parents` | Create intermediate directories as required. Do not error if directory exists. |
+| `-m`, `--mode=MODE` | Set file mode (permissions) for created directories. |
+| `-v`, `--verbose` | Print a message for each created directory. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -145,3 +147,24 @@ Ignore `EEXIST` errors when `-p` is specified.
 - `mkdir` syscall number: 83 (x86_64), 1030 (aarch64 via mkdirat)
 - `mkdirat` syscall number: 258 (x86_64), 34 (aarch64)
 - Default mode: `0777` (before umask)
+
+## Help and Version Output
+
+### `mkdir --help`
+
+```
+Usage: mkdir [OPTION]... DIRECTORY...
+Create the DIRECTORY(ies), if they do not already exist.
+
+  -m, --mode=MODE   set file mode (as in chmod), not a=rwx - umask
+  -p, --parents     no error if existing, make parent directories as needed
+  -v, --verbose     print a message for each created directory
+      --help        display this help and exit
+      --version     output version information and exit
+```
+
+### `mkdir --version`
+
+```
+mkdir (LevitateOS levbox) 0.1.0
+```

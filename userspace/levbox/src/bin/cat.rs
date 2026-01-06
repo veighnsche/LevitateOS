@@ -1,7 +1,7 @@
 //! TEAM_182: `cat` utility for LevitateOS
 //!
 //! Concatenates and prints files to standard output.
-//! See `docs/specs/coreutils/cat.md` for specification.
+//! See `docs/specs/levbox/cat.md` for specification.
 //!
 //! ## Usage
 //! ```

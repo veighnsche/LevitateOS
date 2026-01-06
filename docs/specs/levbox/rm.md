@@ -8,7 +8,7 @@ The `rm` utility removes directory entries (files and directories).
 |----------|------|
 | **POSIX.1-2017** | [rm - remove directory entries](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/rm.html) |
 | **Linux man-pages** | [rm(1)](https://man7.org/linux/man-pages/man1/rm.1.html) |
-| **GNU Coreutils** | [rm invocation](https://www.gnu.org/software/coreutils/manual/html_node/rm-invocation.html) |
+| **GNU Coreutils** | [rm invocation](https://www.gnu.org/software/levbox/manual/html_node/rm-invocation.html) |
 
 ## Synopsis
 
@@ -20,10 +20,14 @@ rm [-fiRrd] file...
 
 | Option | Description |
 |--------|-------------|
-| `-f` | Force. Do not prompt for confirmation. Ignore nonexistent files. |
+| `-f`, `--force` | Force. Do not prompt for confirmation. Ignore nonexistent files. |
 | `-i` | Interactive. Prompt before every removal. |
-| `-R`, `-r` | Recursive. Remove directories and their contents. |
-| `-d` | Remove empty directories (equivalent to `rmdir`). |
+| `-I` | Prompt once before removing more than three files, or when removing recursively. |
+| `-R`, `-r`, `--recursive` | Recursive. Remove directories and their contents. |
+| `-d`, `--dir` | Remove empty directories (equivalent to `rmdir`). |
+| `-v`, `--verbose` | Explain what is being done. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 Option precedence:
 - If `-f` and `-i` are both specified, the last one wins.
@@ -155,3 +159,31 @@ Using `unlinkat` with appropriate flags provides a unified interface.
 - `unlink` syscall number: 87 (x86_64), 1026 (aarch64)
 - `unlinkat` syscall number: 263 (x86_64), 35 (aarch64)
 - `AT_REMOVEDIR` flag value: 0x200
+
+## Help and Version Output
+
+### `rm --help`
+
+```
+Usage: rm [OPTION]... [FILE]...
+Remove (unlink) the FILE(s).
+
+  -f, --force       ignore nonexistent files and arguments, never prompt
+  -i                prompt before every removal
+  -I                prompt once before removing more than three files, or
+                      when removing recursively
+  -r, -R, --recursive  remove directories and their contents recursively
+  -d, --dir         remove empty directories
+  -v, --verbose     explain what is being done
+      --help        display this help and exit
+      --version     output version information and exit
+
+By default, rm does not remove directories.  Use the --recursive (-r or -R)
+option to remove each listed directory, too, along with all of its contents.
+```
+
+### `rm --version`
+
+```
+rm (LevitateOS levbox) 0.1.0
+```

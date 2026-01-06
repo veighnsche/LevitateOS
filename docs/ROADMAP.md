@@ -107,7 +107,7 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ## ✅ Phase 8b: Interactive Shell (COMPLETED)
 
-- **Objective**: Boot to an interactive shell prompt with basic coreutils.
+- **Objective**: Boot to an interactive shell prompt with basic levbox.
 - **Tasks**:
   - [x] **GPU Terminal Fix**: Fixed userspace output not appearing on GPU. (TEAM_115)
   - [x] **Read Syscall**: Implemented `read(fd, buf, len)` for stdin/keyboard input. (TEAM_081)
@@ -158,21 +158,21 @@ This document outlines the planned development phases for LevitateOS. Each compl
 
 ## 🏗️ PART II: USERSPACE EXPANSION & APPS
 
-The goal of Part II is to build a rich, POSIX-like userspace environment on top of the Phase 8 foundations, ultimately enabling **[uutils-coreutils](https://github.com/uutils/coreutils)** — the Rust reimplementation of GNU coreutils.
+The goal of Part II is to build a rich, POSIX-like userspace environment on top of the Phase 8 foundations, ultimately enabling **[uutils-levbox](https://github.com/uutils/levbox)** — the Rust reimplementation of GNU levbox.
 
-### 🎯 Target: uutils-coreutils Compatibility
+### 🎯 Target: uutils-levbox Compatibility
 
 > [!IMPORTANT]
-> **End Goal**: Run unmodified `uutils-coreutils` binaries on LevitateOS.
+> **End Goal**: Run unmodified `uutils-levbox` binaries on LevitateOS.
 > 
-> **Strategy**: Build our own "Busybox-style" coreutils first (Phase 11) to validate the syscall layer, then port Rust `std` to enable uutils.
+> **Strategy**: Build our own "Busybox-style" levbox first (Phase 11) to validate the syscall layer, then port Rust `std` to enable uutils.
 
 #### Dependency Chain
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    uutils-coreutils                                  │
-│              (Rust rewrite of GNU coreutils)                         │
+│                    uutils-levbox                                  │
+│              (Rust rewrite of GNU levbox)                         │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │ depends on
                                 ▼
@@ -258,7 +258,7 @@ Legend: 🟢 Complete | 🟡 Partial | 🔴 Not Started
 
 ### 🛠️ Phase 11: Core Utilities (The "Busybox" Phase)
 
-> **Specifications:** See [`docs/specs/coreutils/`](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/README.md) for POSIX-compliant utility specs.
+> **Specifications:** See [`docs/specs/levbox/`](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/README.md) for POSIX-compliant utility specs.
 
 - **Objective**: Implement essential file management and text tools using `ulib` (no `std` dependency).
 - **Purpose**: Validate syscall implementation before attempting full `std` port.
@@ -281,16 +281,16 @@ Legend: 🟢 Complete | 🟡 Partial | 🔴 Not Started
 
 | Utility | Spec | Kernel Deps | Priority |
 |---------|------|-------------|----------|
-| `cat` | [cat.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/cat.md) | read, write | P0 |
-| `ls` | [ls.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/ls.md) | getdents64, fstat | P0 |
-| `pwd` | [pwd.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/pwd.md) | getcwd | P0 |
-| `mkdir` | [mkdir.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/mkdir.md) | mkdirat | P1 |
-| `rmdir` | [rmdir.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/rmdir.md) | unlinkat (AT_REMOVEDIR) | P1 |
-| `rm` | [rm.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/rm.md) | unlinkat, getdents64 | P1 |
-| `touch` | [touch.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/touch.md) | openat, utimensat | P1 |
-| `cp` | [cp.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/cp.md) | read, write, fstat | P2 |
-| `mv` | [mv.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/mv.md) | renameat | P2 |
-| `ln` | [ln.md](file:///home/vince/Projects/LevitateOS/docs/specs/coreutils/ln.md) | linkat, symlinkat | P2 |
+| `cat` | [cat.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/cat.md) | read, write | P0 |
+| `ls` | [ls.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/ls.md) | getdents64, fstat | P0 |
+| `pwd` | [pwd.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/pwd.md) | getcwd | P0 |
+| `mkdir` | [mkdir.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/mkdir.md) | mkdirat | P1 |
+| `rmdir` | [rmdir.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/rmdir.md) | unlinkat (AT_REMOVEDIR) | P1 |
+| `rm` | [rm.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/rm.md) | unlinkat, getdents64 | P1 |
+| `touch` | [touch.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/touch.md) | openat, utimensat | P1 |
+| `cp` | [cp.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/cp.md) | read, write, fstat | P2 |
+| `mv` | [mv.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/mv.md) | renameat | P2 |
+| `ln` | [ln.md](file:///home/vince/Projects/LevitateOS/docs/specs/levbox/ln.md) | linkat, symlinkat | P2 |
 
 ---
 
@@ -343,10 +343,10 @@ Legend: 🟢 Complete | 🟡 Partial | 🔴 Not Started
     - Insert/Normal modes
     - File saving
 
-### 📦 Phase 14: Rust `std` Port & uutils-coreutils (The Graduation)
+### 📦 Phase 14: Rust `std` Port & uutils-levbox (The Graduation)
 
 > [!NOTE]
-> **Milestone**: Successfully compile and run `uutils-coreutils` on LevitateOS.
+> **Milestone**: Successfully compile and run `uutils-levbox` on LevitateOS.
 > 
 > This phase represents "graduation" — proving LevitateOS has a fully functional POSIX-like userspace.
 
@@ -384,12 +384,12 @@ Legend: 🟢 Complete | 🟡 Partial | 🔴 Not Started
 | Task | Notes |
 |------|-------|
 | Cross-compile uutils | Using LevitateOS target |
-| Run test suite | Validate coreutils behavior |
+| Run test suite | Validate levbox behavior |
 | Integration | Replace busybox utils with uutils |
 
 #### References
 
-- [uutils-coreutils](https://github.com/uutils/coreutils) — Target project
+- [uutils-levbox](https://github.com/uutils/levbox) — Target project
 - [relibc](https://github.com/redox-os/relibc) — Rust libc implementation
 - [rust-lang/libc](https://github.com/rust-lang/libc) — FFI bindings reference
 - [Redox OS std port](https://gitlab.redox-os.org/redox-os/rust) — Prior art

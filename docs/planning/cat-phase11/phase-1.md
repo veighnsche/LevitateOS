@@ -44,9 +44,9 @@ None — users cannot view file contents interactively.
 
 | Path | Change Type |
 |------|-------------|
-| `userspace/coreutils/` | **NEW** — Create new crate |
-| `userspace/Cargo.toml` | **MODIFY** — Add coreutils to workspace |
-| `xtask/src/image.rs` | **MODIFY** — Include coreutils in initramfs |
+| `userspace/levbox/` | **NEW** — Create new crate |
+| `userspace/Cargo.toml` | **MODIFY** — Add levbox to workspace |
+| `xtask/src/image.rs` | **MODIFY** — Include levbox in initramfs |
 
 ### Public APIs Involved
 

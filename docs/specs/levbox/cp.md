@@ -8,7 +8,7 @@ The `cp` utility copies files and directories.
 |----------|------|
 | **POSIX.1-2017** | [cp - copy files](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html) |
 | **Linux man-pages** | [cp(1)](https://man7.org/linux/man-pages/man1/cp.1.html) |
-| **GNU Coreutils** | [cp invocation](https://www.gnu.org/software/coreutils/manual/html_node/cp-invocation.html) |
+| **GNU Coreutils** | [cp invocation](https://www.gnu.org/software/levbox/manual/html_node/cp-invocation.html) |
 
 ## Synopsis
 
@@ -25,6 +25,9 @@ cp [-fipRr] source_file... target_directory
 | `-i` | Interactive. Prompt before overwriting existing files. |
 | `-p` | Preserve file attributes (mode, ownership, timestamps). |
 | `-R`, `-r` | Recursive. Copy directories and their contents. |
+| `-v`, `--verbose` | Explain what is being done. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -139,3 +142,28 @@ cp -i newfile existingfile
 - File permissions use standard Unix mode bits (e.g., 0644, 0755).
 - Timestamps are in `struct timespec` format.
 - O_CREAT | O_WRONLY | O_TRUNC flags for creating target file.
+
+## Help and Version Output
+
+### `cp --help`
+
+```
+Usage: cp [OPTION]... SOURCE DEST
+  or:  cp [OPTION]... SOURCE... DIRECTORY
+Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.
+
+  -f, --force        if an existing destination file cannot be opened,
+                       remove it and try again
+  -i, --interactive  prompt before overwrite
+  -p                 same as --preserve=mode,ownership,timestamps
+  -R, -r, --recursive  copy directories recursively
+  -v, --verbose      explain what is being done
+      --help         display this help and exit
+      --version      output version information and exit
+```
+
+### `cp --version`
+
+```
+cp (LevitateOS levbox) 0.1.0
+```

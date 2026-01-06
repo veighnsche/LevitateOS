@@ -8,7 +8,7 @@ The `ls` utility lists directory contents.
 |----------|------|
 | **POSIX.1-2017** | [ls - list directory contents](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/ls.html) |
 | **Linux man-pages** | [ls(1)](https://man7.org/linux/man-pages/man1/ls.1.html) |
-| **GNU Coreutils** | [ls invocation](https://www.gnu.org/software/coreutils/manual/html_node/ls-invocation.html) |
+| **GNU Coreutils** | [ls invocation](https://www.gnu.org/software/levbox/manual/html_node/ls-invocation.html) |
 
 ## Synopsis
 
@@ -20,13 +20,15 @@ ls [-aAlhFR1] [file...]
 
 | Option | Description |
 |--------|-------------|
-| `-a` | Include directory entries whose names begin with a dot (`.`). |
-| `-A` | Like `-a`, but do not list implied `.` and `..`. |
+| `-a`, `--all` | Include directory entries whose names begin with a dot (`.`). |
+| `-A`, `--almost-all` | Like `-a`, but do not list implied `.` and `..`. |
 | `-l` | Use a long listing format. |
-| `-h` | With `-l`, print sizes in human readable format (e.g., 1K, 234M, 2G). |
-| `-F` | Append indicator (one of `*/=>@\|`) to entries. |
-| `-R` | List subdirectories recursively. |
+| `-h`, `--human-readable` | With `-l`, print sizes in human readable format (e.g., 1K, 234M, 2G). |
+| `-F`, `--classify` | Append indicator (one of `*/=>@\|`) to entries. |
+| `-R`, `--recursive` | List subdirectories recursively. |
 | `-1` | List one file per line. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -168,3 +170,33 @@ ls -1
 
 - Directory entries use `linux_dirent64` structure with `d_ino`, `d_off`, `d_reclen`, `d_type`, and `d_name`.
 - Stat structure must match Linux `struct stat` layout.
+
+## Help and Version Output
+
+### `ls --help`
+
+```
+Usage: ls [OPTION]... [FILE]...
+List information about the FILEs (the current directory by default).
+
+  -a, --all            do not ignore entries starting with .
+  -A, --almost-all     do not list implied . and ..
+  -F, --classify       append indicator (one of */=>@|) to entries
+  -h, --human-readable with -l, print sizes like 1K 234M 2G
+  -l                   use a long listing format
+  -R, --recursive      list subdirectories recursively
+  -1                   list one file per line
+      --help           display this help and exit
+      --version        output version information and exit
+
+Exit status:
+ 0  if OK,
+ 1  if minor problems,
+ 2  if serious trouble.
+```
+
+### `ls --version`
+
+```
+ls (LevitateOS levbox) 0.1.0
+```

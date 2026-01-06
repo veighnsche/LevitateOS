@@ -21,7 +21,7 @@ Currently, userspace programs in LevitateOS must use raw syscall wrappers from `
 
 ### 1.3 Who Benefits
 - **Application developers**: Can write idiomatic Rust with familiar abstractions
-- **Future coreutils**: Phase 11 tools (`ls`, `cat`, etc.) require file I/O
+- **Future levbox**: Phase 11 tools (`ls`, `cat`, etc.) require file I/O
 - **Shell enhancement**: Can support redirection, pipes, and scripting
 - **OS maturity**: Moves LevitateOS toward POSIX-like usability
 

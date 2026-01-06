@@ -8,7 +8,7 @@ The `mv` utility moves (renames) files and directories.
 |----------|------|
 | **POSIX.1-2017** | [mv - move files](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/mv.html) |
 | **Linux man-pages** | [mv(1)](https://man7.org/linux/man-pages/man1/mv.1.html) |
-| **GNU Coreutils** | [mv invocation](https://www.gnu.org/software/coreutils/manual/html_node/mv-invocation.html) |
+| **GNU Coreutils** | [mv invocation](https://www.gnu.org/software/levbox/manual/html_node/mv-invocation.html) |
 
 ## Synopsis
 
@@ -21,8 +21,11 @@ mv [-fi] source_file... target_directory
 
 | Option | Description |
 |--------|-------------|
-| `-f` | Force. Do not prompt for confirmation before overwriting the destination. |
-| `-i` | Interactive. Prompt before overwriting existing destination files. |
+| `-f`, `--force` | Force. Do not prompt for confirmation before overwriting the destination. |
+| `-i`, `--interactive` | Interactive. Prompt before overwriting existing destination files. |
+| `-v`, `--verbose` | Explain what is being done. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 When both `-f` and `-i` are specified, the last one takes precedence.
 
@@ -136,3 +139,27 @@ For basic `mv`, `renameat` is sufficient. `renameat2` with `RENAME_NOREPLACE` ca
 
 - `rename()` syscall number: 38 (x86_64), 82 (aarch64)
 - `renameat2` is preferred for modern Linux compatibility
+
+## Help and Version Output
+
+### `mv --help`
+
+```
+Usage: mv [OPTION]... SOURCE DEST
+  or:  mv [OPTION]... SOURCE... DIRECTORY
+Rename SOURCE to DEST, or move SOURCE(s) to DIRECTORY.
+
+  -f, --force        do not prompt before overwriting
+  -i, --interactive  prompt before overwrite
+  -v, --verbose      explain what is being done
+      --help         display this help and exit
+      --version      output version information and exit
+
+If you specify more than one of -i, -f, only the final one takes effect.
+```
+
+### `mv --version`
+
+```
+mv (LevitateOS levbox) 0.1.0
+```

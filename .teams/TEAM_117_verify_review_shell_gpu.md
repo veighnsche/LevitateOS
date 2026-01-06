@@ -92,7 +92,7 @@ Phase 8b (Interactive Shell) is confirmed complete. The implementation is produc
 
 - Shell boots and displays on GPU
 - Keyboard input works (UART + VirtIO)
-- Basic coreutils (echo, help, clear, exit) work
+- Basic levbox (echo, help, clear, exit) work
 - Golden file tests pass
 
 **Next recommended work:**

@@ -1,8 +1,8 @@
 [package]
-name = "coreutils"
+name = "levbox"
 version = "0.1.0"
 edition = "2021"
-description = "Core utilities for LevitateOS"
+description = "Levbox - busybox-style utilities for LevitateOS"
 
 [lints]
 workspace = true

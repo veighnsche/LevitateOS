@@ -8,7 +8,7 @@ The `ln` utility creates links (hard or symbolic) to files.
 |----------|------|
 | **POSIX.1-2017** | [ln - link files](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/ln.html) |
 | **Linux man-pages** | [ln(1)](https://man7.org/linux/man-pages/man1/ln.1.html) |
-| **GNU Coreutils** | [ln invocation](https://www.gnu.org/software/coreutils/manual/html_node/ln-invocation.html) |
+| **GNU Coreutils** | [ln invocation](https://www.gnu.org/software/levbox/manual/html_node/ln-invocation.html) |
 
 ## Synopsis
 
@@ -21,10 +21,12 @@ ln [-fs] source_file... target_dir
 
 | Option | Description |
 |--------|-------------|
-| `-s` | Create a symbolic link instead of a hard link. |
-| `-f` | Force. Remove existing destination files. |
-| `-n` | (GNU) Treat destination that is a symlink to a directory as if it were a normal file. |
-| `-v` | (GNU) Verbose. Print name of each linked file. |
+| `-s`, `--symbolic` | Create a symbolic link instead of a hard link. |
+| `-f`, `--force` | Force. Remove existing destination files. |
+| `-n`, `--no-dereference` | Treat destination that is a symlink to a directory as if it were a normal file. |
+| `-v`, `--verbose` | Print name of each linked file. |
+| `--help` | Display usage help and exit. |
+| `--version` | Output version information and exit. |
 
 ## Operands
 
@@ -178,3 +180,28 @@ When following symlinks, the kernel resolves relative paths from the symlink's d
 | `symlinkat` | 266 | 36 |
 | `AT_FDCWD` | -100 | -100 |
 | `AT_SYMLINK_FOLLOW` | 0x400 | 0x400 |
+
+## Help and Version Output
+
+### `ln --help`
+
+```
+Usage: ln [OPTION]... TARGET LINK_NAME
+  or:  ln [OPTION]... TARGET
+  or:  ln [OPTION]... TARGET... DIRECTORY
+Create hard links by default, symbolic links with --symbolic.
+
+  -f, --force           remove existing destination files
+  -n, --no-dereference  treat LINK_NAME as a normal file if
+                          it is a symbolic link to a directory
+  -s, --symbolic        make symbolic links instead of hard links
+  -v, --verbose         print name of each linked file
+      --help            display this help and exit
+      --version         output version information and exit
+```
+
+### `ln --version`
+
+```
+ln (LevitateOS levbox) 0.1.0
+```

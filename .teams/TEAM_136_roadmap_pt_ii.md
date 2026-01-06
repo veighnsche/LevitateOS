@@ -7,7 +7,7 @@
 1. Analyze current userspace capabilities.
 2. Define "Phase 10" (or Part II) of the roadmap.
 3. Update `docs/ROADMAP.md`.
-4. (Optional) Begin scaffolding `ulib` or `coreutils`.
+4. (Optional) Begin scaffolding `ulib` or `levbox`.
 
 ## Decisions
 - Focus on POSIX-like basics first (`ls`, `cat`, `ps`).

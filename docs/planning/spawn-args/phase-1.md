@@ -8,12 +8,12 @@ Enable user processes to pass command-line arguments (`argv`) and environment va
 
 ### Problem Statement
 
-Currently, when the shell runs `cat file.txt`, it spawns `/cat` but the `cat` process receives `argc=0` and no access to `"file.txt"`. This blocks all coreutils that need arguments.
+Currently, when the shell runs `cat file.txt`, it spawns `/cat` but the `cat` process receives `argc=0` and no access to `"file.txt"`. This blocks all levbox that need arguments.
 
 ### Who Benefits
 
 - Users running any command with arguments
-- All Phase 11 coreutils (cat, ls, cp, mv, etc.)
+- All Phase 11 levbox (cat, ls, cp, mv, etc.)
 - Future shell scripting capabilities
 
 ## Success Criteria
