@@ -11,3 +11,4 @@ default = []
 std = []
 
 [dependencies]
+spin = { workspace = true }

@@ -2,91 +2,12 @@
 
 pub mod cpio;
 pub mod hex;
-pub mod rwlock;
 
-// TEAM_201: Re-export RwLock at crate root for convenience
-pub use rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-use core::cell::UnsafeCell;
-use core::marker::{Send, Sync};
-use core::ops::{Deref, DerefMut, Drop};
-use core::option::Option::{self, None, Some};
-use core::sync::atomic::{AtomicBool, Ordering};
-
-pub struct Spinlock<T> {
-    lock: AtomicBool,
-    data: UnsafeCell<T>,
-}
-
-unsafe impl<T: Send> Sync for Spinlock<T> {}
-unsafe impl<T: Send> Send for Spinlock<T> {}
-
-pub struct SpinlockGuard<'a, T> {
-    lock: &'a Spinlock<T>,
-    data: &'a mut T,
-}
-
-impl<T> Spinlock<T> {
-    pub const fn new(data: T) -> Self {
-        Self {
-            lock: AtomicBool::new(false),
-            data: UnsafeCell::new(data),
-        }
-    }
-
-    /// Acquire the lock, blocking until available.
-    /// Behaviors: [S1] exclusive access, [S2] blocks until released
-    pub fn lock(&self) -> SpinlockGuard<'_, T> {
-        while self
-            .lock
-            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-            .is_err()
-        {
-            core::hint::spin_loop(); // [S2] spin until lock released
-        }
-        SpinlockGuard {
-            lock: self,
-            data: unsafe { &mut *self.data.get() }, // [S4][S5] data access
-        }
-    }
-
-    /// TEAM_089: Try to acquire the lock without blocking.
-    /// Returns Some(guard) if successful, None if lock is already held.
-    pub fn try_lock(&self) -> Option<SpinlockGuard<'_, T>> {
-        if self
-            .lock
-            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
-        {
-            Some(SpinlockGuard {
-                lock: self,
-                data: unsafe { &mut *self.data.get() },
-            })
-        } else {
-            None
-        }
-    }
-}
-
-impl<T> Drop for SpinlockGuard<'_, T> {
-    /// [S3] Guard releases lock on drop
-    fn drop(&mut self) {
-        self.lock.lock.store(false, Ordering::Release);
-    }
-}
-
-impl<T> Deref for SpinlockGuard<'_, T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        self.data
-    }
-}
-
-impl<T> DerefMut for SpinlockGuard<'_, T> {
-    fn deref_mut(&mut self) -> &mut T {
-        self.data
-    }
-}
+// TEAM_211: Re-export spin crate types as our lock API
+// Note: spin::Mutex is re-exported as Spinlock for API compatibility
+pub use spin::{Barrier, Lazy, Once};
+pub use spin::{Mutex as Spinlock, MutexGuard as SpinlockGuard};
+pub use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct RingBuffer<T: Copy, const N: usize> {
     buffer: [T; N],

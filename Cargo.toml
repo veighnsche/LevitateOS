@@ -56,3 +56,4 @@ virtio-drivers = "0.12"
 embedded-graphics = "0.8.1"
 bitflags = "2.10.0"
 aarch64-cpu = "11.2"
+spin = { version = "0.10", default-features = false, features = ["once", "lazy", "barrier", "rwlock", "spin_mutex"] }
