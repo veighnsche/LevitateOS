@@ -68,10 +68,16 @@ fn execute(line: &[u8]) {
         libsyscall::exit(0);
     }
 
+    // Builtin: test (POSIX: exit 0 if no args, used for shell scripting)
+    if bytes_eq(cmd, b"test") {
+        // No output, exit 0 (implicit return in shell)
+        return;
+    }
+
     // Builtin: help
     if bytes_eq(cmd, b"help") {
         println!("LevitateOS Shell (lsh) v0.1");
-        println!("Commands: echo <text>, help, clear, exit");
+        println!("Commands: echo <text>, help, clear, exit, test");
         return;
     }
 

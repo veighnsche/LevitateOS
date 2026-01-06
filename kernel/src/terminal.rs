@@ -40,8 +40,8 @@ pub fn write_str(s: &str) {
     if let Some(term) = term_guard.as_mut() {
         let mut gpu_guard = crate::gpu::GPU.lock();
         if let Some(gpu_state) = gpu_guard.as_mut() {
-            // TEAM_100: Use Display wrapper for DrawTarget
-            let mut display = crate::gpu::Display::new(gpu_state);
+            // TEAM_141: Use as_display() instead of duplicate Display type
+            let mut display = gpu_state.as_display();
             term.write_str(&mut display, s);
             // TEAM_129: Flush GPU after every write to ensure output is visible
             // The timer-based flush uses try_lock which fails when we hold the lock

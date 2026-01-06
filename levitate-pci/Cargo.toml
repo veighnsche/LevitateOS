@@ -8,4 +8,5 @@ workspace = true
 
 [dependencies]
 levitate-hal = { path = "../levitate-hal" }
-virtio-drivers = "0.12"
+# TEAM_141: Use workspace dependencies for version consistency
+virtio-drivers.workspace = true

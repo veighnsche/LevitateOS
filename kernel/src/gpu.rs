@@ -1,19 +1,17 @@
 //! Kernel-side GPU Interface
 //!
 //! TEAM_114: Wrapper around levitate-gpu crate for kernel use.
+//! TEAM_141: Removed duplicate Display type - use levitate_gpu::Display via as_display()
 //!
 //! See: `docs/planning/virtio-pci/` for the implementation plan
 
 use levitate_hal::IrqSafeLock;
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use embedded_graphics::pixelcolor::Rgb888;
-use embedded_graphics::prelude::*;
-
 use crate::virtio::VirtioHal;
 
 // Re-export from levitate-gpu
-pub use levitate_gpu::GpuError;
+pub use levitate_gpu::{Display, GpuError};
 
 /// GPU state wrapper using levitate-gpu
 pub struct GpuState {
@@ -37,6 +35,12 @@ impl GpuState {
 
     pub fn framebuffer(&mut self) -> &mut [u8] {
         self.inner.framebuffer()
+    }
+
+    /// TEAM_141: Get a Display adapter for embedded-graphics DrawTarget
+    /// Uses levitate_gpu::Display instead of duplicate kernel implementation
+    pub fn as_display(&mut self) -> Display<'_, VirtioHal> {
+        Display::new(&mut self.inner)
     }
 }
 
@@ -99,45 +103,4 @@ pub fn get_resolution() -> Option<(u32, u32)> {
     GPU.lock().as_ref().map(|s| s.dimensions())
 }
 
-pub struct Display<'a> {
-    pub state: &'a mut GpuState,
-}
-
-impl<'a> Display<'a> {
-    pub fn new(state: &'a mut GpuState) -> Self {
-        Self { state }
-    }
-}
-
-impl<'a> DrawTarget for Display<'a> {
-    type Color = Rgb888;
-    type Error = core::convert::Infallible;
-
-    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
-    where
-        I: IntoIterator<Item = Pixel<Self::Color>>,
-    {
-        let (width, height) = self.state.dimensions();
-        let fb = self.state.framebuffer();
-
-        for Pixel(point, color) in pixels {
-            if point.x >= 0 && point.x < width as i32 && point.y >= 0 && point.y < height as i32 {
-                let idx = (point.y as usize * width as usize + point.x as usize) * 4;
-                if idx + 3 < fb.len() {
-                    fb[idx] = color.b();
-                    fb[idx + 1] = color.g();
-                    fb[idx + 2] = color.r();
-                    fb[idx + 3] = 255;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-impl<'a> OriginDimensions for Display<'a> {
-    fn size(&self) -> Size {
-        let (w, h) = self.state.dimensions();
-        Size::new(w, h)
-    }
-}
+// TEAM_141: Removed duplicate Display type - use levitate_gpu::Display via GpuState::as_display()

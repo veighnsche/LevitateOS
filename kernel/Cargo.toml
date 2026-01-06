@@ -15,18 +15,19 @@ multitask-demo = [] # TEAM_071: Enable demo tasks for preemption verification
 [dependencies]
 levitate-hal = { path = "../levitate-hal" }
 levitate-utils = { path = "../levitate-utils" }
-levitate-virtio = { path = "../levitate-virtio", features = ["hal-impl"] }
+# TEAM_141: Removed hal-impl feature - committing to virtio-drivers (Option A)
+levitate-virtio = { path = "../levitate-virtio" }
 levitate-terminal = { path = "../levitate-terminal" }
 # TEAM_114: PCI and GPU as separate crates
 levitate-pci = { path = "../levitate-pci" }
 levitate-gpu = { path = "../levitate-gpu" }
 linked_list_allocator = "0.10.5"
-virtio-drivers = "0.12"
-embedded-graphics = "0.8.1"
+# TEAM_141: Use workspace dependencies for version consistency
+virtio-drivers.workspace = true
+embedded-graphics.workspace = true
 log = "0.4"
 embedded-sdmmc = { version = "0.9", default-features = false }
 ext4-view = { version = "0.9", default-features = false }
-bitflags = "2.10.0"
-# TEAM_132: Add aarch64-cpu for safe wfi/barrier abstractions
-aarch64-cpu = "11.2"
+bitflags.workspace = true
+aarch64-cpu.workspace = true
 

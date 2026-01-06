@@ -5,16 +5,13 @@ edition = "2024"
 description = "VirtIO transport layer for LevitateOS"
 
 [dependencies]
-bitflags = "2.10.0"
-# TEAM_103: Added for HAL implementation (DMA primitives, address translation)
-levitate-hal = { path = "../levitate-hal", optional = true }
-# TEAM_132: Add aarch64-cpu for safe barrier abstractions
-aarch64-cpu = "11.2"
+# TEAM_141: Use workspace dependencies for version consistency
+bitflags.workspace = true
+aarch64-cpu.workspace = true
 
 [features]
 default = []
-# TEAM_103: Enable HAL implementation for use in kernel
-hal-impl = ["levitate-hal"]
+# TEAM_141: Removed hal-impl feature - committing to virtio-drivers (Option A)
 
 [lints]
 workspace = true

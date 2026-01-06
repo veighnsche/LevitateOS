@@ -3,26 +3,21 @@
 //! General-purpose VirtIO transport layer for LevitateOS.
 //!
 //! TEAM_098: Created as part of VirtIO GPU refactor.
+//! TEAM_141: Removed LevitateVirtioHal - committing to virtio-drivers (Option A)
 //!
-//! This crate provides the foundational abstractions for VirtIO devices:
+//! This crate provides reference abstractions for VirtIO devices:
 //! - [`VirtQueue`] - Split virtqueue implementation
 //! - [`Transport`] trait - Abstraction over MMIO transports
 //! - [`Descriptor`] and buffer management
 //!
-//! Device-specific drivers (GPU, Block, Net) build on top of these primitives.
+//! Note: Active drivers use `virtio-drivers` crate. These abstractions are kept
+//! for reference and potential future use on platforms without virtio-drivers support.
 
 #![no_std]
 
 pub mod hal;
 mod queue;
 mod transport;
-
-// TEAM_103: HAL implementation moved from levitate-hal
-// Only available when hal-impl feature is enabled (to avoid circular deps)
-#[cfg(feature = "hal-impl")]
-mod hal_impl;
-#[cfg(feature = "hal-impl")]
-pub use hal_impl::LevitateVirtioHal;
 
 pub use hal::{BufferDirection, VirtioHal, PAGE_SIZE, pages_for};
 pub use queue::{Descriptor, DescriptorFlags, VirtQueue, VirtQueueError};

@@ -50,3 +50,10 @@ panic = "abort"
 panic = "abort"
 lto = true
 codegen-units = 1
+
+# TEAM_141: Pin shared dependencies to avoid version skew across crates
+[workspace.dependencies]
+virtio-drivers = "0.12"
+embedded-graphics = "0.8.1"
+bitflags = "2.10.0"
+aarch64-cpu = "11.2"

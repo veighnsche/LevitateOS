@@ -13,11 +13,9 @@ std = ["levitate-utils/std"]
 
 [dependencies]
 levitate-utils = { path = "../levitate-utils" }
-# TEAM_103: Removed levitate-virtio dependency - LevitateVirtioHal moved there
-bitflags = "2.4"
+# TEAM_141: Use workspace dependencies for version consistency
+bitflags.workspace = true
 fdt = { version = "0.1.5", default-features = false }
-virtio-drivers = "0.12"
-# TEAM_132: Add aarch64-cpu for safe system register and barrier abstractions
-aarch64-cpu = "11.2"
-# TEAM_133: Add intrusive-collections for safe linked list abstractions
+virtio-drivers.workspace = true
+aarch64-cpu.workspace = true
 intrusive-collections = "0.10"

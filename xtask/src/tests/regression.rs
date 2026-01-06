@@ -487,11 +487,11 @@ fn test_gpu_error_handling(results: &mut TestResults) {
     }
 
     // Verify DrawTarget uses GpuError, not Infallible
-    // TEAM_100: DrawTarget impl is in levitate-gpu, check there instead
-    let levitate_gpu = fs::read_to_string("levitate-gpu/src/gpu.rs").unwrap_or_default();
-    if levitate_gpu.contains("type Error = GpuError") || gpu_rs.contains("type Error = GpuError") {
+    // TEAM_141: DrawTarget impl is in levitate-gpu/src/lib.rs (not gpu.rs)
+    let levitate_gpu_lib = fs::read_to_string("levitate-gpu/src/lib.rs").unwrap_or_default();
+    if levitate_gpu_lib.contains("type Error = GpuError") || gpu_rs.contains("type Error = GpuError") {
         results.pass("DrawTarget uses GpuError (not Infallible)");
-    } else if levitate_gpu.contains("type Error = core::convert::Infallible") || gpu_rs.contains("type Error = core::convert::Infallible") {
+    } else if levitate_gpu_lib.contains("type Error = core::convert::Infallible") || gpu_rs.contains("type Error = core::convert::Infallible") {
         // Infallible is acceptable for embedded-graphics DrawTarget
         results.pass("DrawTarget uses Infallible (acceptable for no-fail drawing)");
     } else {

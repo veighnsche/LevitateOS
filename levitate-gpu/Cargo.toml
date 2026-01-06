@@ -9,5 +9,6 @@ workspace = true
 [dependencies]
 levitate-hal = { path = "../levitate-hal" }
 levitate-pci = { path = "../levitate-pci" }
-virtio-drivers = "0.12"
-embedded-graphics = "0.8.1"
+# TEAM_141: Use workspace dependencies for version consistency
+virtio-drivers.workspace = true
+embedded-graphics.workspace = true
