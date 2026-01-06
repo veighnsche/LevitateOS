@@ -183,7 +183,9 @@ impl TaskControlBlock {
     }
 }
 
-use crate::task::user::{ProcessHeap, UserTask};
+use crate::memory::user as mm_user;
+use crate::memory::heap::ProcessHeap;
+use crate::task::user::UserTask;
 
 impl From<UserTask> for TaskControlBlock {
     fn from(user: UserTask) -> Self {

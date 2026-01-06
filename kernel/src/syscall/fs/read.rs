@@ -1,4 +1,4 @@
-//! TEAM_208: Filesystem syscalls - Read operations
+use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
@@ -27,7 +27,7 @@ pub fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
     match entry.fd_type {
         FdType::Stdin => read_stdin(buf, len, ttbr0),
         FdType::VfsFile(ref file) => {
-            if crate::memory::user::validate_user_buffer(ttbr0, buf, len, true).is_err() {
+            if mm_user::validate_user_buffer(ttbr0, buf, len, true).is_err() {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
@@ -51,7 +51,7 @@ pub fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
 /// TEAM_178: Read from stdin (keyboard/console input).
 fn read_stdin(buf: usize, len: usize, ttbr0: usize) -> i64 {
     let max_read = len.min(4096);
-    if crate::memory::user::validate_user_buffer(ttbr0, buf, max_read, true).is_err() {
+    if mm_user::validate_user_buffer(ttbr0, buf, max_read, true).is_err() {
         return errno::EFAULT;
     }
 

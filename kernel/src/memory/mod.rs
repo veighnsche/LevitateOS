@@ -9,6 +9,7 @@ pub use los_hal::allocator::BuddyAllocator;
 pub use los_hal::allocator::Page;
 
 pub mod user; // TEAM_208: User-space memory management
+pub mod heap; // TEAM_208: Process heap management
 
 /// Global Frame Allocator
 pub struct FrameAllocator(Spinlock<BuddyAllocator>);

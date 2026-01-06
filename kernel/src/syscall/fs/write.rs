@@ -1,4 +1,4 @@
-//! TEAM_208: Filesystem syscalls - Write operations
+use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
@@ -25,7 +25,7 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
     match entry.fd_type {
         FdType::Stdout | FdType::Stderr => {
             // Write to console
-            if crate::memory::user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
+            if mm_user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
                 return errno::EFAULT;
             }
             let slice = unsafe { core::slice::from_raw_parts(buf as *const u8, len) };
@@ -39,12 +39,12 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
             len as i64
         }
         FdType::VfsFile(ref file) => {
-            if crate::memory::user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
+            if mm_user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
             for i in 0..len {
-                if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(ttbr0, buf + i) {
+                if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, buf + i) {
                     kbuf[i] = unsafe { *ptr };
                 } else {
                     return errno::EFAULT;

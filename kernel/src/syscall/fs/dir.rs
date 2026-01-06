@@ -1,4 +1,4 @@
-//! TEAM_208: Filesystem syscalls - Directory operations
+use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
@@ -22,7 +22,7 @@ pub fn sys_getdents(fd: usize, buf: usize, buf_len: usize) -> i64 {
     }
 
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, buf, buf_len, true).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, buf, buf_len, true).is_err() {
         return errno::EFAULT;
     }
 
@@ -102,7 +102,7 @@ pub fn sys_getdents(fd: usize, buf: usize, buf_len: usize) -> i64 {
 
 pub fn sys_getcwd(buf: usize, size: usize) -> i64 {
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, buf, size, true).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, buf, size, true).is_err() {
         return errno::EFAULT;
     }
 
@@ -132,14 +132,14 @@ pub fn sys_mkdirat(_dfd: i32, path: usize, path_len: usize, mode: u32) -> i64 {
     }
 
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, path, path_len, false).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, path, path_len, false).is_err() {
         return errno::EFAULT;
     }
 
     // Read path from userspace
     let mut path_buf = [0u8; 256];
     for i in 0..path_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
             path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;
@@ -170,14 +170,14 @@ pub fn sys_unlinkat(_dfd: i32, path: usize, path_len: usize, flags: u32) -> i64 
     }
 
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, path, path_len, false).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, path, path_len, false).is_err() {
         return errno::EFAULT;
     }
 
     // Read path from userspace
     let mut path_buf = [0u8; 256];
     for i in 0..path_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
             path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;
@@ -221,14 +221,14 @@ pub fn sys_renameat(
     let task = crate::task::current_task();
 
     // Validate and read old path
-    if crate::memory::user::validate_user_buffer(task.ttbr0, old_path, old_path_len, false)
+    if mm_user::validate_user_buffer(task.ttbr0, old_path, old_path_len, false)
         .is_err()
     {
         return errno::EFAULT;
     }
     let mut old_path_buf = [0u8; 256];
     for i in 0..old_path_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, old_path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, old_path + i) {
             old_path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;
@@ -240,14 +240,14 @@ pub fn sys_renameat(
     };
 
     // Validate and read new path
-    if crate::memory::user::validate_user_buffer(task.ttbr0, new_path, new_path_len, false)
+    if mm_user::validate_user_buffer(task.ttbr0, new_path, new_path_len, false)
         .is_err()
     {
         return errno::EFAULT;
     }
     let mut new_path_buf = [0u8; 256];
     for i in 0..new_path_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, new_path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, new_path + i) {
             new_path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;

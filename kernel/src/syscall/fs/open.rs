@@ -1,4 +1,4 @@
-//! TEAM_208: Filesystem syscalls - Open/Close operations
+use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
@@ -15,13 +15,13 @@ pub fn sys_openat(path: usize, path_len: usize, flags: u32) -> i64 {
     }
 
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, path, path_len, false).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, path, path_len, false).is_err() {
         return errno::EFAULT;
     }
 
     let mut path_buf = [0u8; 256];
     for i in 0..path_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
             path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;

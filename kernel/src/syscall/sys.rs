@@ -1,4 +1,4 @@
-//! TEAM_171: System-wide system calls.
+use crate::memory::user as mm_user;
 
 use los_hal::println;
 
@@ -72,7 +72,7 @@ pub fn read_user_string(
     let mut s = alloc::string::String::new();
     for i in 0..max_len {
         let va = ptr + i;
-        if let Some(kptr) = crate::memory::user::user_va_to_kernel_ptr(ttbr0, va) {
+        if let Some(kptr) = mm_user::user_va_to_kernel_ptr(ttbr0, va) {
             let byte = unsafe { *kptr };
             if byte == 0 {
                 return Ok(s);

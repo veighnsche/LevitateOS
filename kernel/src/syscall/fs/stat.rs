@@ -1,4 +1,4 @@
-//! TEAM_208: Filesystem syscalls - File status operations
+use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::syscall::{Stat, errno};
@@ -8,7 +8,7 @@ use crate::task::fd_table::FdType;
 pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
     let task = crate::task::current_task();
     let stat_size = core::mem::size_of::<Stat>();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, stat_buf, stat_size, true).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, stat_buf, stat_size, true).is_err() {
         return errno::EFAULT;
     }
 
@@ -48,7 +48,7 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
         unsafe { core::slice::from_raw_parts(&stat as *const Stat as *const u8, stat_size) };
 
     for (i, &byte) in stat_bytes.iter().enumerate() {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, stat_buf + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, stat_buf + i) {
             unsafe { *ptr = byte };
         } else {
             return errno::EFAULT;

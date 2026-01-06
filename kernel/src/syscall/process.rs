@@ -1,4 +1,4 @@
-//! TEAM_171: Process management system calls.
+use crate::memory::user as mm_user;
 
 use crate::syscall::errno;
 use los_hal::println;
@@ -34,7 +34,7 @@ pub fn sys_yield() -> i64 {
 pub fn sys_spawn(path_ptr: usize, path_len: usize) -> i64 {
     let path_len = path_len.min(256);
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, path_ptr, path_len, false).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, path_ptr, path_len, false).is_err() {
         return errno::EFAULT;
     }
 
@@ -88,7 +88,7 @@ pub fn sys_spawn(path_ptr: usize, path_len: usize) -> i64 {
 pub fn sys_exec(path_ptr: usize, path_len: usize) -> i64 {
     let path_len = path_len.min(256);
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, path_ptr, path_len, false).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, path_ptr, path_len, false).is_err() {
         return errno::EFAULT;
     }
 
@@ -159,7 +159,7 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
     // 2. Validate and read path
     let path_len = path_len.min(256);
     let task = crate::task::current_task();
-    if crate::memory::user::validate_user_buffer(task.ttbr0, path_ptr, path_len, false).is_err() {
+    if mm_user::validate_user_buffer(task.ttbr0, path_ptr, path_len, false).is_err() {
         return errno::EFAULT;
     }
     let path_bytes = unsafe { core::slice::from_raw_parts(path_ptr as *const u8, path_len) };
@@ -176,7 +176,7 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
         None => return errno::EINVAL,
     };
     if argc > 0
-        && crate::memory::user::validate_user_buffer(task.ttbr0, argv_ptr, argv_size, false)
+        && mm_user::validate_user_buffer(task.ttbr0, argv_ptr, argv_size, false)
             .is_err()
     {
         return errno::EFAULT;
@@ -195,7 +195,7 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
             None => return errno::EINVAL,
         };
         let entry = unsafe {
-            let kernel_ptr = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, entry_ptr);
+            let kernel_ptr = mm_user::user_va_to_kernel_ptr(task.ttbr0, entry_ptr);
             match kernel_ptr {
                 Some(p) => *(p as *const UserArgvEntry),
                 None => return errno::EFAULT,
@@ -204,7 +204,7 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
 
         // Validate arg string
         let arg_len = entry.len.min(MAX_ARG_LEN);
-        if crate::memory::user::validate_user_buffer(task.ttbr0, entry.ptr, arg_len, false)
+        if mm_user::validate_user_buffer(task.ttbr0, entry.ptr, arg_len, false)
             .is_err()
         {
             return errno::EFAULT;
@@ -291,11 +291,11 @@ pub fn sys_waitpid(pid: i32, status_ptr: usize) -> i64 {
         // Write exit code to user if requested
         if status_ptr != 0 {
             // Validate and write
-            if crate::memory::user::validate_user_buffer(current.ttbr0, status_ptr, 4, true)
+            if mm_user::validate_user_buffer(current.ttbr0, status_ptr, 4, true)
                 .is_ok()
             {
                 if let Some(ptr) =
-                    crate::memory::user::user_va_to_kernel_ptr(current.ttbr0, status_ptr)
+                    mm_user::user_va_to_kernel_ptr(current.ttbr0, status_ptr)
                 {
                     unsafe {
                         *(ptr as *mut i32) = exit_code;
@@ -320,11 +320,11 @@ pub fn sys_waitpid(pid: i32, status_ptr: usize) -> i64 {
     // Woken up - child exited
     if let Some(exit_code) = crate::task::process_table::try_wait(pid) {
         if status_ptr != 0 {
-            if crate::memory::user::validate_user_buffer(current.ttbr0, status_ptr, 4, true)
+            if mm_user::validate_user_buffer(current.ttbr0, status_ptr, 4, true)
                 .is_ok()
             {
                 if let Some(ptr) =
-                    crate::memory::user::user_va_to_kernel_ptr(current.ttbr0, status_ptr)
+                    mm_user::user_va_to_kernel_ptr(current.ttbr0, status_ptr)
                 {
                     unsafe {
                         *(ptr as *mut i32) = exit_code;

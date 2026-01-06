@@ -1,4 +1,4 @@
-//! TEAM_208: Filesystem syscalls - Symlink and time operations
+use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
@@ -21,7 +21,7 @@ pub fn sys_utimensat(_dirfd: i32, path: usize, path_len: usize, times: usize, _f
     let task = crate::task::current_task();
     let mut path_buf = [0u8; 256];
     for i in 0..path_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
             path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;
@@ -45,7 +45,7 @@ pub fn sys_utimensat(_dirfd: i32, path: usize, path_len: usize, times: usize, _f
             let mut val = 0u64;
             for j in 0..8 {
                 if let Some(ptr) =
-                    crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, times + i * 16 + j)
+                    mm_user::user_va_to_kernel_ptr(task.ttbr0, times + i * 16 + j)
                 {
                     val |= (unsafe { *ptr } as u64) << (j * 8);
                 } else {
@@ -95,7 +95,7 @@ pub fn sys_symlinkat(
     let task = crate::task::current_task();
     let mut target_buf = [0u8; 256];
     for i in 0..target_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, target + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, target + i) {
             target_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;
@@ -108,7 +108,7 @@ pub fn sys_symlinkat(
 
     let mut linkpath_buf = [0u8; 256];
     for i in 0..linkpath_len {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, linkpath + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, linkpath + i) {
             linkpath_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;
@@ -138,7 +138,7 @@ pub fn sys_readlinkat(dirfd: i32, path: usize, path_len: usize, buf: usize, buf_
     let task = crate::task::current_task();
     let mut path_buf = [0u8; 256];
     for i in 0..path_len.min(256) {
-        if let Some(ptr) = crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, path + i) {
             path_buf[i] = unsafe { *ptr };
         } else {
             return errno::EFAULT;

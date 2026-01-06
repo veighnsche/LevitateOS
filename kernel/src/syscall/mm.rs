@@ -1,4 +1,4 @@
-//! TEAM_171: Memory management system calls.
+use crate::memory::user as mm_user;
 
 // Memory management system calls.
 
@@ -23,8 +23,8 @@ pub fn sys_sbrk(increment: isize) -> i64 {
 
                 for page in old_page..new_page {
                     let va = page * los_hal::mmu::PAGE_SIZE;
-                    if crate::memory::user::user_va_to_kernel_ptr(task.ttbr0, va).is_none() {
-                        if crate::memory::user::alloc_and_map_heap_page(task.ttbr0, va).is_err() {
+                    if mm_user::user_va_to_kernel_ptr(task.ttbr0, va).is_none() {
+                        if mm_user::alloc_and_map_heap_page(task.ttbr0, va).is_err() {
                             heap.current = old_break;
                             return 0; // null
                         }
