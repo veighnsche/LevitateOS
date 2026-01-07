@@ -38,16 +38,23 @@ SECTIONS
     . = . + _kernel_virt_base;
     _kernel_virt_start = .;
 
+    /* TEAM_269: Added segment boundary symbols for init_kernel_mappings_refined() */
     .text ALIGN(4K) : AT(ADDR(.text) - _kernel_virt_base) {
+        __text_start = .;
         *(.text*)
+        __text_end = .;
     }
 
     .rodata ALIGN(4K) : AT(ADDR(.rodata) - _kernel_virt_base) {
+        __rodata_start = .;
         *(.rodata*)
+        __rodata_end = .;
     }
 
     .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_base) {
+        __data_start = .;
         *(.data*)
+        __data_end = .;
     }
 
     .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_base) {

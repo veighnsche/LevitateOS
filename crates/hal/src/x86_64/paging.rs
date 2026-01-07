@@ -205,3 +205,72 @@ pub fn unmap_page(pml4: &mut PageTable, virt: usize) -> Result<usize, ()> {
     p1.entries[pt_index(virt)].set_unused();
     Ok(pa)
 }
+
+// =============================================================================
+// TEAM_267: 2MB Huge Page Support for PMO Mapping
+// =============================================================================
+
+/// Size of a 2MB huge page
+pub const HUGE_PAGE_SIZE: usize = 2 * 1024 * 1024; // 2MB
+/// Shift for 2MB page (log2)
+pub const HUGE_PAGE_SHIFT: usize = 21;
+
+/// Map a 2MB huge page at the given virtual address.
+/// The virtual and physical addresses must be 2MB aligned.
+pub fn map_huge_page<F>(
+    pml4: &mut PageTable,
+    virt: usize,
+    phys: usize,
+    flags: PageTableFlags,
+    alloc_fn: F,
+) -> Result<(), ()>
+where
+    F: FnMut() -> Option<usize>,
+{
+    debug_assert!(virt & (HUGE_PAGE_SIZE - 1) == 0, "VA must be 2MB aligned");
+    debug_assert!(phys & (HUGE_PAGE_SIZE - 1) == 0, "PA must be 2MB aligned");
+
+    let mut alloc_fn = alloc_fn;
+    let p3 = walk_mut(pml4, pml4_index(virt), &mut alloc_fn).ok_or(())?;
+    let p2 = walk_mut(p3, pdpt_index(virt), &mut alloc_fn).ok_or(())?;
+
+    // At PD level (p2), we set a huge page entry instead of pointing to a PT
+    let index = pd_index(virt);
+    p2.entries[index].set_address(phys, flags | PageTableFlags::PRESENT | PageTableFlags::HUGE_PAGE);
+    Ok(())
+}
+
+/// Check if an entry at PD level is a 2MB huge page
+pub fn is_huge_page(entry: &PageTableEntry) -> bool {
+    entry.flags().contains(PageTableFlags::PRESENT) && entry.flags().contains(PageTableFlags::HUGE_PAGE)
+}
+
+/// Translate a virtual address, handling both 4KB and 2MB pages.
+pub fn translate_addr_any(pml4: &PageTable, virt: usize) -> Option<usize> {
+    let p3 = walk(pml4, pml4_index(virt))?;
+    let p2 = walk(p3, pdpt_index(virt))?;
+
+    let pd_entry = p2.entries[pd_index(virt)];
+    if !pd_entry.flags().contains(PageTableFlags::PRESENT) {
+        return None;
+    }
+
+    // Check for 2MB huge page at PD level
+    if pd_entry.flags().contains(PageTableFlags::HUGE_PAGE) {
+        let base = pd_entry.address();
+        let offset = virt & (HUGE_PAGE_SIZE - 1);
+        return Some(base + offset);
+    }
+
+    // Regular 4KB page - continue to PT level
+    let phys = pd_entry.address();
+    let virt_pt = crate::x86_64::mmu::phys_to_virt(phys);
+    let p1 = unsafe { &*(virt_pt as *const PageTable) };
+
+    let pt_entry = p1.entries[pt_index(virt)];
+    if pt_entry.flags().contains(PageTableFlags::PRESENT) {
+        Some(pt_entry.address() + (virt & 0xfff))
+    } else {
+        None
+    }
+}

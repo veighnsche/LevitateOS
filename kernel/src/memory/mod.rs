@@ -252,3 +252,202 @@ unsafe extern "C" {
     static _kernel_end: u8;
     static __heap_end: u8;
 }
+
+// =============================================================================
+// TEAM_267: x86_64 Physical Memory Initialization
+// =============================================================================
+
+/// Initialize physical memory management for x86_64.
+/// Parses multiboot2 memory map and initializes the buddy allocator.
+#[cfg(target_arch = "x86_64")]
+pub fn init_x86_64() {
+    use los_hal::x86_64::multiboot2;
+
+    let Some(boot_info) = multiboot2::boot_info() else {
+        // Fallback: use a conservative memory range if no multiboot2 info
+        init_x86_64_fallback();
+        return;
+    };
+
+    // 1. Collect reserved regions
+    let mut reserved_regions: [Option<(usize, usize)>; 32] = [None; 32];
+    let mut res_count = 0;
+
+    // Reserve first 1MB (BIOS/legacy)
+    add_reserved(&mut reserved_regions, &mut res_count, 0, 0x100000);
+
+    // Reserve kernel binary
+    let kernel_start = unsafe { &_kernel_virt_start as *const _ as usize };
+    let kernel_end = unsafe { &_kernel_end as *const _ as usize };
+    let kernel_phys_start = mmu::virt_to_phys(kernel_start);
+    let kernel_phys_end = mmu::virt_to_phys(kernel_end);
+    add_reserved(&mut reserved_regions, &mut res_count, kernel_phys_start, kernel_phys_end);
+
+    // Reserve heap
+    let heap_end = unsafe { &__heap_end as *const _ as usize };
+    let heap_phys_end = mmu::virt_to_phys(heap_end);
+    if heap_phys_end > kernel_phys_end {
+        add_reserved(&mut reserved_regions, &mut res_count, kernel_phys_end, heap_phys_end);
+    }
+
+    // Reserve early allocator range (8MB-16MB)
+    add_reserved(&mut reserved_regions, &mut res_count, 0x800000, 0x1000000);
+
+    // 2. Determine phys_min and phys_max
+    let mut phys_min = !0usize;
+    let mut phys_max = 0usize;
+
+    for region in boot_info.ram_regions.iter().flatten() {
+        if region.start < phys_min {
+            phys_min = region.start;
+        }
+        if region.end > phys_max {
+            phys_max = region.end;
+        }
+    }
+
+    if phys_min == !0 {
+        los_hal::println!("[MEM] No RAM discovered in Multiboot2!");
+        return;
+    }
+
+    let total_pages = (phys_max - phys_min) / 4096;
+    let mem_map_size = total_pages * core::mem::size_of::<Page>();
+
+    // 3. Find a safe location for mem_map
+    let mut mem_map_pa = 0;
+    'outer: for region in boot_info.ram_regions.iter().flatten() {
+        let mut check_start = region.start;
+        check_start = (check_start + 0x1FFFFF) & !0x1FFFFF; // 2MB align
+
+        loop {
+            let check_end = check_start + mem_map_size;
+            if check_end > region.end {
+                break;
+            }
+
+            let mut overlaps = false;
+            for res in reserved_regions.iter().flatten() {
+                if check_start < res.1 && check_end > res.0 {
+                    overlaps = true;
+                    check_start = (res.1 + 0x1FFFFF) & !0x1FFFFF;
+                    break;
+                }
+            }
+
+            if !overlaps {
+                mem_map_pa = check_start;
+                break 'outer;
+            }
+        }
+    }
+
+    if mem_map_pa == 0 {
+        los_hal::println!("[MEM] Failed to allocate physical memory for mem_map!");
+        return;
+    }
+
+    add_reserved(&mut reserved_regions, &mut res_count, mem_map_pa, mem_map_pa + mem_map_size);
+
+    // 4. Initialize mem_map
+    let mem_map_va = mmu::phys_to_virt(mem_map_pa);
+    let mem_map = unsafe { core::slice::from_raw_parts_mut(mem_map_va as *mut Page, total_pages) };
+    for page in mem_map.iter_mut() {
+        *page = Page::new();
+    }
+
+    // 5. Initialize allocator
+    let mut allocator = FRAME_ALLOCATOR.0.lock();
+    unsafe {
+        allocator.init(mem_map, phys_min);
+    }
+
+    // 6. Add RAM regions, skipping reserved ones
+    for region in boot_info.ram_regions.iter().flatten() {
+        add_range_with_holes_x86(&mut allocator, (region.start, region.end), &reserved_regions);
+    }
+
+    // 7. Register with MMU
+    drop(allocator);
+    mmu::set_page_allocator(&FRAME_ALLOCATOR);
+
+    los_hal::println!("[MEM] Buddy Allocator initialized with {} MB RAM", boot_info.total_ram / (1024 * 1024));
+}
+
+/// Fallback initialization when multiboot2 info is not available.
+#[cfg(target_arch = "x86_64")]
+fn init_x86_64_fallback() {
+    // Use a conservative 128MB range starting at 16MB
+    // This is safe for most QEMU/Bochs configurations
+    let phys_min = 0x1000000; // 16MB
+    let phys_max = 0x8000000; // 128MB
+    let total_pages = (phys_max - phys_min) / 4096;
+    let mem_map_size = total_pages * core::mem::size_of::<Page>();
+
+    // Place mem_map at 16MB
+    let mem_map_pa = phys_min;
+    let mem_map_va = mmu::phys_to_virt(mem_map_pa);
+    let mem_map = unsafe { core::slice::from_raw_parts_mut(mem_map_va as *mut Page, total_pages) };
+    for page in mem_map.iter_mut() {
+        *page = Page::new();
+    }
+
+    let mut allocator = FRAME_ALLOCATOR.0.lock();
+    unsafe {
+        allocator.init(mem_map, phys_min);
+        // Add range after mem_map
+        let usable_start = mem_map_pa + mem_map_size;
+        let usable_start_aligned = (usable_start + 4095) & !4095;
+        allocator.add_range(usable_start_aligned, phys_max);
+    }
+
+    drop(allocator);
+    mmu::set_page_allocator(&FRAME_ALLOCATOR);
+
+    los_hal::println!("[MEM] Buddy Allocator initialized (fallback mode)");
+}
+
+#[cfg(target_arch = "x86_64")]
+fn add_range_with_holes_x86(
+    allocator: &mut BuddyAllocator,
+    ram: (usize, usize),
+    reserved: &[Option<(usize, usize)>],
+) {
+    fn add_split(
+        allocator: &mut BuddyAllocator,
+        ram: (usize, usize),
+        reserved: &[Option<(usize, usize)>],
+        idx: usize,
+    ) {
+        if ram.0 >= ram.1 {
+            return;
+        }
+
+        let mut next_idx = idx;
+        while next_idx < reserved.len() && reserved[next_idx].is_none() {
+            next_idx += 1;
+        }
+
+        if next_idx >= reserved.len() {
+            unsafe {
+                allocator.add_range(ram.0, ram.1);
+            }
+            return;
+        }
+
+        let res = reserved[next_idx].as_ref().expect("Checked None above");
+
+        if ram.0 < res.1 && ram.1 > res.0 {
+            if ram.0 < res.0 {
+                add_split(allocator, (ram.0, res.0), reserved, next_idx + 1);
+            }
+            if ram.1 > res.1 {
+                add_split(allocator, (res.1, ram.1), reserved, next_idx + 1);
+            }
+        } else {
+            add_split(allocator, ram, reserved, next_idx + 1);
+        }
+    }
+
+    add_split(allocator, ram, reserved, 0);
+}

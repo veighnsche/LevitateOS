@@ -10,6 +10,7 @@ pub mod idt;
 pub mod interrupts;
 pub mod ioapic;
 pub mod mmu;
+pub mod multiboot2; // TEAM_267: Multiboot2 boot info parsing
 pub mod paging;
 pub mod pit;
 pub mod serial;

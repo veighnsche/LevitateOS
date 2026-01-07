@@ -250,3 +250,142 @@ pub fn set_page_allocator(allocator: &'static dyn PageAllocator) {
         PAGE_ALLOCATOR_PTR = Some(allocator);
     }
 }
+
+// =============================================================================
+// TEAM_267: PMO Expansion and Kernel Segment Permissions
+// =============================================================================
+
+use crate::x86_64::multiboot2::{self, MemoryRegion};
+
+/// Expand PMO mapping to cover all available RAM.
+/// Uses 2MB huge pages for efficiency where possible.
+pub fn expand_pmo(root: &mut PageTable, regions: &[Option<MemoryRegion>]) {
+    for region in regions.iter().flatten() {
+        if !region.typ.is_usable() {
+            continue;
+        }
+
+        // Align start up to 2MB boundary, end down
+        let huge_page_size = paging::HUGE_PAGE_SIZE;
+        let start_aligned = (region.start + huge_page_size - 1) & !(huge_page_size - 1);
+        let end_aligned = region.end & !(huge_page_size - 1);
+
+        // Map aligned 2MB regions with huge pages
+        let mut pa = start_aligned;
+        while pa < end_aligned {
+            let va = phys_to_virt(pa);
+            let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::GLOBAL;
+            let _ = paging::map_huge_page(root, va, pa, flags, || EARLY_ALLOCATOR.alloc_page());
+            pa += huge_page_size;
+        }
+
+        // Map unaligned portions with 4KB pages
+        // Before aligned region
+        let mut pa = region.start;
+        while pa < start_aligned && pa < region.end {
+            let va = phys_to_virt(pa);
+            let _ = map_page(root, va, pa, PageFlags::KERNEL_DATA);
+            pa += PAGE_SIZE;
+        }
+
+        // After aligned region
+        pa = end_aligned;
+        while pa < region.end {
+            let va = phys_to_virt(pa);
+            let _ = map_page(root, va, pa, PageFlags::KERNEL_DATA);
+            pa += PAGE_SIZE;
+        }
+    }
+}
+
+// Linker symbols for kernel segment boundaries
+unsafe extern "C" {
+    static __text_start: u8;
+    static __text_end: u8;
+    static __rodata_start: u8;
+    static __rodata_end: u8;
+    static __data_start: u8;
+    static __data_end: u8;
+    static __bss_start: u8;
+    static __bss_end: u8;
+}
+
+/// TEAM_267: Initialize kernel mappings with proper segment permissions.
+/// - .text: Read-Execute (R-X)
+/// - .rodata: Read-Only (R--)
+/// - .data/.bss: Read-Write (RW-)
+pub fn init_kernel_mappings_refined(root: &mut PageTable) {
+    // 1. Identity map first 1MB for BIOS/Multiboot stability
+    for addr in (0..0x100000).step_by(PAGE_SIZE) {
+        let _ = map_page(root, addr, addr, PageFlags::KERNEL_DATA);
+    }
+
+    // 2. Map kernel segments with proper permissions
+    let phys_start = unsafe { &__kernel_phys_start as *const _ as usize };
+
+    // Calculate segment boundaries (virtual addresses)
+    let text_start_va = unsafe { &__text_start as *const _ as usize };
+    let text_end_va = unsafe { &__text_end as *const _ as usize };
+    let rodata_start_va = unsafe { &__rodata_start as *const _ as usize };
+    let rodata_end_va = unsafe { &__rodata_end as *const _ as usize };
+    let data_start_va = unsafe { &__data_start as *const _ as usize };
+    let data_end_va = unsafe { &__data_end as *const _ as usize };
+    let bss_start_va = unsafe { &__bss_start as *const _ as usize };
+    let bss_end_va = unsafe { &__bss_end as *const _ as usize };
+
+    // .text segment: Read-Execute (no NX bit)
+    map_segment(root, text_start_va, text_end_va, phys_start, PageFlags::KERNEL_CODE);
+
+    // .rodata segment: Read-Only + NX
+    map_segment(
+        root,
+        rodata_start_va,
+        rodata_end_va,
+        phys_start,
+        PageFlags::PRESENT.union(PageFlags::NO_EXECUTE),
+    );
+
+    // .data segment: Read-Write + NX
+    map_segment(
+        root,
+        data_start_va,
+        data_end_va,
+        phys_start,
+        PageFlags::KERNEL_DATA.union(PageFlags::NO_EXECUTE),
+    );
+
+    // .bss segment: Read-Write + NX
+    map_segment(
+        root,
+        bss_start_va,
+        bss_end_va,
+        phys_start,
+        PageFlags::KERNEL_DATA.union(PageFlags::NO_EXECUTE),
+    );
+
+    // 3. Map VGA for debugging
+    let _ = map_page(root, 0xB8000, 0xB8000, PageFlags::DEVICE);
+}
+
+/// Helper to map a kernel segment
+fn map_segment(root: &mut PageTable, va_start: usize, va_end: usize, phys_base: usize, flags: PageFlags) {
+    let mut va = va_start & !(PAGE_SIZE - 1);
+    while va < va_end {
+        let offset = va - KERNEL_VIRT_BASE;
+        let pa = phys_base + offset;
+        let _ = map_page(root, va, pa, flags);
+        va += PAGE_SIZE;
+    }
+}
+
+/// TEAM_267: Copy kernel higher-half mappings to a new page table root.
+/// Used when creating new process address spaces.
+pub fn copy_kernel_mappings(dst: &mut PageTable, src: &PageTable) {
+    // Copy PML4 entries for higher-half (entries 256-511)
+    // Entry 256+ covers 0xFFFF800000000000 and above
+    for i in 256..512 {
+        if src.entries[i].is_valid() {
+            dst.entries[i] = src.entries[i];
+        }
+    }
+}

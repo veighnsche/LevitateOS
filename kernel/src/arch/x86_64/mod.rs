@@ -408,22 +408,63 @@ pub unsafe extern "C" fn exception_return() {
 }
 
 // TEAM_258: x86_64 kernel entry point (UoW 2.7)
+// TEAM_267: Enhanced with multiboot2 parsing and full MMU initialization
+// TEAM_269: Fixed initialization order - heap must be initialized before println!
 // Called from boot.S after long mode transition
 #[unsafe(no_mangle)]
-pub extern "C" fn kernel_main(_multiboot_magic: usize, _multiboot_info: usize) -> ! {
-    // TEAM_259: Initialize x86_64 HAL (Serial, VGA, IDT, APIC, PIT)
-    los_hal::x86_64::init();
-
-    // Write "OK" to VGA buffer at 0xB8000 to confirm boot
+pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> ! {
+    // 1. Write "OK" to VGA buffer first (no heap needed, proves we're running)
     unsafe {
         let vga_buffer = 0xB8000 as *mut u16;
-        // 'O' with white on black attribute (0x0F)
-        *vga_buffer = 0x0F4F;
-        // 'K' with white on black attribute
-        *vga_buffer.add(1) = 0x0F4B;
+        *vga_buffer = 0x0F4F; // 'O'
+        *vga_buffer.add(1) = 0x0F4B; // 'K'
     }
 
-    // Halt loop
+    // 2. TEAM_269: Initialize heap BEFORE anything that allocates (println!, etc.)
+    crate::arch::init_heap();
+
+    // 3. Initialize x86_64 HAL (Serial, VGA, IDT, APIC, PIT)
+    los_hal::x86_64::init();
+
+    // 4. Now safe to use println!
+    los_hal::println!("[BOOT] x86_64 kernel starting...");
+
+    // 5. Validate multiboot2 magic and parse boot info
+    if multiboot_magic == los_hal::x86_64::multiboot2::MULTIBOOT2_BOOTLOADER_MAGIC as usize {
+        unsafe {
+            los_hal::x86_64::multiboot2::init(multiboot_info);
+        }
+        los_hal::println!("[BOOT] Multiboot2 info parsed successfully");
+
+        // Report memory info
+        let total_ram = los_hal::x86_64::multiboot2::total_ram();
+        let phys_max = los_hal::x86_64::multiboot2::phys_max();
+        los_hal::println!("[BOOT] Total RAM: {} MB, Max PA: 0x{:x}", total_ram / (1024 * 1024), phys_max);
+    } else {
+        los_hal::println!("[BOOT] WARNING: Invalid Multiboot2 magic: 0x{:x}", multiboot_magic);
+    }
+
+    // 6. Expand PMO mapping to cover all RAM
+    unsafe extern "C" {
+        static mut early_pml4: los_hal::x86_64::paging::PageTable;
+    }
+
+    if let Some(boot_info) = los_hal::x86_64::multiboot2::boot_info() {
+        unsafe {
+            los_hal::x86_64::mmu::expand_pmo(
+                &mut *core::ptr::addr_of_mut!(early_pml4),
+                &boot_info.ram_regions,
+            );
+        }
+        los_hal::println!("[BOOT] PMO mapping expanded to cover all RAM");
+    }
+
+    // 7. Initialize physical memory management (buddy allocator)
+    crate::memory::init_x86_64();
+
+    los_hal::println!("[BOOT] x86_64 kernel initialized");
+
+    // Halt loop (TODO: transition to scheduler)
     loop {
         unsafe {
             core::arch::asm!("hlt");
