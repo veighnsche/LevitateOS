@@ -59,7 +59,7 @@ _start:
     jne .hang
 
     /* Set up stack (in low memory .data.boot) */
-    mov esp, offset stack_top
+    mov esp, offset boot_stack_top
 
     /* Load GDT64 */
     lgdt [GDT64.Pointer]
@@ -101,6 +101,11 @@ _start:
 .code64
 
 long_mode_start:
+    /* Transition to higher-half address space */
+    mov rax, offset .higher_half
+    jmp rax
+
+.higher_half:
     /* Reset segment registers to data segment */
     mov ax, 0x10
     mov ds, ax
@@ -109,7 +114,8 @@ long_mode_start:
     mov gs, ax
     mov ss, ax
 
-    /* Set up 64-bit stack */
+    /* Set up 64-bit stack in higher-half */
+    /* stack_top is a symbol whose address is in the higher-half (linker script) */
     mov rsp, offset stack_top
 
     /* Zero out BSS */
@@ -129,7 +135,9 @@ long_mode_start:
     mov esi, esi
 
     /* Call Rust kernel_main */
-    call kernel_main
+    /* kernel_main is also in higher-half */
+    mov rax, offset kernel_main
+    call rax
 
     /* If kernel_main returns, halt */
 .halt:
@@ -168,6 +176,7 @@ GDT64.Pointer:
 .align 4096
 
 /* PML4 - Page Map Level 4 */
+.global early_pml4
 early_pml4:
     .skip 4096
 
@@ -179,15 +188,21 @@ early_pdpt:
 early_pdpt_high:
     .skip 4096
 
+/* PMO Mapping Page Tables */
+early_pmo_pdpt:
+    .skip 4096
+early_pmo_pd:
+    .skip 4096
+
 /* PD - Page Directory (2MB pages) */
 early_pd:
     .skip 4096
 
 /* Stack (16KB) - placed in .data.boot to be accessible during boot */
 .align 16
-stack_bottom:
+boot_stack_bottom:
     .skip 16384
-stack_top:
+boot_stack_top:
 
 /* ============================================================================
  * Page table initialization
@@ -196,10 +211,10 @@ stack_top:
 .code32
 
 setup_early_page_tables:
-    /* Clear page table memory */
+    /* Clear page table memory (6 pages: early_pml4, early_pdpt, early_pdpt_high, early_pmo_pdpt, early_pmo_pd, early_pd) */
     mov edi, offset early_pml4
     xor eax, eax
-    mov ecx, 4096 * 4 / 4
+    mov ecx, 4096 * 6 / 4
     rep stosd
 
     /* Restore EDI to early_pml4 base */
@@ -215,6 +230,11 @@ setup_early_page_tables:
     or eax, 0x03
     mov dword ptr [edi + 511 * 8], eax
 
+    /* PML4[256] -> early_pmo_pdpt (PMO Mapping for PHYS_OFFSET) */
+    mov eax, offset early_pmo_pdpt
+    or eax, 0x03
+    mov dword ptr [edi + 256 * 8], eax
+
     /* PDPT[0] -> PD */
     mov edi, offset early_pdpt
     mov eax, offset early_pd
@@ -227,13 +247,31 @@ setup_early_page_tables:
     or eax, 0x03
     mov dword ptr [edi + 510 * 8], eax
 
-    /* PD[0] -> 2MB huge page at physical 0x0 */
-    mov edi, offset early_pd
-    mov eax, 0x00000083                 /* Present + Writable + Huge (2MB) */
+    /* early_pmo_pdpt[0] -> early_pmo_pd */
+    mov edi, offset early_pmo_pdpt
+    mov eax, offset early_pmo_pd
+    or eax, 0x03
     mov dword ptr [edi], eax
 
-    /* PD[1] -> 2MB huge page at physical 0x200000 */
-    mov eax, 0x00200083
-    mov dword ptr [edi + 8], eax
+    /* PD[0-7] -> 2MB huge pages at physical 0x0..0xE00000 (16MB total) */
+    /* This covers the EARLY_ALLOCATOR range (8MB-16MB) */
+    mov edi, offset early_pd
+    mov eax, 0x00000083                 /* Present + Writable + Huge (2MB) */
+    mov ecx, 8                          /* Map 8 huge pages */
+.map_loop:
+    mov dword ptr [edi], eax
+    add eax, 0x200000                   /* Next 2MB */
+    add edi, 8                          /* Next entry */
+    loop .map_loop
+
+    /* early_pmo_pd[0-511] -> 2MB huge pages at physical 0x0..0x3FE00000 (1GB total) */
+    mov edi, offset early_pmo_pd
+    mov eax, 0x00000083                 /* Present + Writable + Huge (2MB) */
+    mov ecx, 512                        /* Map 1GB total in 2MB chunks */
+.map_pmo_loop:
+    mov dword ptr [edi], eax
+    add eax, 0x200000
+    add edi, 8
+    loop .map_pmo_loop
 
     ret

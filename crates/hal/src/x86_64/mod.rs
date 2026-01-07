@@ -5,15 +5,25 @@ use crate::traits::InterruptController;
 pub mod apic;
 pub mod console;
 pub mod exceptions;
+pub mod frame_alloc;
 pub mod idt;
 pub mod interrupts;
 pub mod ioapic;
 pub mod mmu;
+pub mod paging;
 pub mod pit;
 pub mod serial;
 pub mod vga;
 
 pub fn init() {
+    // 0. Initialize MMU with higher-half mappings using early_pml4
+    unsafe extern "C" {
+        static mut early_pml4: paging::PageTable;
+    }
+    unsafe {
+        mmu::init_kernel_mappings(&mut *core::ptr::addr_of_mut!(early_pml4));
+    }
+
     // 1. Initialize serial for early logging
     unsafe { console::WRITER.lock().init() };
 
