@@ -139,25 +139,28 @@ pub const GIC_SPI_START: u32 = 32;
 /// Known IRQ sources in LevitateOS.
 /// Maps symbolic names to hardware IRQ numbers for the QEMU virt machine.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
 pub enum IrqId {
     /// Virtual Timer (PPI, IRQ 27)
-    VirtualTimer = 0,
+    VirtualTimer,
     /// PL011 UART (SPI, IRQ 33)
-    Uart = 1,
-    // Future: VirtioGpu, VirtioInput, VirtioBlk, VirtioNet
+    Uart,
+    /// TEAM_241: VirtIO Input device (SPI, IRQ = 48 + slot_index)
+    VirtioInput(u32),
 }
 
-/// Maximum number of registered handlers (must match IrqId variant count)
-const MAX_HANDLERS: usize = 16;
+/// Maximum number of registered handlers
+/// TEAM_241: Increased to 34 (VirtualTimer=0, Uart=1, VirtioInput slots 0-31 = 2-33)
+const MAX_HANDLERS: usize = 34;
 
 impl IrqId {
     /// [G1] Maps IrqId to correct IRQ numbers
     #[inline]
-    pub const fn irq_number(self) -> u32 {
+    pub fn irq_number(self) -> u32 {
         match self {
             IrqId::VirtualTimer => 27, // [G1]
             IrqId::Uart => 33,         // [G1]
+            // TEAM_241: QEMU virt assigns VirtIO MMIO IRQs sequentially from base 48
+            IrqId::VirtioInput(slot) => 48 + slot,
         }
     }
 
@@ -167,7 +170,9 @@ impl IrqId {
         match irq {
             27 => Some(IrqId::VirtualTimer), // [G2]
             33 => Some(IrqId::Uart),         // [G2]
-            _ => None,                       // [G3]
+            // TEAM_241: VirtIO MMIO IRQs range from 48 to 48+31
+            48..=79 => Some(IrqId::VirtioInput(irq - 48)),
+            _ => None, // [G3]
         }
     }
 }
@@ -190,7 +195,17 @@ static mut HANDLERS: [Option<&'static dyn InterruptHandler>; MAX_HANDLERS] = [No
 /// # Safety
 /// Must be called before interrupts are enabled. Not thread-safe.
 pub fn register_handler(irq: IrqId, handler: &'static dyn InterruptHandler) {
-    let idx = irq as usize;
+    // TEAM_241: Map IrqId to handler table index
+    let idx = match irq {
+        IrqId::VirtualTimer => 0,
+        IrqId::Uart => 1,
+        IrqId::VirtioInput(slot) => 2 + slot as usize, // slots 0-31 map to indices 2-33
+    };
+
+    if idx >= MAX_HANDLERS {
+        return; // Silently fail if out of bounds
+    }
+
     handler.on_register(irq.irq_number());
     unsafe {
         HANDLERS[idx] = Some(handler); // [G4] stores handler
@@ -202,7 +217,17 @@ pub fn register_handler(irq: IrqId, handler: &'static dyn InterruptHandler) {
 /// Returns `true` if a handler was found and called, `false` otherwise.
 pub fn dispatch(irq_num: u32) -> bool {
     if let Some(irq_id) = IrqId::from_irq_number(irq_num) {
-        let idx = irq_id as usize;
+        // TEAM_241: Map IrqId to handler table index (must match register_handler)
+        let idx = match irq_id {
+            IrqId::VirtualTimer => 0,
+            IrqId::Uart => 1,
+            IrqId::VirtioInput(slot) => 2 + slot as usize,
+        };
+
+        if idx >= MAX_HANDLERS {
+            return false;
+        }
+
         unsafe {
             if let Some(handler) = HANDLERS[idx] {
                 handler.handle(irq_num); // [G5] calls handler

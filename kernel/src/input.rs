@@ -2,9 +2,14 @@
 //!
 //! TEAM_032: Updated for virtio-drivers v0.12.0
 //! - Uses StaticMmioTransport for 'static lifetime compatibility
+//!
+//! TEAM_241: Added interrupt handler for async Ctrl+C detection
+//! - Handler registered during init() with slot-based IRQ computation
+//! - Ctrl+C immediately signals foreground process via SIGINT
 
 use crate::virtio::{StaticMmioTransport, VirtioHal};
 use alloc::vec::Vec;
+use los_hal::gic::{self, InterruptHandler, IrqId};
 use los_utils::Mutex;
 use virtio_drivers::device::input::VirtIOInput;
 
@@ -22,12 +27,38 @@ static SHIFT_PRESSED: Mutex<bool> = Mutex::new(false);
 /// Track control key state
 static CTRL_PRESSED: Mutex<bool> = Mutex::new(false);
 
-pub fn init(transport: StaticMmioTransport) {
-    crate::verbose!("Initializing Input...");
+// TEAM_241: VirtIO Input interrupt handler for async Ctrl+C detection
+/// Interrupt handler that polls VirtIO input when IRQ fires
+struct InputInterruptHandler;
+
+impl InterruptHandler for InputInterruptHandler {
+    fn handle(&self, _irq: u32) {
+        // TEAM_241: Poll VirtIO input device for pending events
+        // poll() handles Ctrl+C detection and immediate signaling
+        poll();
+    }
+}
+
+/// Static handler instance for GIC registration
+static INPUT_HANDLER: InputInterruptHandler = InputInterruptHandler;
+
+/// Initialize VirtIO Input device.
+///
+/// # Arguments
+/// * `transport` - MMIO transport for the device
+/// * `slot` - MMIO slot index (used to compute IRQ number: IRQ = 48 + slot)
+pub fn init(transport: StaticMmioTransport, slot: usize) {
+    crate::verbose!("Initializing Input (slot {})...", slot);
     match VirtIOInput::<VirtioHal, StaticMmioTransport>::new(transport) {
         Ok(input) => {
             crate::verbose!("VirtIO Input initialized successfully.");
             INPUT_DEVICES.lock().push(input);
+
+            // TEAM_241: Register interrupt handler for async Ctrl+C detection
+            let irq_id = IrqId::VirtioInput(slot as u32);
+            gic::register_handler(irq_id, &INPUT_HANDLER);
+            gic::active_api().enable_irq(irq_id.irq_number());
+            crate::verbose!("VirtIO Input IRQ {} enabled", irq_id.irq_number());
         }
         Err(e) => crate::println!("Failed to init VirtIO Input: {:?}", e),
     }
@@ -91,6 +122,11 @@ pub fn poll() -> bool {
                                 if !KEYBOARD_BUFFER.lock().push('\x03') {
                                     crate::verbose!("KEYBOARD_BUFFER overflow, Ctrl+C dropped");
                                 }
+                                // TEAM_241: Signal foreground process immediately on Ctrl+C
+                                // This ensures signal is delivered even if no one is reading stdin
+                                crate::syscall::signal::signal_foreground_process(
+                                    crate::syscall::signal::SIGINT,
+                                );
                             } else if let Some(c) = linux_code_to_ascii(code, *SHIFT_PRESSED.lock())
                             {
                                 // TEAM_156: Don't silently drop - log overflow

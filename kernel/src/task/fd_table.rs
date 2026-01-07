@@ -109,12 +109,18 @@ impl FdTable {
     }
 
     /// TEAM_168: Close a file descriptor.
+    /// TEAM_240: Now properly closes pipe read/write ends.
     ///
     /// Returns true if fd was valid and closed, false otherwise.
     pub fn close(&mut self, fd: usize) -> bool {
         if let Some(slot) = self.entries.get_mut(fd) {
-            if slot.is_some() {
-                *slot = None;
+            if let Some(entry) = slot.take() {
+                // TEAM_240: Notify pipe when closing pipe fds
+                match &entry.fd_type {
+                    FdType::PipeRead(pipe) => pipe.close_read(),
+                    FdType::PipeWrite(pipe) => pipe.close_write(),
+                    _ => {}
+                }
                 return true;
             }
         }
@@ -157,9 +163,13 @@ impl FdTable {
             self.entries.push(None);
         }
 
-        // Close newfd if open (silently)
-        if self.entries[newfd].is_some() {
-            self.entries[newfd] = None;
+        // TEAM_240: Close newfd if open (with proper pipe cleanup)
+        if let Some(entry) = self.entries[newfd].take() {
+            match &entry.fd_type {
+                FdType::PipeRead(pipe) => pipe.close_read(),
+                FdType::PipeWrite(pipe) => pipe.close_write(),
+                _ => {}
+            }
         }
 
         // Set newfd to point to same fd_type

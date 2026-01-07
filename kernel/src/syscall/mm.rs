@@ -61,7 +61,7 @@ impl Drop for MmapGuard {
         }
 
         // Failure path - clean up all allocated pages
-        use los_hal::mmu::{phys_to_virt, PageTable, tlb_flush_page};
+        use los_hal::mmu::{PageTable, phys_to_virt, tlb_flush_page};
 
         let l0_va = phys_to_virt(self.ttbr0);
         let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
@@ -251,7 +251,7 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
 /// # Returns
 /// 0 on success, negative error code on failure.
 pub fn sys_munmap(addr: usize, len: usize) -> i64 {
-    use los_hal::mmu::{phys_to_virt, PageTable, tlb_flush_page};
+    use los_hal::mmu::{PageTable, phys_to_virt, tlb_flush_page};
 
     // Validate alignment
     if addr & 0xFFF != 0 {
@@ -314,7 +314,7 @@ pub fn sys_munmap(addr: usize, len: usize) -> i64 {
     0 // Success
 }
 
-/// TEAM_228: sys_mprotect - Change protection on memory region.
+/// TEAM_239: sys_mprotect - Change protection on memory region.
 ///
 /// # Arguments
 /// * `addr` - Start address (must be page-aligned)
@@ -324,28 +324,90 @@ pub fn sys_munmap(addr: usize, len: usize) -> i64 {
 /// # Returns
 /// 0 on success, negative error code on failure.
 pub fn sys_mprotect(addr: usize, len: usize, prot: u32) -> i64 {
-    if addr & (PAGE_SIZE - 1) != 0 || len == 0 {
+    use los_hal::mmu::{PageFlags, PageTable, phys_to_virt, tlb_flush_page};
+
+    // Validate alignment
+    if addr & (PAGE_SIZE - 1) != 0 {
         return EINVAL;
     }
 
-    // TEAM_228: For MVP, we don't have the infrastructure to modify
-    // page table entries in place. A full implementation would:
-    // 1. Look up VMA for range
-    // 2. Walk page tables
-    // 3. Update protection bits on each PTE
-    // 4. Flush TLB
+    if len == 0 {
+        return EINVAL;
+    }
 
-    // TODO(TEAM_228): Implement proper page table protection modification
+    // Page-align length
+    let aligned_len = (len + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
+    let end = match addr.checked_add(aligned_len) {
+        Some(e) => e,
+        None => return EINVAL, // Overflow
+    };
+
+    let task = crate::task::current_task();
+    let ttbr0 = task.ttbr0;
+
+    // Convert prot to PageFlags
+    let new_flags = prot_to_page_flags(prot);
+
+    // Get access to root page table
+    let l0_va = phys_to_virt(ttbr0);
+    let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
+
+    // Walk each page and update protection
+    let mut current = addr;
+    let mut modified_count = 0usize;
+
+    while current < end {
+        // Walk to the L3 (leaf) entry for this page
+        if let Ok(walk) = mmu::walk_to_entry(l0, current, 3, false) {
+            let entry = walk.table.entry(walk.index);
+            if entry.is_valid() {
+                // Get the physical address (preserve it)
+                let phys = entry.address();
+
+                // Set new entry with same address but new flags
+                // L3 entries use TABLE bit = 1 for pages
+                walk.table
+                    .entry_mut(walk.index)
+                    .set(phys, new_flags | PageFlags::TABLE);
+
+                // Flush TLB for this page
+                tlb_flush_page(current);
+                modified_count += 1;
+            }
+        }
+        // If page not mapped, skip it (Linux behavior)
+
+        current += PAGE_SIZE;
+    }
+
+    // Update VMA tracking
+    {
+        use crate::memory::vma::VmaFlags;
+        let mut vma_flags = VmaFlags::empty();
+        if prot & PROT_READ != 0 {
+            vma_flags |= VmaFlags::READ;
+        }
+        if prot & PROT_WRITE != 0 {
+            vma_flags |= VmaFlags::WRITE;
+        }
+        if prot & PROT_EXEC != 0 {
+            vma_flags |= VmaFlags::EXEC;
+        }
+
+        let mut vmas = task.vmas.lock();
+        // Update protection flags for overlapping VMAs
+        vmas.update_protection(addr, end, vma_flags);
+    }
 
     log::trace!(
-        "[MPROTECT] Request to change protection at 0x{:x} len={} prot=0x{:x}",
+        "[MPROTECT] Changed protection for {} pages at 0x{:x}-0x{:x} prot=0x{:x}",
+        modified_count,
         addr,
-        len,
+        end,
         prot
     );
 
-    // For now, return success - this is a best-effort implementation
-    0
+    0 // Success
 }
 
 /// TEAM_228: Find a free region in user address space for mmap.

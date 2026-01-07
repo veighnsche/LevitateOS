@@ -33,7 +33,7 @@ pub fn init_gpu() -> bool {
     // TEAM_114: GPU is now on PCI bus, not MMIO
     // Call gpu::init which handles PCI enumeration
     crate::gpu::init(0); // mmio_base is ignored for PCI
-    
+
     // Check if GPU was successfully initialized
     crate::gpu::get_resolution().is_some()
 }
@@ -58,7 +58,8 @@ pub fn init() {
                     // GPU already initialized in Stage 3 via init_gpu()
                     virtio_drivers::transport::DeviceType::GPU => {}
                     virtio_drivers::transport::DeviceType::Input => {
-                        crate::input::init(transport);
+                        // TEAM_241: Pass MMIO slot index for IRQ computation
+                        crate::input::init(transport, i);
                     }
                     virtio_drivers::transport::DeviceType::Block => {
                         crate::block::init(transport);

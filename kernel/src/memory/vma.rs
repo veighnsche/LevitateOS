@@ -179,12 +179,84 @@ impl VmaList {
 
     /// Find all VMAs overlapping the given range.
     pub fn find_overlapping(&self, start: usize, end: usize) -> Vec<&Vma> {
-        self.vmas.iter().filter(|v| v.overlaps(start, end)).collect()
+        self.vmas
+            .iter()
+            .filter(|v| v.overlaps(start, end))
+            .collect()
     }
 
     /// Iterate over all VMAs.
     pub fn iter(&self) -> impl Iterator<Item = &Vma> {
         self.vmas.iter()
+    }
+
+    /// TEAM_239: Update protection flags for VMAs in the given range.
+    ///
+    /// Updates the flags of VMAs that overlap with [start, end).
+    /// If a VMA partially overlaps, it is split and only the overlapping
+    /// portion gets the new flags.
+    pub fn update_protection(&mut self, start: usize, end: usize, new_flags: VmaFlags) {
+        let mut i = 0;
+
+        while i < self.vmas.len() {
+            let vma = &self.vmas[i];
+
+            if !vma.overlaps(start, end) {
+                i += 1;
+                continue;
+            }
+
+            let old_flags = vma.flags;
+            let vma_start = vma.start;
+            let vma_end = vma.end;
+
+            // Remove the existing VMA - we'll re-insert modified version(s)
+            self.vmas.remove(i);
+
+            // Case 1: Range covers entire VMA
+            if start <= vma_start && end >= vma_end {
+                // Re-insert with new flags
+                self.vmas.insert(i, Vma::new(vma_start, vma_end, new_flags));
+                i += 1;
+                continue;
+            }
+
+            // Case 2: Range is inside VMA - split into three
+            if start > vma_start && end < vma_end {
+                // Left portion with old flags
+                self.vmas.insert(i, Vma::new(vma_start, start, old_flags));
+                i += 1;
+                // Middle portion with new flags
+                self.vmas.insert(i, Vma::new(start, end, new_flags));
+                i += 1;
+                // Right portion with old flags
+                self.vmas.insert(i, Vma::new(end, vma_end, old_flags));
+                i += 1;
+                continue;
+            }
+
+            // Case 3: Range overlaps left side
+            if start <= vma_start && end < vma_end {
+                // Left portion (overlapping) with new flags
+                self.vmas.insert(i, Vma::new(vma_start, end, new_flags));
+                i += 1;
+                // Right portion with old flags
+                self.vmas.insert(i, Vma::new(end, vma_end, old_flags));
+                i += 1;
+                continue;
+            }
+
+            // Case 4: Range overlaps right side
+            if start > vma_start && end >= vma_end {
+                // Left portion with old flags
+                self.vmas.insert(i, Vma::new(vma_start, start, old_flags));
+                i += 1;
+                // Right portion (overlapping) with new flags
+                self.vmas.insert(i, Vma::new(start, vma_end, new_flags));
+                i += 1;
+                continue;
+            }
+        }
     }
 }
 
@@ -225,23 +297,38 @@ mod tests {
     #[test]
     fn test_insert_non_overlapping() {
         let mut list = VmaList::new();
-        assert!(list.insert(Vma::new(0x1000, 0x2000, VmaFlags::READ)).is_ok());
-        assert!(list.insert(Vma::new(0x3000, 0x4000, VmaFlags::READ)).is_ok());
-        assert!(list.insert(Vma::new(0x2000, 0x3000, VmaFlags::READ)).is_ok());
+        assert!(
+            list.insert(Vma::new(0x1000, 0x2000, VmaFlags::READ))
+                .is_ok()
+        );
+        assert!(
+            list.insert(Vma::new(0x3000, 0x4000, VmaFlags::READ))
+                .is_ok()
+        );
+        assert!(
+            list.insert(Vma::new(0x2000, 0x3000, VmaFlags::READ))
+                .is_ok()
+        );
     }
 
     #[test]
     fn test_insert_overlapping_rejected() {
         let mut list = VmaList::new();
-        list.insert(Vma::new(0x2000, 0x4000, VmaFlags::READ)).unwrap();
-        assert!(list.insert(Vma::new(0x3000, 0x5000, VmaFlags::READ)).is_err());
+        list.insert(Vma::new(0x2000, 0x4000, VmaFlags::READ))
+            .unwrap();
+        assert!(
+            list.insert(Vma::new(0x3000, 0x5000, VmaFlags::READ))
+                .is_err()
+        );
     }
 
     #[test]
     fn test_find() {
         let mut list = VmaList::new();
-        list.insert(Vma::new(0x1000, 0x2000, VmaFlags::READ)).unwrap();
-        list.insert(Vma::new(0x3000, 0x4000, VmaFlags::WRITE)).unwrap();
+        list.insert(Vma::new(0x1000, 0x2000, VmaFlags::READ))
+            .unwrap();
+        list.insert(Vma::new(0x3000, 0x4000, VmaFlags::WRITE))
+            .unwrap();
 
         assert!(list.find(0x1500).is_some());
         assert!(list.find(0x2500).is_none());
@@ -251,7 +338,8 @@ mod tests {
     #[test]
     fn test_remove_exact() {
         let mut list = VmaList::new();
-        list.insert(Vma::new(0x1000, 0x2000, VmaFlags::READ)).unwrap();
+        list.insert(Vma::new(0x1000, 0x2000, VmaFlags::READ))
+            .unwrap();
         assert!(list.remove(0x1000, 0x2000).is_ok());
         assert!(list.find(0x1500).is_none());
     }
@@ -259,7 +347,8 @@ mod tests {
     #[test]
     fn test_remove_split() {
         let mut list = VmaList::new();
-        list.insert(Vma::new(0x1000, 0x4000, VmaFlags::READ)).unwrap();
+        list.insert(Vma::new(0x1000, 0x4000, VmaFlags::READ))
+            .unwrap();
 
         // Remove middle portion
         assert!(list.remove(0x2000, 0x3000).is_ok());
