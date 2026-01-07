@@ -38,7 +38,11 @@ pub fn active_interrupt_controller() -> &'static dyn InterruptController {
     {
         gic::active_api()
     }
-    #[cfg(not(target_arch = "aarch64"))]
+    #[cfg(target_arch = "x86_64")]
+    {
+        x86_64::apic::active_api()
+    }
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
     {
         unimplemented!("Interrupt controller not implemented for this architecture")
     }
@@ -46,6 +50,8 @@ pub fn active_interrupt_controller() -> &'static dyn InterruptController {
 
 pub mod fdt;
 pub mod gic;
+#[cfg(target_arch = "x86_64")]
+pub mod x86_64;
 pub mod interrupts;
 pub mod memory; // TEAM_051: Frame allocator
 pub mod mmu;

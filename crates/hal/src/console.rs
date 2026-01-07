@@ -8,40 +8,54 @@ use los_utils::RingBuffer;
 // TEAM_039: Re-export hex utilities from levitate-utils
 pub use los_utils::hex::{format_hex, nibble_to_hex};
 
-// TEAM_081: Secondary output callback for dual console (GPU terminal)
-// This is a function pointer that the kernel can register after GPU init
+// TEAM_259: Secondary output callback for dual console (GPU terminal or VGA)
+// This is a function pointer that the kernel can register after GPU/VGA init
 type SecondaryOutputFn = fn(&str);
 static SECONDARY_OUTPUT: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
 static SECONDARY_OUTPUT_ENABLED: AtomicBool = AtomicBool::new(false);
 
-// TEAM_078: Use high VA for UART (accessible via TTBR1 regardless of TTBR0 state)
+#[cfg(target_arch = "aarch64")]
 pub const UART0_BASE: usize = mmu::UART_VA;
 
+#[cfg(target_arch = "aarch64")]
 pub static WRITER: IrqSafeLock<Pl011Uart> = IrqSafeLock::new(Pl011Uart::new(UART0_BASE));
+
+#[cfg(target_arch = "x86_64")]
+pub static WRITER: &los_utils::Mutex<crate::x86_64::serial::SerialPort> = &crate::x86_64::serial::COM1_PORT;
+
 static RX_BUFFER: IrqSafeLock<RingBuffer<u8, 1024>> = IrqSafeLock::new(RingBuffer::new(0));
 
 /// TEAM_244: Flag set when Ctrl+C (0x03) is received via serial interrupt
 static CTRL_C_PENDING: AtomicBool = AtomicBool::new(false);
 
 pub fn init() {
-    let mut uart = WRITER.lock();
-    uart.init();
-    uart.enable_rx_interrupt();
-    // TEAM_139: Debug - verify UART RX interrupt is enabled in IMSC
-    // This should print the IMSC value with bit 4 (RXIM) set
+    #[cfg(target_arch = "aarch64")]
+    {
+        let mut uart = WRITER.lock();
+        uart.init();
+        uart.enable_rx_interrupt();
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        // x86_64 SerialPort::init is unsafe and handled in x86_64::init() for now
+        // but we ensure WRITER is accessible.
+    }
 }
 
 pub fn handle_interrupt() {
-    let mut uart = WRITER.lock();
-    while let Some(byte) = uart.read_byte() {
-        // TEAM_244: Detect Ctrl+C (0x03) in interrupt handler for immediate signaling
-        if byte == 0x03 {
-            CTRL_C_PENDING.store(true, Ordering::Release);
-            // Still buffer it so poll_input_devices can also see it
+    #[cfg(target_arch = "aarch64")]
+    {
+        let mut uart = WRITER.lock();
+        while let Some(byte) = uart.read_byte() {
+            // TEAM_244: Detect Ctrl+C (0x03) in interrupt handler for immediate signaling
+            if byte == 0x03 {
+                CTRL_C_PENDING.store(true, Ordering::Release);
+                // Still buffer it so poll_input_devices can also see it
+            }
+            RX_BUFFER.lock().push(byte);
         }
-        RX_BUFFER.lock().push(byte);
+        uart.clear_interrupts();
     }
-    uart.clear_interrupts();
 }
 
 /// TEAM_244: Check if Ctrl+C was received and clear the flag.
@@ -71,10 +85,17 @@ pub fn read_byte() -> Option<u8> {
         return Some(byte);
     }
 
-    // TEAM_139: Fallback to direct UART polling
-    // QEMU may not trigger RX interrupts when stdin is piped
-    // This directly checks the UART RX FIFO for data
-    WRITER.lock().read_byte()
+    #[cfg(target_arch = "aarch64")]
+    {
+        // TEAM_139: Fallback to direct UART polling
+        // QEMU may not trigger RX interrupts when stdin is piped
+        // This directly checks the UART RX FIFO for data
+        WRITER.lock().read_byte()
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        WRITER.lock().read_byte()
+    }
 }
 
 // TEAM_081: Register a secondary output function (e.g., GPU terminal)
@@ -153,8 +174,8 @@ pub fn print_hex(val: u64) {
 }
 
 /// [D3] Direct serial print macro (UART only).
-/// Safe for use in IRQ handlers and low-level drivers to avoid recursive deadlocks
-/// with the mirrored GPU terminal.
+/// Safe for use in IRQ handlers and low-level driver flushes as it can deadlock
+/// with the secondary output lock.
 /// TEAM_083: Added for boot stability and debug robustness.
 #[macro_export]
 macro_rules! serial_print {

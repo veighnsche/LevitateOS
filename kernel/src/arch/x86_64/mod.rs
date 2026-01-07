@@ -411,6 +411,9 @@ pub unsafe extern "C" fn exception_return() {
 // Called from boot.S after long mode transition
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(_multiboot_magic: usize, _multiboot_info: usize) -> ! {
+    // TEAM_259: Initialize x86_64 HAL (Serial, VGA, IDT, APIC, PIT)
+    los_hal::x86_64::init();
+
     // Write "OK" to VGA buffer at 0xB8000 to confirm boot
     unsafe {
         let vga_buffer = 0xB8000 as *mut u16;
