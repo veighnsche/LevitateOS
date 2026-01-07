@@ -113,11 +113,21 @@ fn main() -> Result<()> {
                 build::build_userspace(arch)?;
                 build::create_initramfs(arch)?;
             }
+            build::BuildCommands::Iso => build::build_iso(arch)?,
         },
         Commands::Run(cmd) => match cmd {
-            run::RunCommands::Default => {
-                build::build_all(arch)?;
-                run::run_qemu(run::QemuProfile::Default, false, arch)?;
+            run::RunCommands::Default { iso } => {
+                let profile = if arch == "x86_64" {
+                    run::QemuProfile::X86_64
+                } else {
+                    run::QemuProfile::Default
+                };
+                if iso {
+                    build::build_iso(arch)?;
+                } else {
+                    build::build_all(arch)?;
+                }
+                run::run_qemu(profile, false, iso, arch)?;
             }
             run::RunCommands::Pixel6 => {
                 if arch != "aarch64" {
@@ -125,13 +135,13 @@ fn main() -> Result<()> {
                 }
                 println!("🎯 Running with Pixel 6 profile (8GB RAM, 8 cores)");
                 build::build_all(arch)?;
-                run::run_qemu(run::QemuProfile::Pixel6, false, arch)?;
+                run::run_qemu(run::QemuProfile::Pixel6, false, false, arch)?;
             }
             run::RunCommands::Vnc => {
                 run::run_qemu_vnc(arch)?;
             }
-            run::RunCommands::Term => {
-                run::run_qemu_term(arch)?;
+            run::RunCommands::Term { iso } => {
+                run::run_qemu_term(arch, iso)?;
             }
             run::RunCommands::Test => {
                 run::run_qemu_test(arch)?;

@@ -16,6 +16,8 @@ pub enum BuildCommands {
         #[arg(long)]
         package: Option<String>,
     },
+    /// Build bootable Limine ISO
+    Iso,
 }
 
 pub fn build_all(arch: &str) -> Result<()> {
@@ -246,6 +248,99 @@ fn build_kernel_with_features(features: &[&str], arch: &str) -> Result<()> {
     } else {
         // x86_64 uses multiboot2 (ELF) directly or needs different conversion
         println!("x86_64 kernel build complete (ELF format for multiboot2)");
+    }
+
+    Ok(())
+}
+
+/// TEAM_283: Build a bootable Limine ISO
+pub fn build_iso(arch: &str) -> Result<()> {
+    if arch != "x86_64" {
+        bail!("ISO build currently only supported for x86_64");
+    }
+
+    println!("💿 Building Limine ISO for {}...", arch);
+
+    // 1. Ensure all components are built
+    build_all(arch)?;
+
+    let iso_root = PathBuf::from("iso_root");
+    let boot_dir = iso_root.join("boot");
+    
+    // Clean and create staging directory
+    if iso_root.exists() {
+        std::fs::remove_dir_all(&iso_root)?;
+    }
+    std::fs::create_dir_all(&boot_dir)?;
+
+    // 2. Copy components to ISO root
+    std::fs::copy("target/x86_64-unknown-none/release/levitate-kernel", boot_dir.join("levitate-kernel"))?;
+    if std::path::Path::new("initramfs.cpio").exists() {
+        std::fs::copy("initramfs.cpio", boot_dir.join("initramfs.cpio"))?;
+    }
+    std::fs::copy("limine.cfg", iso_root.join("limine.cfg"))?;
+
+    // 3. Download/Prepare Limine binaries if needed
+    prepare_limine_binaries(&iso_root)?;
+
+    // 4. Create ISO using xorriso
+    let iso_file = "levitate.iso";
+    let status = Command::new("xorriso")
+        .args([
+            "-as", "mkisofs",
+            "-b", "limine-bios-cd.bin",
+            "-no-emul-boot", "-boot-load-size", "4", "-boot-info-table",
+            "--efi-boot", "limine-uefi-cd.bin",
+            "-efi-boot-part", "--efi-boot-image", "--protective-msdos-label",
+            &iso_root.to_string_lossy(),
+            "-o", iso_file,
+        ])
+        .status()
+        .context("Failed to run xorriso")?;
+
+    if !status.success() {
+        bail!("xorriso failed to create ISO");
+    }
+
+    println!("✅ ISO created: {}", iso_file);
+    Ok(())
+}
+
+fn prepare_limine_binaries(iso_root: &PathBuf) -> Result<()> {
+    // Check if we have pre-built limine binaries in the project
+    let limine_dir = PathBuf::from("limine-bin");
+    
+    // If not present, try to download them (pinning to a reliable version)
+    if !limine_dir.exists() {
+        println!("📥 Downloading Limine binaries (v7.x)...");
+        std::fs::create_dir_all(&limine_dir)?;
+        
+        let base_url = "https://github.com/limine-bootloader/limine/raw/v7.x-binary/";
+        let files = [
+            "limine-bios-cd.bin",
+            "limine-uefi-cd.bin",
+            "limine-bios.sys",
+        ];
+
+        for file in files {
+            let url = format!("{}{}", base_url, file);
+            let output = limine_dir.join(file);
+            println!("  Fetching {}...", file);
+            
+            let status = Command::new("curl")
+                .args(["-L", "-o", output.to_str().unwrap(), &url])
+                .status()
+                .context(format!("Failed to download {}", file))?;
+            
+            if !status.success() {
+                bail!("Failed to download {} from {}", file, url);
+            }
+        }
+    }
+
+    // Copy to ISO root for xorriso
+    for file in ["limine-bios-cd.bin", "limine-uefi-cd.bin", "limine-bios.sys"] {
+        std::fs::copy(limine_dir.join(file), iso_root.join(file))?;
     }
 
     Ok(())

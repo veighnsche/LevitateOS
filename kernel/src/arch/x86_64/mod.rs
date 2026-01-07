@@ -430,91 +430,63 @@ pub unsafe extern "C" fn exception_return() {
     unimplemented!("x86_64 exception_return");
 }
 
-// TEAM_258: x86_64 kernel entry point (UoW 2.7)
-// TEAM_267: Enhanced with multiboot2 parsing and full MMU initialization
-// TEAM_269: Fixed initialization order - heap must be initialized before println!
-// TEAM_282: Updated to use BootInfo abstraction
-// Called from boot.S after long mode transition
+/// TEAM_282: x86_64 kernel entry point
+/// Called from boot.S after long mode transition
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> ! {
-    // 1. Write "OK" to VGA buffer first (no heap needed, proves we're running)
-    unsafe {
-        let vga_buffer = 0xB8000 as *mut u16;
-        *vga_buffer = 0x0F4F; // 'O'
-        *vga_buffer.add(1) = 0x0F4B; // 'K'
-    }
-
-    // 2. TEAM_269: Initialize heap BEFORE anything that allocates (println!, etc.)
-    crate::arch::init_heap();
-
-    // 3. Initialize x86_64 HAL (Serial, VGA, IDT, APIC, PIT)
+    // 1. Basic hardware initialization (Serial, VGA, IDT, APIC, PIT)
     los_hal::x86_64::init();
 
-    // 4. Now safe to use println!
-    los_hal::println!("[BOOT] x86_64 kernel starting...");
+    // 2. Initialize heap (required for alloc)
+    crate::arch::init_heap();
 
-    // 5. TEAM_282: Parse boot info into unified BootInfo structure
-    let boot_info = unsafe {
-        crate::boot::multiboot::parse(multiboot_magic as u32, multiboot_info)
+    // 3. Detect and parse boot information
+    let boot_info = if crate::boot::limine::is_limine_boot() {
+        crate::boot::limine::parse()
+    } else {
+        unsafe { crate::boot::multiboot::parse(multiboot_magic as u32, multiboot_info) }
     };
-    
+
     // Store boot info globally
     unsafe {
         crate::boot::set_boot_info(boot_info);
     }
 
-    // Log boot protocol
-    if let Some(info) = crate::boot::boot_info() {
-        los_hal::println!("[BOOT] Protocol: {:?}", info.protocol);
-        if info.memory_map.len() > 0 {
-            los_hal::println!(
-                "[BOOT] Memory: {} regions, {} MB usable",
-                info.memory_map.len(),
-                info.memory_map.total_usable() / (1024 * 1024)
-            );
-        }
-    }
+    let boot_info_ref = crate::boot::boot_info().expect("Boot info must be set");
 
-    // 5b. Also initialize the legacy HAL multiboot2 parser for backward compatibility
-    // TODO(TEAM_282): Remove this once all callers migrate to BootInfo
-    const MULTIBOOT1_MAGIC: usize = 0x2BADB002;
-    if multiboot_magic == los_hal::x86_64::multiboot2::MULTIBOOT2_BOOTLOADER_MAGIC as usize {
-        unsafe {
-            los_hal::x86_64::multiboot2::init(multiboot_info);
-        }
-    } else if multiboot_magic == MULTIBOOT1_MAGIC {
-        los_hal::println!("[BOOT] Booted via Multiboot1 (QEMU)");
-    }
-
-    // 6. Expand PMO mapping to cover all RAM
+    // 4. Expand PMO mapping to cover all RAM
+    // Limine already sets up a higher-half direct map (HHDM),
+    // but we can still expand internal mappings for consistency.
     unsafe extern "C" {
         static mut early_pml4: los_hal::x86_64::paging::PageTable;
     }
 
-    if let Some(hal_boot_info) = los_hal::x86_64::multiboot2::boot_info() {
-        unsafe {
-            los_hal::x86_64::mmu::expand_pmo(
-                &mut *core::ptr::addr_of_mut!(early_pml4),
-                &hal_boot_info.ram_regions,
-            );
+    // Convert BootInfo regions to HAL format for expand_pmo
+    let mut ram_regions: [Option<los_hal::x86_64::multiboot2::MemoryRegion>; 16] = [None; 16];
+    let mut count = 0;
+    for region in boot_info_ref.memory_map.iter() {
+        if region.kind == crate::boot::MemoryKind::Usable && count < 16 {
+            ram_regions[count] = Some(los_hal::x86_64::multiboot2::MemoryRegion {
+                start: region.start,
+                end: region.start + region.size,
+                kind: los_hal::x86_64::multiboot2::MemoryKind::Usable,
+            });
+            count += 1;
         }
-        los_hal::println!("[BOOT] PMO mapping expanded to cover all RAM");
     }
 
-    // 7. Initialize physical memory management (buddy allocator)
-    crate::memory::init_x86_64();
+    unsafe {
+        los_hal::x86_64::mmu::expand_pmo(&mut *core::ptr::addr_of_mut!(early_pml4), &ram_regions);
+    }
 
-    // 8. TEAM_277: Initialize syscall infrastructure
+    // 5. Initialize physical memory management (buddy allocator)
+    crate::memory::init(boot_info_ref);
+
+    // 6. Initialize syscall infrastructure
     unsafe {
         syscall::init();
     }
 
-    los_hal::println!("[BOOT] x86_64 kernel initialized");
-
-    // Halt loop (TODO: transition to scheduler)
-    loop {
-        unsafe {
-            core::arch::asm!("hlt");
-        }
-    }
+    // 7. Transition to unified main
+    crate::kernel_main_unified(boot_info_ref)
 }

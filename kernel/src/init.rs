@@ -14,10 +14,10 @@ use alloc::sync::Arc;
 
 #[cfg(target_arch = "aarch64")]
 use los_hal::aarch64::fdt::{self, Fdt};
-use los_hal::mmu;
 #[cfg(target_arch = "aarch64")]
 use los_hal::aarch64::timer::{self, Timer};
-use los_hal::{print, println, InterruptHandler, IrqId};
+use los_hal::mmu;
+use los_hal::{InterruptHandler, IrqId, print, println};
 
 use crate::arch;
 use crate::fs::vfs::superblock::Superblock;
@@ -263,11 +263,6 @@ pub fn run() -> ! {
         let ic = los_hal::active_interrupt_controller();
         ic.init();
 
-        // TEAM_047: Initialize physical memory management (Buddy Allocator)
-        if let Some(slice) = dtb_slice {
-            crate::memory::init(slice);
-        }
-
         // TEAM_255: Register IRQ handlers using generic HAL traits
         ic.register_handler(IrqId::VirtualTimer, &TIMER_HANDLER);
         ic.register_handler(IrqId::Uart, &UART_HANDLER);
@@ -293,7 +288,7 @@ pub fn run() -> ! {
     let (_dtb_slice, initrd_found) = {
         // x86_64 HAL init is called in kmain
         // TODO: Move shared init logic here
-        
+
         // --- Stage 4: Discovery (VirtIO, Filesystem, Init) ---
         transition_to(BootStage::Discovery);
         init_devices();

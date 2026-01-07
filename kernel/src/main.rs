@@ -29,7 +29,7 @@ macro_rules! verbose {
 
 pub mod arch;
 pub mod block;
-pub mod boot;  // TEAM_282: Boot abstraction layer
+pub mod boot; // TEAM_282: Boot abstraction layer
 pub mod fs;
 pub mod gpu;
 pub mod init;
@@ -76,7 +76,11 @@ pub fn kernel_main_unified(boot_info: &boot::BootInfo) -> ! {
         );
     }
 
-    // TEAM_262: Initialize bootstrap task immediately after heap
+    // Stage 2: Physical Memory Management
+    crate::init::transition_to(crate::init::BootStage::MemoryMMU);
+    crate::memory::init(boot_info);
+
+    // TEAM_262: Initialize bootstrap task immediately after heap/memory
     let bootstrap = alloc::sync::Arc::new(crate::task::TaskControlBlock::new_bootstrap());
     unsafe {
         crate::task::set_current_task(bootstrap);
@@ -87,43 +91,18 @@ pub fn kernel_main_unified(boot_info: &boot::BootInfo) -> ! {
 }
 
 /// TEAM_282: Legacy AArch64 entry point (wrapper).
-/// 
-/// This maintains backward compatibility with the current AArch64 boot path.
-/// Will be removed once Limine is fully integrated.
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
-    // Stage 1: Early HAL - Console must be first for debug output
-    los_hal::console::init();
-
-    // TEAM_221: Initialize logger (Info level silences Debug/Trace)
-    // TEAM_272: Enable Trace level in verbose builds to satisfy behavior tests
-    #[cfg(feature = "verbose")]
-    logger::init(log::LevelFilter::Trace);
-    #[cfg(not(feature = "verbose"))]
-    logger::init(log::LevelFilter::Info);
-
-    crate::init::transition_to(crate::init::BootStage::EarlyHAL);
-
-    // Initialize heap (required for alloc)
+    // AArch64 requires DTB parsing to get BootInfo if not using Limine
+    // For now, AArch64 still uses DTB
     crate::arch::init_heap();
-
-    // TEAM_282: Initialize BootInfo from DTB (AArch64)
-    #[cfg(target_arch = "aarch64")]
     crate::arch::init_boot_info();
 
-    // --- Stage 1: CPU & Basic Initialization ---
-    // TEAM_272: Removed duplicate print_boot_regs() to match golden boot logs.
-    // It is printed again in init::run() Stage 4.
+    let boot_info =
+        crate::boot::boot_info().expect("AArch64 must have BootInfo initialized from DTB");
 
-    // TEAM_262: Initialize bootstrap task immediately after heap
-    // This satisfies current_task() calls (e.g. from early IRQs)
-    let bootstrap = alloc::sync::Arc::new(crate::task::TaskControlBlock::new_bootstrap());
-    unsafe {
-        crate::task::set_current_task(bootstrap);
-    }
-
-    // Hand off to init sequence (never returns)
-    crate::init::run()
+    // Transition to unified main
+    kernel_main_unified(boot_info)
 }
 
 #[panic_handler]

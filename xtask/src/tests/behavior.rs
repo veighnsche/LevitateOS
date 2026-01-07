@@ -18,7 +18,12 @@ const ACTUAL_FILE: &str = "tests/actual_boot.txt";
 const TIMEOUT_SECS: u64 = 15;
 
 pub fn run(arch: &str) -> Result<()> {
-    run_with_profile(QemuProfile::Default, arch)
+    let profile = if arch == "x86_64" {
+        QemuProfile::X86_64
+    } else {
+        QemuProfile::Default
+    };
+    run_with_profile(profile, arch)
 }
 
 /// Run behavior test with Pixel 6 profile (8GB, 8 cores)
@@ -80,12 +85,12 @@ fn run_with_profile(profile: QemuProfile, arch: &str) -> Result<()> {
         "-display".to_string(), "none".to_string(),
         "-serial".to_string(), format!("file:{}", ACTUAL_FILE),
         "-device".to_string(), "virtio-gpu-pci".to_string(), // TEAM_114: PCI transport
-        "-device".to_string(), "virtio-keyboard-device".to_string(),
-        "-device".to_string(), "virtio-tablet-device".to_string(),
-        "-device".to_string(), "virtio-net-device,netdev=net0".to_string(),
+        "-device".to_string(), format!("virtio-keyboard-{}", if arch == "x86_64" { "pci" } else { "device" }),
+        "-device".to_string(), format!("virtio-tablet-{}", if arch == "x86_64" { "pci" } else { "device" }),
+        "-device".to_string(), format!("virtio-net-{},netdev=net0", if arch == "x86_64" { "pci" } else { "device" }),
         "-netdev".to_string(), "user,id=net0".to_string(),
         "-drive".to_string(), "file=tinyos_disk.img,format=raw,if=none,id=hd0".to_string(),
-        "-device".to_string(), "virtio-blk-device,drive=hd0".to_string(),
+        "-device".to_string(), format!("virtio-blk-{},drive=hd0", if arch == "x86_64" { "pci" } else { "device" }),
         "-initrd".to_string(), "initramfs.cpio".to_string(),
         "-no-reboot".to_string(),
     ];

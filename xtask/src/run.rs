@@ -7,13 +7,21 @@ use crate::{build, image};
 #[derive(Subcommand)]
 pub enum RunCommands {
     /// Run with GUI window (keyboard goes to QEMU window)
-    Default,
+    Default {
+        /// Boot from Limine ISO instead of -kernel
+        #[arg(long)]
+        iso: bool,
+    },
     /// Run Pixel 6 Profile
     Pixel6,
     /// Run with VNC for browser verification
     Vnc,
     /// Run in terminal-only mode (WSL-like, keyboard in terminal)
-    Term,
+    Term {
+        /// Boot from Limine ISO instead of -kernel
+        #[arg(long)]
+        iso: bool,
+    },
     /// TEAM_243: Run internal OS tests (for AI agent verification)
     Test,
 }
@@ -71,7 +79,7 @@ impl QemuProfile {
     }
 }
 
-pub fn run_qemu(profile: QemuProfile, headless: bool, arch: &str) -> Result<()> {
+pub fn run_qemu(profile: QemuProfile, headless: bool, iso: bool, arch: &str) -> Result<()> {
     image::create_disk_image_if_missing()?;
     // Userspace must be installed by build_all before this is called
 
@@ -95,15 +103,22 @@ pub fn run_qemu(profile: QemuProfile, headless: bool, arch: &str) -> Result<()> 
         "-m", profile.memory(),
         "-kernel", kernel_bin,
         "-device", "virtio-gpu-pci,xres=1920,yres=1080", // TEAM_115: Larger resolution
-        "-device", "virtio-keyboard-device",
-        "-device", "virtio-tablet-device",
-        "-device", "virtio-net-device,netdev=net0",
+        "-device", if arch == "x86_64" { "virtio-keyboard-pci" } else { "virtio-keyboard-device" },
+        "-device", if arch == "x86_64" { "virtio-tablet-pci" } else { "virtio-tablet-device" },
+        "-device", if arch == "x86_64" { "virtio-net-pci,netdev=net0" } else { "virtio-net-device,netdev=net0" },
         "-netdev", "user,id=net0",
         "-drive", "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device", "virtio-blk-device,drive=hd0",
+        "-device", if arch == "x86_64" { "virtio-blk-pci,drive=hd0" } else { "virtio-blk-device,drive=hd0" },
         "-initrd", "initramfs.cpio",
         "-no-reboot",
     ];
+
+    if iso {
+        // If ISO boot, we use -cdrom instead of -kernel/-initrd
+        // Note: Limine protocol works via -kernel too, but ISO is more "hardware-like"
+        args.retain(|&arg| arg != "-kernel" && arg != "-initrd" && arg != kernel_bin && arg != "initramfs.cpio");
+        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
+    }
 
     if let Some(smp) = profile.smp() {
         args.extend(["-smp", smp]);
@@ -380,7 +395,7 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
 /// TEAM_139: Run QEMU in terminal-only mode (WSL-like).
 /// No graphical window - keyboard input goes to terminal stdin.
 /// Ctrl+A X to exit, Ctrl+A C to switch to QEMU monitor.
-pub fn run_qemu_term(arch: &str) -> Result<()> {
+pub fn run_qemu_term(arch: &str, iso: bool) -> Result<()> {
     println!("╔════════════════════════════════════════════════════════════╗");
     println!("║  LevitateOS Terminal Mode (WSL-like) - {}               ║", arch);
     println!("║                                                            ║");
@@ -389,8 +404,12 @@ pub fn run_qemu_term(arch: &str) -> Result<()> {
     println!("║  Ctrl+A C to switch to QEMU monitor                        ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
-    image::create_disk_image_if_missing()?;
-    build::build_all(arch)?;
+    if iso {
+        build::build_iso(arch)?;
+    } else {
+        image::create_disk_image_if_missing()?;
+        build::build_all(arch)?;
+    }
 
     let kernel_bin = if arch == "aarch64" {
         "kernel64_rust.bin"
@@ -418,17 +437,23 @@ pub fn run_qemu_term(arch: &str) -> Result<()> {
         "-kernel", kernel_bin,
         "-nographic",  // No display, stdin goes to serial
         "-device", "virtio-gpu-pci,xres=1280,yres=800",
-        "-device", "virtio-keyboard-device",
-        "-device", "virtio-tablet-device",
-        "-device", "virtio-net-device,netdev=net0",
+        "-device", if arch == "x86_64" { "virtio-keyboard-pci" } else { "virtio-keyboard-device" },
+        "-device", if arch == "x86_64" { "virtio-tablet-pci" } else { "virtio-tablet-device" },
+        "-device", if arch == "x86_64" { "virtio-net-pci,netdev=net0" } else { "virtio-net-device,netdev=net0" },
         "-netdev", "user,id=net0",
         "-drive", "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device", "virtio-blk-device,drive=hd0",
+        "-device", if arch == "x86_64" { "virtio-blk-pci,drive=hd0" } else { "virtio-blk-device,drive=hd0" },
         "-initrd", "initramfs.cpio",
         "-serial", "mon:stdio",
         "-qmp", "unix:./qmp.sock,server,nowait",
         "-no-reboot",
     ];
+
+    let mut args = args;
+    if iso {
+        args.retain(|&arg| arg != "-kernel" && arg != "-initrd" && arg != kernel_bin && arg != "initramfs.cpio");
+        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
+    }
 
     // Clean QMP socket
     let _ = std::fs::remove_file("./qmp.sock");
@@ -442,4 +467,25 @@ pub fn run_qemu_term(arch: &str) -> Result<()> {
         .context("Failed to run QEMU")?;
 
     Ok(())
+}
+
+/// TEAM_283: Find a binary in PATH or common locations
+pub fn find_binary(name: &str) -> Result<String> {
+    if let Ok(output) = Command::new("which").arg(name).output() {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Ok(path);
+            }
+        }
+    }
+    
+    // Check common local bins
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+    let local_bin = format!("{}/.local/bin/{}", home, name);
+    if std::path::Path::new(&local_bin).exists() {
+        return Ok(local_bin);
+    }
+
+    bail!("Binary '{}' not found in PATH or ~/.local/bin", name)
 }
