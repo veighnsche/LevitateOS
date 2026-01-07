@@ -29,6 +29,7 @@ macro_rules! verbose {
 
 pub mod arch;
 pub mod block;
+pub mod boot;  // TEAM_282: Boot abstraction layer
 pub mod fs;
 pub mod gpu;
 pub mod init;
@@ -42,6 +43,53 @@ pub mod task;
 pub mod terminal;
 pub mod virtio;
 
+/// TEAM_282: Unified kernel entry point accepting BootInfo.
+///
+/// This is the target signature for all boot paths. Currently called by
+/// the legacy entry points after they parse boot info.
+///
+/// Note: The caller must call `boot::set_boot_info()` before calling this
+/// to make boot info available globally.
+pub fn kernel_main_unified(boot_info: &boot::BootInfo) -> ! {
+    // Stage 1: Early HAL - Console must be first for debug output
+    los_hal::console::init();
+
+    // TEAM_221: Initialize logger (Info level silences Debug/Trace)
+    // TEAM_272: Enable Trace level in verbose builds to satisfy behavior tests
+    #[cfg(feature = "verbose")]
+    logger::init(log::LevelFilter::Trace);
+    #[cfg(not(feature = "verbose"))]
+    logger::init(log::LevelFilter::Info);
+
+    crate::init::transition_to(crate::init::BootStage::EarlyHAL);
+
+    // Initialize heap (required for alloc)
+    crate::arch::init_heap();
+
+    // Log boot protocol
+    println!("[BOOT] Protocol: {:?}", boot_info.protocol);
+    if boot_info.memory_map.len() > 0 {
+        println!(
+            "[BOOT] Memory: {} regions, {} MB usable",
+            boot_info.memory_map.len(),
+            boot_info.memory_map.total_usable() / (1024 * 1024)
+        );
+    }
+
+    // TEAM_262: Initialize bootstrap task immediately after heap
+    let bootstrap = alloc::sync::Arc::new(crate::task::TaskControlBlock::new_bootstrap());
+    unsafe {
+        crate::task::set_current_task(bootstrap);
+    }
+
+    // Hand off to init sequence (never returns)
+    crate::init::run()
+}
+
+/// TEAM_282: Legacy AArch64 entry point (wrapper).
+/// 
+/// This maintains backward compatibility with the current AArch64 boot path.
+/// Will be removed once Limine is fully integrated.
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
     // Stage 1: Early HAL - Console must be first for debug output
@@ -58,6 +106,10 @@ pub extern "C" fn kmain() -> ! {
 
     // Initialize heap (required for alloc)
     crate::arch::init_heap();
+
+    // TEAM_282: Initialize BootInfo from DTB (AArch64)
+    #[cfg(target_arch = "aarch64")]
+    crate::arch::init_boot_info();
 
     // --- Stage 1: CPU & Basic Initialization ---
     // TEAM_272: Removed duplicate print_boot_regs() to match golden boot logs.

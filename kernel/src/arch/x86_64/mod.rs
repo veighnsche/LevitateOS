@@ -433,6 +433,7 @@ pub unsafe extern "C" fn exception_return() {
 // TEAM_258: x86_64 kernel entry point (UoW 2.7)
 // TEAM_267: Enhanced with multiboot2 parsing and full MMU initialization
 // TEAM_269: Fixed initialization order - heap must be initialized before println!
+// TEAM_282: Updated to use BootInfo abstraction
 // Called from boot.S after long mode transition
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> ! {
@@ -452,31 +453,37 @@ pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> 
     // 4. Now safe to use println!
     los_hal::println!("[BOOT] x86_64 kernel starting...");
 
-    // 5. Validate multiboot magic and parse boot info
+    // 5. TEAM_282: Parse boot info into unified BootInfo structure
+    let boot_info = unsafe {
+        crate::boot::multiboot::parse(multiboot_magic as u32, multiboot_info)
+    };
+    
+    // Store boot info globally
+    unsafe {
+        crate::boot::set_boot_info(boot_info);
+    }
+
+    // Log boot protocol
+    if let Some(info) = crate::boot::boot_info() {
+        los_hal::println!("[BOOT] Protocol: {:?}", info.protocol);
+        if info.memory_map.len() > 0 {
+            los_hal::println!(
+                "[BOOT] Memory: {} regions, {} MB usable",
+                info.memory_map.len(),
+                info.memory_map.total_usable() / (1024 * 1024)
+            );
+        }
+    }
+
+    // 5b. Also initialize the legacy HAL multiboot2 parser for backward compatibility
+    // TODO(TEAM_282): Remove this once all callers migrate to BootInfo
     const MULTIBOOT1_MAGIC: usize = 0x2BADB002;
     if multiboot_magic == los_hal::x86_64::multiboot2::MULTIBOOT2_BOOTLOADER_MAGIC as usize {
         unsafe {
             los_hal::x86_64::multiboot2::init(multiboot_info);
         }
-        los_hal::println!("[BOOT] Multiboot2 info parsed successfully");
-
-        // Report memory info
-        let total_ram = los_hal::x86_64::multiboot2::total_ram();
-        let phys_max = los_hal::x86_64::multiboot2::phys_max();
-        los_hal::println!(
-            "[BOOT] Total RAM: {} MB, Max PA: 0x{:x}",
-            total_ram / (1024 * 1024),
-            phys_max
-        );
     } else if multiboot_magic == MULTIBOOT1_MAGIC {
-        // TEAM_277: Multiboot1 boot (from QEMU -kernel)
         los_hal::println!("[BOOT] Booted via Multiboot1 (QEMU)");
-        // TODO: Parse multiboot1 info structure for memory map
-    } else {
-        los_hal::println!(
-            "[BOOT] WARNING: Unknown boot magic: 0x{:x}",
-            multiboot_magic
-        );
     }
 
     // 6. Expand PMO mapping to cover all RAM
@@ -484,11 +491,11 @@ pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> 
         static mut early_pml4: los_hal::x86_64::paging::PageTable;
     }
 
-    if let Some(boot_info) = los_hal::x86_64::multiboot2::boot_info() {
+    if let Some(hal_boot_info) = los_hal::x86_64::multiboot2::boot_info() {
         unsafe {
             los_hal::x86_64::mmu::expand_pmo(
                 &mut *core::ptr::addr_of_mut!(early_pml4),
-                &boot_info.ram_regions,
+                &hal_boot_info.ram_regions,
             );
         }
         los_hal::println!("[BOOT] PMO mapping expanded to cover all RAM");

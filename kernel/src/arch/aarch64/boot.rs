@@ -137,6 +137,33 @@ pub fn get_dtb_phys() -> Option<usize> {
     None
 }
 
+/// TEAM_282: Initialize BootInfo from DTB.
+///
+/// Parses the Device Tree Blob and stores the unified BootInfo globally.
+/// This should be called early in the boot process after heap is available.
+pub fn init_boot_info() {
+    if let Some(dtb_phys) = get_dtb_phys() {
+        let boot_info = unsafe { crate::boot::dtb::parse(dtb_phys) };
+        
+        // Store boot info globally
+        unsafe {
+            crate::boot::set_boot_info(boot_info);
+        }
+        
+        // Log boot info
+        if let Some(info) = crate::boot::boot_info() {
+            crate::verbose!("[BOOT] Protocol: {:?}", info.protocol);
+            if info.memory_map.len() > 0 {
+                crate::verbose!(
+                    "[BOOT] Memory: {} regions, {} MB usable",
+                    info.memory_map.len(),
+                    info.memory_map.total_usable() / (1024 * 1024)
+                );
+            }
+        }
+    }
+}
+
 pub fn print_boot_regs() {
     unsafe {
         crate::println!(

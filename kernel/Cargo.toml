@@ -25,6 +25,8 @@ linked_list_allocator = "0.10.5"
 virtio-drivers.workspace = true
 embedded-graphics.workspace = true
 log = "0.4"
+# TEAM_282: Limine boot protocol support (primary boot method)
+limine = "0.5"
 embedded-sdmmc = { version = "0.9", default-features = false }
 ext4-view = { version = "0.9", default-features = false }
 bitflags.workspace = true
