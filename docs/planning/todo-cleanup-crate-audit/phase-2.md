@@ -2,7 +2,7 @@
 
 **Feature:** Address all known TODOs and audit for missing crates  
 **Team:** TEAM_235  
-**Status:** DRAFT - AWAITING ANSWERS
+**Status:** COMPLETE - DECISIONS RESOLVED
 
 ---
 
@@ -154,68 +154,67 @@ Simple but wastes memory for sparse mappings.
 
 ---
 
-## 4. Open Questions (REQUIRES USER INPUT)
+## 4. Design Decisions (Resolved per kernel-development.md Rules)
 
 ### Q1: VMA Tracking Complexity
-**Question:** For munmap support, which VMA tracking approach should we use?
-- **A)** Simple Vec<Vma> - O(n) operations, simple implementation
-- **B)** Interval tree - O(log n) operations, complex implementation
-- **C)** Defer munmap support entirely (keep stub)
+**Decision: A) Simple Vec<Vma>**
 
-**Recommendation:** Option A for MVP, can upgrade later.
+*Justification (Rule 20 - Simplicity):*
+> "Implementation simplicity is the highest priority. Favor clear Rust code over complex 'perfect' solutions."
+> "If handling a rare edge case requires doubling complexity, return an Err and let higher layers handle it."
+
+Simple Vec is adequate for MVP. O(n) is acceptable for typical process VMA counts (<100).
 
 ---
 
-### Q2: ELF Parser Replacement
-**Question:** Should we replace the hand-rolled ELF parser?
-- **A)** Keep custom - it works, is simple, and focused
-- **B)** Replace with `xmas-elf` - more features, maintained
-- **C)** Replace with `goblin` - full-featured but larger
+### Q2: ELF Parser Replacement  
+**Decision: A) Keep custom**
 
-**Recommendation:** Option A (keep custom) unless we need more ELF features.
+*Justification (Rule 1 - Modularity + Rule 20 - Simplicity):*
+> "A kernel module must handle exactly one hardware interface or subsystem task."
+> "Simple code is easier to audit, port, and merge."
+
+Our parser is ~500 lines, focused, well-tested. Adding a crate adds dependency for no gain.
 
 ---
 
 ### Q3: Entropy Source for AT_RANDOM
-**Question:** What entropy source should we use for AT_RANDOM?
-- **A)** CPU cycle counter (simple, available, moderate entropy)
-- **B)** VirtIO-RNG driver (proper entropy, requires new driver)
-- **C)** Timer jitter (simple, low quality)
-- **D)** Keep current stub (security risk for programs needing randomness)
+**Decision: A) CPU cycle counter**
 
-**Recommendation:** Option A for MVP, upgrade to B later.
+*Justification (Rule 20 - Simplicity + Rule 5 - Safety):*
+> "Implementation simplicity is the highest priority."
+
+CPU cycle counter provides moderate entropy with zero complexity. VirtIO-RNG can be added later when proper entropy is critical.
 
 ---
 
 ### Q4: Intrusive List Migration Priority
-**Question:** Should we migrate the buddy allocator's intrusive list to `intrusive-collections`?
-- **A)** Yes, now - cleaner, already a dependency
-- **B)** No - current implementation works, don't touch working allocator
-- **C)** Later - add to backlog
+**Decision: B) Don't touch working allocator**
 
-**Recommendation:** Option B - the allocator is critical and well-tested.
+*Justification (Rule 17 - Resilience + Rule 14 - Fail Fast):*
+> "Design subsystems to be restartable and capable of recovering from transient failures."
+
+The buddy allocator is critical infrastructure. It works and is well-tested. Migration risk > benefit.
 
 ---
 
 ### Q5: Permission Checking Scope
-**Question:** For filesystem permission checking, what scope?
-- **A)** Basic mode bits only (rwx checks)
-- **B)** Full POSIX (uid/gid/mode + sticky bit)
-- **C)** Linux-style (POSIX + capabilities)
-- **D)** Defer - keep stub
+**Decision: A) Basic mode bits only**
 
-**Recommendation:** Option A for MVP.
+*Justification (Rule 8 - Least Privilege + Rule 20 - Simplicity):*
+> "Subsystems must operate with the minimum necessary permissions."
+
+Basic rwx checks provide security foundation. Full POSIX/capabilities can be added incrementally.
 
 ---
 
-### Q6: TODO Prioritization
-**Question:** Should we implement ALL TODOs or prioritize?
-- **A)** Implement all (comprehensive but large scope)
-- **B)** HIGH priority only (memory safety issues)
-- **C)** HIGH + MEDIUM (functional completeness)
-- **D)** Create tracking issues and implement incrementally
+### Q6: TODO Prioritization  
+**Decision: D) Incremental - HIGH priority now**
 
-**Recommendation:** Option D - create issues, implement HIGH priority now.
+*Justification (Rule 14 - Fail Fast + Rule 20 - Simplicity):*
+> "When you must fail, fail noisily and as soon as possible."
+
+Fix memory leaks (HIGH) immediately. Track others as issues. Don't over-scope.
 
 ---
 
@@ -256,14 +255,21 @@ Once questions are answered:
 
 ---
 
-## 7. Awaiting User Input
+## 7. Ready for Implementation
 
-**Please answer questions Q1-Q6 above to proceed with Phase 3 planning.**
+**All decisions resolved per kernel-development.md rules.**
 
-Key decisions needed:
-1. VMA complexity level
-2. ELF parser decision
-3. Entropy source
-4. Intrusive list migration
-5. Permission checking scope
-6. TODO prioritization strategy
+### Summary of Decisions
+| Question | Decision | Rule Justification |
+|----------|----------|--------------------|
+| Q1 VMA | Simple Vec | Rule 20 (Simplicity) |
+| Q2 ELF | Keep custom | Rule 1, 20 (Modularity, Simplicity) |
+| Q3 Entropy | CPU cycles | Rule 20 (Simplicity) |
+| Q4 Intrusive List | Don't migrate | Rule 14, 17 (Resilience) |
+| Q5 Permissions | Basic mode bits | Rule 8, 20 (Security, Simplicity) |
+| Q6 Priority | HIGH only now | Rule 14, 20 (Fail Fast, Simplicity) |
+
+### Next Steps
+1. Proceed to Phase 3 (Implementation)
+2. Focus on HIGH priority memory TODOs only
+3. Track MEDIUM/LOW as issues for future work
