@@ -3,5 +3,12 @@ rustflags = [
     "-C", "link-arg=-Tlinker.ld",
 ]
 
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "link-arg=-Tkernel/src/arch/x86_64/linker.ld",
+    "-C", "link-arg=-no-pie",
+    "-C", "link-arg=-zmax-page-size=0x1000",
+]
+
 [alias]
 xtask = "run --package xtask --target x86_64-unknown-linux-gnu --"

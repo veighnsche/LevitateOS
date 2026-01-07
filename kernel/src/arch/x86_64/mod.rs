@@ -1,4 +1,5 @@
 //! TEAM_162: x86_64 Architecture Stub
+//! TEAM_258: Added complete Linux x86_64 syscall numbers and termios constants
 //!
 //! This module provides stubs for x86_64 to verify the architecture abstraction.
 
@@ -16,14 +17,63 @@ pub use self::task::*;
 
 pub const ELF_MACHINE: u16 = 62; // EM_X86_64
 
+/// TEAM_258: Linux x86_64 compatible syscall numbers
+/// Reference: https://github.com/torvalds/linux/blob/master/arch/x86/entry/syscalls/syscall_64.tbl
+/// NOTE: Using names expected by syscall dispatcher (some differ from Linux canonical names)
 #[repr(u64)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyscallNumber {
-    // x86_64 syscalls will go here
+    // === Standard Linux x86_64 syscalls ===
     Read = 0,
     Write = 1,
+    Close = 3,
+    Fstat = 5,
+    Mmap = 9,
+    Mprotect = 10,
+    Munmap = 11,
+    Sbrk = 12, // x86: brk=12
+    SigAction = 13,
+    SigProcMask = 14,
+    SigReturn = 15,
+    Ioctl = 16,
+    Readv = 19,
+    Writev = 20,
+    Yield = 24, // x86: sched_yield=24
+    Dup = 32,
+    Pause = 34,
+    Nanosleep = 35,
+    GetPid = 39, // x86: getpid=39
+    Clone = 56,
+    Exec = 59, // x86: execve=59
     Exit = 60,
-    // Add others as stubs
+    Waitpid = 61, // x86: wait4=61
+    Kill = 62,
+    Getdents = 78,
+    Getcwd = 79,
+    GetPpid = 110, // x86: getppid=110
+    Mount = 165,
+    Umount = 166,
+    Shutdown = 169, // x86: reboot=169
+    Futex = 202,
+    SetTidAddress = 218,
+    ClockGettime = 228,
+    Openat = 257,
+    Mkdirat = 258,
+    Unlinkat = 263,
+    Renameat = 264,
+    Linkat = 265,
+    Symlinkat = 266,
+    Readlinkat = 267,
+    Utimensat = 280,
+    Dup3 = 292,
+    Pipe2 = 293,
+
+    // === Custom LevitateOS syscalls ===
+    Spawn = 1000,
+    SpawnArgs = 1001,
+    SetForeground = 1002,
+    GetForeground = 1003,
+    Isatty = 1010,
 }
 
 impl SyscallNumber {
@@ -31,25 +81,74 @@ impl SyscallNumber {
         match n {
             0 => Some(Self::Read),
             1 => Some(Self::Write),
+            3 => Some(Self::Close),
+            5 => Some(Self::Fstat),
+            9 => Some(Self::Mmap),
+            10 => Some(Self::Mprotect),
+            11 => Some(Self::Munmap),
+            12 => Some(Self::Sbrk),
+            13 => Some(Self::SigAction),
+            14 => Some(Self::SigProcMask),
+            15 => Some(Self::SigReturn),
+            16 => Some(Self::Ioctl),
+            19 => Some(Self::Readv),
+            20 => Some(Self::Writev),
+            24 => Some(Self::Yield),
+            32 => Some(Self::Dup),
+            34 => Some(Self::Pause),
+            35 => Some(Self::Nanosleep),
+            39 => Some(Self::GetPid),
+            56 => Some(Self::Clone),
+            59 => Some(Self::Exec),
             60 => Some(Self::Exit),
+            61 => Some(Self::Waitpid),
+            62 => Some(Self::Kill),
+            78 => Some(Self::Getdents),
+            79 => Some(Self::Getcwd),
+            110 => Some(Self::GetPpid),
+            165 => Some(Self::Mount),
+            166 => Some(Self::Umount),
+            169 => Some(Self::Shutdown),
+            202 => Some(Self::Futex),
+            218 => Some(Self::SetTidAddress),
+            228 => Some(Self::ClockGettime),
+            257 => Some(Self::Openat),
+            258 => Some(Self::Mkdirat),
+            263 => Some(Self::Unlinkat),
+            264 => Some(Self::Renameat),
+            265 => Some(Self::Linkat),
+            266 => Some(Self::Symlinkat),
+            267 => Some(Self::Readlinkat),
+            280 => Some(Self::Utimensat),
+            292 => Some(Self::Dup3),
+            293 => Some(Self::Pipe2),
+            // Custom LevitateOS
+            1000 => Some(Self::Spawn),
+            1001 => Some(Self::SpawnArgs),
+            1002 => Some(Self::SetForeground),
+            1003 => Some(Self::GetForeground),
+            1010 => Some(Self::Isatty),
             _ => None,
         }
     }
 }
 
+/// TEAM_258: Linux x86_64 compatible Stat structure.
+/// Using same field names as AArch64 for code sharing (stat.rs compatibility).
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Stat {
     pub st_dev: u64,
     pub st_ino: u64,
-    pub st_nlink: u64,
     pub st_mode: u32,
+    pub st_nlink: u32,
     pub st_uid: u32,
     pub st_gid: u32,
-    pub __pad0: u32,
     pub st_rdev: u64,
+    pub __pad1: u64,
     pub st_size: i64,
-    pub st_blksize: i64,
+    pub st_blksize: i32,
+    pub __pad2: i32,
     pub st_blocks: i64,
     pub st_atime: i64,
     pub st_atime_nsec: u64,
@@ -57,7 +156,125 @@ pub struct Stat {
     pub st_mtime_nsec: u64,
     pub st_ctime: i64,
     pub st_ctime_nsec: u64,
-    pub __unused: [i64; 3],
+    pub __unused: [u32; 2],
+}
+
+// TEAM_258: Constructors to abstract arch-specific padding fields
+impl Stat {
+    /// Create Stat for a character/block device (stdin/stdout/stderr, PTY)
+    pub fn new_device(mode: u32, rdev: u64) -> Self {
+        Self {
+            st_dev: 0,
+            st_ino: 0,
+            st_mode: mode,
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: rdev,
+            __pad1: 0,
+            st_size: 0,
+            st_blksize: 0,
+            __pad2: 0,
+            st_blocks: 0,
+            st_atime: 0,
+            st_atime_nsec: 0,
+            st_mtime: 0,
+            st_mtime_nsec: 0,
+            st_ctime: 0,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+
+    /// Create Stat for a pipe (FIFO)
+    pub fn new_pipe(blksize: i32) -> Self {
+        Self {
+            st_dev: 0,
+            st_ino: 0,
+            st_mode: crate::fs::mode::S_IFIFO | 0o600,
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: 0,
+            __pad1: 0,
+            st_size: 0,
+            st_blksize: blksize,
+            __pad2: 0,
+            st_blocks: 0,
+            st_atime: 0,
+            st_atime_nsec: 0,
+            st_mtime: 0,
+            st_mtime_nsec: 0,
+            st_ctime: 0,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+
+    /// Create Stat for a regular file
+    pub fn new_file(ino: u64, mode: u32, size: i64, blocks: i64, blksize: i32) -> Self {
+        Self {
+            st_dev: 0,
+            st_ino: ino,
+            st_mode: mode,
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: 0,
+            __pad1: 0,
+            st_size: size,
+            st_blksize: blksize,
+            __pad2: 0,
+            st_blocks: blocks,
+            st_atime: 0,
+            st_atime_nsec: 0,
+            st_mtime: 0,
+            st_mtime_nsec: 0,
+            st_ctime: 0,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+
+    /// Create Stat from inode data (for VFS inode.to_stat())
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_inode_data(
+        dev: u64,
+        ino: u64,
+        mode: u32,
+        nlink: u32,
+        uid: u32,
+        gid: u32,
+        rdev: u64,
+        size: i64,
+        blksize: i32,
+        blocks: i64,
+        atime: i64,
+        mtime: i64,
+        ctime: i64,
+    ) -> Self {
+        Self {
+            st_dev: dev,
+            st_ino: ino,
+            st_mode: mode,
+            st_nlink: nlink,
+            st_uid: uid,
+            st_gid: gid,
+            st_rdev: rdev,
+            __pad1: 0,
+            st_size: size,
+            st_blksize: blksize,
+            __pad2: 0,
+            st_blocks: blocks,
+            st_atime: atime,
+            st_atime_nsec: 0,
+            st_mtime: mtime,
+            st_mtime_nsec: 0,
+            st_ctime: ctime,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
 }
 
 #[inline]
@@ -75,7 +292,7 @@ pub struct Timespec {
 /// TEAM_247: Number of control characters in termios.
 pub const NCCS: usize = 32;
 
-/// x86_64 Termios stub
+/// x86_64 Termios (matches Linux glibc layout)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Termios {
@@ -102,12 +319,53 @@ impl Termios {
     };
 }
 
-// TEAM_162: Stubs for types that need to be provided by the architecture
+// TEAM_258: Local mode flags (c_lflag) - same as AArch64
+pub const ISIG: u32 = 0x01;
+pub const ICANON: u32 = 0x02;
+pub const ECHO: u32 = 0x08;
+pub const ECHOE: u32 = 0x10;
+pub const ECHOK: u32 = 0x20;
+pub const ECHONL: u32 = 0x40;
+pub const NOFLSH: u32 = 0x80;
+pub const TOSTOP: u32 = 0x100;
+pub const IEXTEN: u32 = 0x8000;
+
+// Output mode flags (c_oflag)
+pub const OPOST: u32 = 0x01;
+pub const ONLCR: u32 = 0x04;
+
+// Special characters (c_cc index)
+pub const VINTR: usize = 0;
+pub const VQUIT: usize = 1;
+pub const VERASE: usize = 2;
+pub const VKILL: usize = 3;
+pub const VEOF: usize = 4;
+pub const VTIME: usize = 5;
+pub const VMIN: usize = 6;
+pub const VSTART: usize = 8;
+pub const VSTOP: usize = 9;
+pub const VSUSP: usize = 10;
+
+// ioctl requests - same as AArch64
+pub const TCGETS: u64 = 0x5401;
+pub const TCSETS: u64 = 0x5402;
+pub const TCSETSW: u64 = 0x5403;
+pub const TCSETSF: u64 = 0x5404;
+
+pub const TIOCGPTN: u64 = 0x80045430;
+pub const TIOCSPTLCK: u64 = 0x40045431;
+pub const TIOCGWINSZ: u64 = 0x5413;
+pub const TIOCSWINSZ: u64 = 0x5414;
+
+// TEAM_258: Stubs for types that need to be provided by the architecture
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SyscallFrame {
     pub regs: [u64; 31],
     pub sp: u64,
+    pub pc: u64,     // Added for compatibility with AArch64 code
+    pub pstate: u64, // Added for compatibility
+    pub ttbr0: u64,  // Added for compatibility
 }
 
 impl SyscallFrame {
@@ -140,4 +398,32 @@ impl SyscallFrame {
 
 pub unsafe fn switch_mmu_config(_config_phys: usize) {
     // unimplemented!("x86_64 switch_mmu_config")
+}
+
+// TEAM_258: Stub for exception_return (not used on x86_64, but needed for shared code)
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn exception_return() {
+    // Stub - x86_64 uses different return mechanism (sysret/iret)
+    unimplemented!("x86_64 exception_return");
+}
+
+// TEAM_258: x86_64 kernel entry point (UoW 2.7)
+// Called from boot.S after long mode transition
+#[unsafe(no_mangle)]
+pub extern "C" fn kernel_main(_multiboot_magic: usize, _multiboot_info: usize) -> ! {
+    // Write "OK" to VGA buffer at 0xB8000 to confirm boot
+    unsafe {
+        let vga_buffer = 0xB8000 as *mut u16;
+        // 'O' with white on black attribute (0x0F)
+        *vga_buffer = 0x0F4F;
+        // 'K' with white on black attribute
+        *vga_buffer.add(1) = 0x0F4B;
+    }
+
+    // Halt loop
+    loop {
+        unsafe {
+            core::arch::asm!("hlt");
+        }
+    }
 }

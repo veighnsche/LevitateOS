@@ -5,6 +5,7 @@ use crate::syscall::{Stat, errno};
 use crate::task::fd_table::FdType;
 
 /// TEAM_168: sys_fstat - Get file status.
+/// TEAM_258: Updated to use Stat constructors for architecture independence.
 pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
     let task = crate::task::current_task();
     let stat_size = core::mem::size_of::<Stat>();
@@ -19,76 +20,22 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
     };
 
     let stat = match entry.fd_type {
-        // TEAM_201: Updated to use extended Stat struct
-        FdType::Stdin | FdType::Stdout | FdType::Stderr => Stat {
-            st_dev: 0,
-            st_ino: 0,
-            st_mode: crate::fs::mode::S_IFCHR | 0o666,
-            st_nlink: 1,
-            st_uid: 0,
-            st_gid: 0,
-            st_rdev: 0,
-            __pad1: 0,
-            st_size: 0,
-            st_blksize: 0,
-            __pad2: 0,
-            st_blocks: 0,
-            st_atime: 0,
-            st_atime_nsec: 0,
-            st_mtime: 0,
-            st_mtime_nsec: 0,
-            st_ctime: 0,
-            st_ctime_nsec: 0,
-            __unused: [0; 2],
-        },
+        // TEAM_258: Use constructor for architecture independence
+        FdType::Stdin | FdType::Stdout | FdType::Stderr => {
+            Stat::new_device(crate::fs::mode::S_IFCHR | 0o666, 0)
+        }
         FdType::VfsFile(ref file) => match vfs_fstat(file) {
             Ok(s) => s,
             Err(_) => return errno::EBADF,
         },
-        // TEAM_233: Pipes are FIFOs
-        FdType::PipeRead(_) | FdType::PipeWrite(_) => Stat {
-            st_dev: 0,
-            st_ino: 0,
-            st_mode: crate::fs::mode::S_IFIFO | 0o600,
-            st_nlink: 1,
-            st_uid: 0,
-            st_gid: 0,
-            st_rdev: 0,
-            __pad1: 0,
-            st_size: 0,
-            st_blksize: crate::fs::pipe::PIPE_BUF_SIZE as i32,
-            __pad2: 0,
-            st_blocks: 0,
-            st_atime: 0,
-            st_atime_nsec: 0,
-            st_mtime: 0,
-            st_mtime_nsec: 0,
-            st_ctime: 0,
-            st_ctime_nsec: 0,
-            __unused: [0; 2],
-        },
-        // TEAM_247: PTYs are character devices
-        FdType::PtyMaster(_) | FdType::PtySlave(_) => Stat {
-            st_dev: 0,
-            st_ino: 0,
-            st_mode: crate::fs::mode::S_IFCHR | 0o666,
-            st_nlink: 1,
-            st_uid: 0,
-            st_gid: 0,
-            st_rdev: 0,
-            __pad1: 0,
-            st_size: 0,
-            st_blksize: 0,
-            __pad2: 0,
-            st_blocks: 0,
-            st_atime: 0,
-            st_atime_nsec: 0,
-            st_mtime: 0,
-            st_mtime_nsec: 0,
-            st_ctime: 0,
-            st_ctime_nsec: 0,
-            __unused: [0; 2],
-        },
+        // TEAM_258: Use constructor for architecture independence
+        FdType::PipeRead(_) | FdType::PipeWrite(_) => {
+            Stat::new_pipe(crate::fs::pipe::PIPE_BUF_SIZE as i32)
+        }
+        // TEAM_258: Use constructor for architecture independence
+        FdType::PtyMaster(_) | FdType::PtySlave(_) => {
+            Stat::new_device(crate::fs::mode::S_IFCHR | 0o666, 0)
+        }
     };
 
     let stat_bytes =

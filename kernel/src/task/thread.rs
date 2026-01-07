@@ -102,9 +102,9 @@ pub fn create_thread(
     // We want to call `exception_return`, which restores from SP and erets.
     context.x19 = crate::arch::exception_return as *const () as u64;
 
-    // Set TLS in context (cpu_switch_to handles this)
+    // TEAM_258: Set TLS in context using abstraction (architecture-independent)
     if child_tls != 0 {
-        context.tpidr_el0 = child_tls as u64;
+        context.set_tls(child_tls as u64);
     }
 
     // TEAM_230: Create TCB

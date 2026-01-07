@@ -30,3 +30,5 @@ ext4-view = { version = "0.9", default-features = false }
 bitflags.workspace = true
 aarch64-cpu.workspace = true
 
+[build-dependencies]
+cc = "1.0"

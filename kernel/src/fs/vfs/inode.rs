@@ -129,29 +129,24 @@ impl Inode {
     }
 
     /// TEAM_202: Convert to Stat structure
+    /// TEAM_258: Use constructor for architecture independence
     pub fn to_stat(&self) -> Stat {
         let size = self.size.load(Ordering::Relaxed);
-        Stat {
-            st_dev: self.dev,
-            st_ino: self.ino,
-            st_mode: self.mode.load(Ordering::Relaxed),
-            st_nlink: self.nlink.load(Ordering::Relaxed),
-            st_uid: self.uid.load(Ordering::Relaxed),
-            st_gid: self.gid.load(Ordering::Relaxed),
-            st_rdev: self.rdev,
-            __pad1: 0,
-            st_size: size as i64,
-            st_blksize: self.blksize as i32,
-            __pad2: 0,
-            st_blocks: ((size + 511) / 512) as i64,
-            st_atime: self.atime.load(Ordering::Relaxed) as i64,
-            st_atime_nsec: 0,
-            st_mtime: self.mtime.load(Ordering::Relaxed) as i64,
-            st_mtime_nsec: 0,
-            st_ctime: self.ctime.load(Ordering::Relaxed) as i64,
-            st_ctime_nsec: 0,
-            __unused: [0; 2],
-        }
+        Stat::from_inode_data(
+            self.dev,
+            self.ino,
+            self.mode.load(Ordering::Relaxed),
+            self.nlink.load(Ordering::Relaxed),
+            self.uid.load(Ordering::Relaxed),
+            self.gid.load(Ordering::Relaxed),
+            self.rdev,
+            size as i64,
+            self.blksize as i32,
+            ((size + 511) / 512) as i64,
+            self.atime.load(Ordering::Relaxed) as i64,
+            self.mtime.load(Ordering::Relaxed) as i64,
+            self.ctime.load(Ordering::Relaxed) as i64,
+        )
     }
 
     /// TEAM_202: Update access time

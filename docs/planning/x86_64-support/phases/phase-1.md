@@ -17,10 +17,11 @@ The current kernel is heavily coupled to AArch64 (GIC, ARM Timers, TTBR paging).
 - [ ] Basic interrupt handling (IDT/APIC) functional.
 
 ## Current State Analysis
-- **Architecture**: `kernel/src/arch/mod.rs` already has a `x86_64` stub.
-- **HAL**: `los_hal` is ~90% AArch64-specific (GIC, MMU, Timer).
-- **Boot**: Only FDT-based ARM boot is implemented.
+- **Architecture**: `kernel/src/arch/mod.rs` already has a `x86_64` module with stubs for `SyscallNumber`, `Stat`, `Termios`, `SyscallFrame`, `Context`.
+- **HAL**: `los_hal` has trait abstractions (`InterruptController`, `MmuInterface`) with AArch64 implementations. x86_64 backends needed.
+- **Boot**: Only FDT-based ARM boot is implemented. Multiboot2 entry needed.
 - **Drivers**: No x86_64 specific drivers (VGA, PIT, APIC, NVMe).
+- **Toolchain**: `x86_64-unknown-none` target and `xtask --arch x86_64` are IMPLEMENTED.
 
 ## Codebase Reconnaissance
 - **`kernel/src/arch/x86_64/`**: Primary area for assembly entry and arch-specific CPU/Task logic.

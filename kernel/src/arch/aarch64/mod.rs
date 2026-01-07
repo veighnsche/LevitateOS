@@ -183,6 +183,124 @@ pub struct Stat {
     pub __unused: [u32; 2],
 }
 
+// TEAM_258: Constructors to abstract arch-specific padding fields
+impl Stat {
+    /// Create Stat for a character/block device (stdin/stdout/stderr, PTY)
+    pub fn new_device(mode: u32, rdev: u64) -> Self {
+        Self {
+            st_dev: 0,
+            st_ino: 0,
+            st_mode: mode,
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: rdev,
+            __pad1: 0,
+            st_size: 0,
+            st_blksize: 0,
+            __pad2: 0,
+            st_blocks: 0,
+            st_atime: 0,
+            st_atime_nsec: 0,
+            st_mtime: 0,
+            st_mtime_nsec: 0,
+            st_ctime: 0,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+
+    /// Create Stat for a pipe (FIFO)
+    pub fn new_pipe(blksize: i32) -> Self {
+        Self {
+            st_dev: 0,
+            st_ino: 0,
+            st_mode: crate::fs::mode::S_IFIFO | 0o600,
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: 0,
+            __pad1: 0,
+            st_size: 0,
+            st_blksize: blksize,
+            __pad2: 0,
+            st_blocks: 0,
+            st_atime: 0,
+            st_atime_nsec: 0,
+            st_mtime: 0,
+            st_mtime_nsec: 0,
+            st_ctime: 0,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+
+    /// Create Stat for a regular file
+    pub fn new_file(ino: u64, mode: u32, size: i64, blocks: i64, blksize: i32) -> Self {
+        Self {
+            st_dev: 0,
+            st_ino: ino,
+            st_mode: mode,
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: 0,
+            __pad1: 0,
+            st_size: size,
+            st_blksize: blksize,
+            __pad2: 0,
+            st_blocks: blocks,
+            st_atime: 0,
+            st_atime_nsec: 0,
+            st_mtime: 0,
+            st_mtime_nsec: 0,
+            st_ctime: 0,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+
+    /// Create Stat from inode data (for VFS inode.to_stat())
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_inode_data(
+        dev: u64,
+        ino: u64,
+        mode: u32,
+        nlink: u32,
+        uid: u32,
+        gid: u32,
+        rdev: u64,
+        size: i64,
+        blksize: i32,
+        blocks: i64,
+        atime: i64,
+        mtime: i64,
+        ctime: i64,
+    ) -> Self {
+        Self {
+            st_dev: dev,
+            st_ino: ino,
+            st_mode: mode,
+            st_nlink: nlink,
+            st_uid: uid,
+            st_gid: gid,
+            st_rdev: rdev,
+            __pad1: 0,
+            st_size: size,
+            st_blksize: blksize,
+            __pad2: 0,
+            st_blocks: blocks,
+            st_atime: atime,
+            st_atime_nsec: 0,
+            st_mtime: mtime,
+            st_mtime_nsec: 0,
+            st_ctime: ctime,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+}
+
 pub const EC_SVC_AARCH64: u64 = 0b010101;
 
 #[inline]
@@ -235,9 +353,9 @@ impl Termios {
         cc[10] = 0x1A; // VSUSP = Ctrl+Z
 
         Termios {
-            c_iflag: 0x0500, // ICRNL | IXON
-            c_oflag: 0x0005, // OPOST | ONLCR
-            c_cflag: 0x00BF, // B38400 | CS8 | CREAD | HUPCL
+            c_iflag: 0x0500,                                    // ICRNL | IXON
+            c_oflag: 0x0005,                                    // OPOST | ONLCR
+            c_cflag: 0x00BF,                                    // B38400 | CS8 | CREAD | HUPCL
             c_lflag: 0x01 | 0x02 | 0x08 | 0x10 | 0x20 | 0x8000, // ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN
             c_line: 0,
             c_cc: cc,

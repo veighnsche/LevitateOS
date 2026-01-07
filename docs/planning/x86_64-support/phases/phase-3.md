@@ -4,35 +4,62 @@
 
 This phase covers the initial implementation of the x86_64 architecture support, focusing on reaching a bootable state with serial output.
 
+> **Note**: Each step has a detailed breakdown in its own file with SLM-sized units of work.
+
 ### Step 1: Toolchain and Build Support
-- [ ] Add `x86_64-unknown-none` target to `rust-toolchain.toml`.
-- [ ] Update `xtask` to support `--arch x86_64`.
-- [ ] Add a `q35` QEMU profile to `xtask`.
+- [x] Add `x86_64-unknown-none` target to `rust-toolchain.toml`.
+- [x] Update `xtask` to support `--arch x86_64`.
+- [x] Add a `q35` QEMU profile to `xtask`.
 
 ### Step 2: Early Boot (Assembly)
-- [ ] Implement Multiboot2 header in `kernel/src/arch/x86_64/boot.S`.
-- [ ] Implement 32-bit to 64-bit transition (Long Mode).
-- [ ] Set up early page tables (Identity mapping of first 1GB).
-- [ ] Jump to `kernel_main`.
+**Detailed Plan**: [phase-3-step-2.md](phase-3-step-2.md) — 8 UoWs
+
+- [x] UoW 2.1: Create x86_64 linker script
+- [x] UoW 2.2: Implement Multiboot2 header
+- [x] UoW 2.3: Create GDT64 for long mode
+- [x] UoW 2.4: Implement protected-to-long mode transition
+- [x] UoW 2.5: Set up early identity page tables
+- [x] UoW 2.6: Implement 64-bit entry point
+- [x] UoW 2.7: Create Rust entry point stub
+- [x] UoW 2.8: Wire build system for boot.S
 
 ### Step 3: Architecture-Specific Stubs implementation
-- [ ] Fill in `kernel/src/arch/x86_64/cpu.rs` with GDT and basic CPU initialization.
-- [ ] Implement `kernel/src/arch/x86_64/exceptions.rs` with a basic IDT.
-- [ ] Implement `kernel/src/arch/x86_64/task.rs` context switching logic.
+- [x] Fill in `kernel/src/arch/x86_64/cpu.rs` with GDT and basic CPU initialization.
+- [x] Implement `kernel/src/arch/x86_64/exceptions.rs` with a basic IDT.
+- [x] Implement `kernel/src/arch/x86_64/task.rs` context switching logic.
+
+> **Note**: Above items are marked complete as stubs exist, but functional GDT/IDT/context-switch implementation is still pending.
 
 ### Step 4: HAL Implementation (x86_64)
-- [ ] Implement `SerialConsole` (COM1) in `los_hal`.
-- [ ] Implement `VgaConsole` (Text Mode) in `los_hal`.
-- [ ] Implement `ApicController` for interrupts.
-- [ ] Implement `PitTimer` or `ApicTimer`.
+**Detailed Plan**: [phase-3-step-4.md](phase-3-step-4.md) — 10 UoWs
+
+- [ ] UoW 4.1: Implement Serial Console (COM1)
+- [ ] UoW 4.2: Implement VGA Text Mode Console
+- [ ] UoW 4.3: Implement IDT Structure
+- [ ] UoW 4.4: Implement CPU Exception Handlers
+- [ ] UoW 4.5: Implement IDT Loading and Initialization
+- [ ] UoW 4.6: Detect and Initialize Local APIC
+- [ ] UoW 4.7: Implement I/O APIC for External IRQs
+- [ ] UoW 4.8: Implement PIT Timer
+- [ ] UoW 4.9: Implement InterruptController Trait for APIC
+- [ ] UoW 4.10: Create x86_64 HAL Module Structure
 
 ### Step 5: MMU & Higher-Half
-- [ ] Implement PML4 page table walker and mapper.
-- [ ] Transition from early identity mapping to full higher-half kernel.
+**Detailed Plan**: [phase-3-step-5.md](phase-3-step-5.md) — 9 UoWs
+
+- [ ] UoW 5.1: Define Page Table Entry Structures
+- [ ] UoW 5.2: Implement Page Table Walker
+- [ ] UoW 5.3: Implement 4KB Page Mapper
+- [ ] UoW 5.4: Implement Page Unmapper
+- [ ] UoW 5.5: Implement Frame Allocator Interface
+- [ ] UoW 5.6: Create Higher-Half Kernel Mappings
+- [ ] UoW 5.7: Implement CR3 Switching
+- [ ] UoW 5.8: Implement MmuInterface Trait for PML4
+- [ ] UoW 5.9: Transition to Higher-Half at Boot
 
 ## Progress Tracking
-- [ ] Step 1: Toolchain
-- [ ] Step 2: Early Boot
-- [ ] Step 3: Arch Stubs
+- [x] Step 1: Toolchain
+- [x] Step 2: Early Boot
+- [/] Step 3: Arch Stubs (stubs exist, not functional)
 - [ ] Step 4: HAL Backends
 - [ ] Step 5: MMU

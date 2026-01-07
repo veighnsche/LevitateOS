@@ -26,6 +26,11 @@ impl Context {
         ctx.x19 = entry_wrapper as u64;
         ctx
     }
+
+    // TEAM_258: Abstract TLS setting for architecture independence
+    pub fn set_tls(&mut self, addr: u64) {
+        self.tpidr_el0 = addr;
+    }
 }
 
 /// TEAM_162: Enter user mode at the specified entry point.
