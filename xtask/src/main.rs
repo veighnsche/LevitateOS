@@ -114,6 +114,9 @@ fn main() -> Result<()> {
             run::RunCommands::Term => {
                 run::run_qemu_term()?;
             }
+            run::RunCommands::Test => {
+                run::run_qemu_test()?;
+            }
         },
         Commands::Image(cmd) => match cmd {
             image::ImageCommands::Create => image::create_disk_image_if_missing()?,

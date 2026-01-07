@@ -190,6 +190,14 @@ impl gic::InterruptHandler for TimerHandler {
             }
         }
 
+        // TEAM_244: Poll UART for Ctrl+C as fallback for terminal mode
+        // QEMU doesn't trigger UART RX interrupts when stdin is piped
+        if los_hal::console::poll_for_ctrl_c() {
+            crate::syscall::signal::signal_foreground_process(
+                crate::syscall::signal::SIGINT,
+            );
+        }
+
         // TEAM_070: Preemptive scheduling
         // TEAM_148: Disabled preemption from IRQ context to prevent corruption.
         // IRQ handlers must NOT yield. We rely on cooperative yielding in init/shell.
@@ -203,6 +211,14 @@ impl gic::InterruptHandler for UartHandler {
         // TEAM_139: Note - UART RX interrupts may not fire when QEMU stdin is piped
         // Direct UART polling is used as fallback in console::read_byte()
         los_hal::console::handle_interrupt();
+
+        // TEAM_244: Check if Ctrl+C was received and signal foreground process
+        // This enables Ctrl+C to work even when no process is reading stdin
+        if los_hal::console::check_and_clear_ctrl_c() {
+            crate::syscall::signal::signal_foreground_process(
+                crate::syscall::signal::SIGINT,
+            );
+        }
     }
 }
 

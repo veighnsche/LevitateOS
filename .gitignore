@@ -45,3 +45,4 @@ tests/gicv3_*.txt
 # Temporary files
 tmp/
 initrd_root/
+initrd_test_root/

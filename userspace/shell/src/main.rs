@@ -219,11 +219,20 @@ pub extern "C" fn _start() -> ! {
     println!();
 
     // TEAM_220: Ignore Ctrl+C in shell itself
+    // TEAM_244: Use sigreturn_trampoline for proper signal return
     extern "C" fn sigint_handler(_sig: i32) {
         // Just print a newline and a new prompt if we're idle?
         // For now, doing nothing is better than exiting.
     }
-    libsyscall::sigaction(libsyscall::SIGINT, sigint_handler as *const () as usize, 0);
+    // TEAM_244: Local trampoline that calls sigreturn after handler
+    extern "C" fn sigreturn_trampoline() -> ! {
+        libsyscall::sigreturn()
+    }
+    libsyscall::sigaction(
+        libsyscall::SIGINT,
+        sigint_handler as *const () as usize,
+        sigreturn_trampoline as *const () as usize,
+    );
 
     // TEAM_220: Set shell as foreground on startup
     libsyscall::set_foreground(libsyscall::getpid() as usize);

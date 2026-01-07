@@ -20,6 +20,9 @@ pub const UART0_BASE: usize = mmu::UART_VA;
 pub static WRITER: IrqSafeLock<Pl011Uart> = IrqSafeLock::new(Pl011Uart::new(UART0_BASE));
 static RX_BUFFER: IrqSafeLock<RingBuffer<u8, 1024>> = IrqSafeLock::new(RingBuffer::new(0));
 
+/// TEAM_244: Flag set when Ctrl+C (0x03) is received via serial interrupt
+static CTRL_C_PENDING: AtomicBool = AtomicBool::new(false);
+
 pub fn init() {
     let mut uart = WRITER.lock();
     uart.init();
@@ -31,9 +34,35 @@ pub fn init() {
 pub fn handle_interrupt() {
     let mut uart = WRITER.lock();
     while let Some(byte) = uart.read_byte() {
+        // TEAM_244: Detect Ctrl+C (0x03) in interrupt handler for immediate signaling
+        if byte == 0x03 {
+            CTRL_C_PENDING.store(true, Ordering::Release);
+            // Still buffer it so poll_input_devices can also see it
+        }
         RX_BUFFER.lock().push(byte);
     }
     uart.clear_interrupts();
+}
+
+/// TEAM_244: Check if Ctrl+C was received and clear the flag.
+/// Called by kernel interrupt handler to signal foreground process.
+pub fn check_and_clear_ctrl_c() -> bool {
+    CTRL_C_PENDING.swap(false, Ordering::AcqRel)
+}
+
+/// TEAM_244: Poll UART for Ctrl+C without waiting for interrupt.
+/// Called from timer handler as fallback since QEMU terminal mode
+/// doesn't trigger UART RX interrupts reliably.
+pub fn poll_for_ctrl_c() -> bool {
+    // Direct poll UART (no interrupt needed)
+    if let Some(byte) = WRITER.lock().read_byte() {
+        if byte == 0x03 {
+            return true;
+        }
+        // Buffer non-Ctrl+C bytes for later reading
+        RX_BUFFER.lock().push(byte);
+    }
+    false
 }
 
 pub fn read_byte() -> Option<u8> {

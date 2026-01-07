@@ -32,7 +32,8 @@ static CTRL_PRESSED: Mutex<bool> = Mutex::new(false);
 struct InputInterruptHandler;
 
 impl InterruptHandler for InputInterruptHandler {
-    fn handle(&self, _irq: u32) {
+    fn handle(&self, irq: u32) {
+        let _ = irq; // Suppress unused warning
         // TEAM_241: Poll VirtIO input device for pending events
         // poll() handles Ctrl+C detection and immediate signaling
         poll();
@@ -48,17 +49,17 @@ static INPUT_HANDLER: InputInterruptHandler = InputInterruptHandler;
 /// * `transport` - MMIO transport for the device
 /// * `slot` - MMIO slot index (used to compute IRQ number: IRQ = 48 + slot)
 pub fn init(transport: StaticMmioTransport, slot: usize) {
-    crate::verbose!("Initializing Input (slot {})...", slot);
+    crate::println!("Initializing Input (slot {})...", slot);
     match VirtIOInput::<VirtioHal, StaticMmioTransport>::new(transport) {
         Ok(input) => {
-            crate::verbose!("VirtIO Input initialized successfully.");
+            crate::println!("VirtIO Input initialized successfully.");
             INPUT_DEVICES.lock().push(input);
 
             // TEAM_241: Register interrupt handler for async Ctrl+C detection
             let irq_id = IrqId::VirtioInput(slot as u32);
             gic::register_handler(irq_id, &INPUT_HANDLER);
             gic::active_api().enable_irq(irq_id.irq_number());
-            crate::verbose!("VirtIO Input IRQ {} enabled", irq_id.irq_number());
+            crate::println!("VirtIO Input IRQ {} enabled", irq_id.irq_number());
         }
         Err(e) => crate::println!("Failed to init VirtIO Input: {:?}", e),
     }

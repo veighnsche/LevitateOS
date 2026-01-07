@@ -14,6 +14,8 @@ pub enum RunCommands {
     Vnc,
     /// Run in terminal-only mode (WSL-like, keyboard in terminal)
     Term,
+    /// TEAM_243: Run internal OS tests (for AI agent verification)
+    Test,
 }
 
 /// QEMU hardware profiles
@@ -262,6 +264,68 @@ fn find_websockify() -> Result<String> {
         • sudo dnf install python3-websockify  (Fedora)\n\
         • sudo apt install websockify  (Debian/Ubuntu)"
     )
+}
+
+/// TEAM_243: Run QEMU with test runner for automated OS testing.
+/// Builds test initramfs, runs headless, captures output, reports results.
+pub fn run_qemu_test() -> Result<()> {
+    println!("🧪 Running LevitateOS Internal Tests...\n");
+
+    // Build everything including test runner
+    build::build_userspace()?;
+    build::create_test_initramfs()?;
+    build::build_kernel_verbose()?;
+    image::create_disk_image_if_missing()?;
+
+    let kernel_bin = "kernel64_rust.bin";
+    let timeout_secs: u64 = 60;
+
+    println!("Running QEMU (headless, {}s timeout)...\n", timeout_secs);
+
+    // Build QEMU args - headless, serial to stdout
+    let args = vec![
+        format!("{}s", timeout_secs),
+        "qemu-system-aarch64".to_string(),
+        "-M".to_string(), "virt".to_string(),
+        "-cpu".to_string(), "cortex-a53".to_string(),
+        "-m".to_string(), "512M".to_string(),
+        "-kernel".to_string(), kernel_bin.to_string(),
+        "-display".to_string(), "none".to_string(),
+        "-serial".to_string(), "stdio".to_string(),
+        "-device".to_string(), "virtio-gpu-pci".to_string(),
+        "-device".to_string(), "virtio-keyboard-device".to_string(),
+        "-device".to_string(), "virtio-tablet-device".to_string(),
+        "-device".to_string(), "virtio-net-device,netdev=net0".to_string(),
+        "-netdev".to_string(), "user,id=net0".to_string(),
+        "-drive".to_string(), "file=tinyos_disk.img,format=raw,if=none,id=hd0".to_string(),
+        "-device".to_string(), "virtio-blk-device,drive=hd0".to_string(),
+        "-initrd".to_string(), "initramfs_test.cpio".to_string(),
+        "-no-reboot".to_string(),
+    ];
+
+    // Run QEMU with timeout
+    let output = Command::new("timeout")
+        .args(&args)
+        .output()
+        .context("Failed to run QEMU")?;
+
+    // Print stdout (serial output)
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    print!("{}", stdout);
+
+    // Check for test results in output
+    if stdout.contains("[TEST_RUNNER] RESULT: PASSED") {
+        println!("\n✅ All OS internal tests passed!");
+        Ok(())
+    } else if stdout.contains("[TEST_RUNNER] RESULT: FAILED") {
+        bail!("❌ Some OS internal tests failed!");
+    } else if stdout.contains("[TEST_RUNNER]") {
+        // Test runner started but didn't complete
+        bail!("❌ Test runner did not complete (timeout or crash)");
+    } else {
+        // Test runner never started
+        bail!("❌ Test runner failed to start - check initramfs");
+    }
 }
 
 /// TEAM_139: Run QEMU in terminal-only mode (WSL-like).

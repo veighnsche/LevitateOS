@@ -38,8 +38,12 @@ pub fn sys_kill(pid: i32, sig: i32) -> i64 {
 /// TEAM_220: Send a signal to the current foreground process.
 pub fn signal_foreground_process(sig: i32) {
     let fg_pid = *crate::task::FOREGROUND_PID.lock();
+    crate::println!("signal_foreground_process: sig={} fg_pid={}", sig, fg_pid);
     if fg_pid != 0 {
-        sys_kill(fg_pid as i32, sig);
+        let res = sys_kill(fg_pid as i32, sig);
+        crate::println!("sys_kill result: {}", res);
+    } else {
+        crate::println!("No foreground process to signal");
     }
 }
 

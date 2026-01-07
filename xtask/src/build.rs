@@ -111,6 +111,66 @@ pub fn create_initramfs() -> Result<()> {
     Ok(())
 }
 
+/// TEAM_243: Create test-specific initramfs with test_runner as init.
+/// This initramfs boots directly into the test runner instead of shell.
+pub fn create_test_initramfs() -> Result<()> {
+    println!("Creating test initramfs...");
+    let root = PathBuf::from("initrd_test_root");
+    
+    // Clean and create directory
+    if root.exists() {
+        std::fs::remove_dir_all(&root)?;
+    }
+    std::fs::create_dir(&root)?;
+
+    // Copy test_runner as "init" - this is the key difference
+    let test_runner_src = PathBuf::from("userspace/target/aarch64-unknown-none/release/test_runner");
+    if !test_runner_src.exists() {
+        bail!("test_runner binary not found - build userspace first");
+    }
+    std::fs::copy(&test_runner_src, root.join("init"))?;
+
+    // Copy all test binaries (*_test)
+    let test_binaries = ["mmap_test", "pipe_test", "signal_test", "clone_test", "interrupt_test"];
+    let mut count = 0;
+    for bin in &test_binaries {
+        let src = PathBuf::from(format!("userspace/target/aarch64-unknown-none/release/{}", bin));
+        if src.exists() {
+            std::fs::copy(&src, root.join(bin))?;
+            count += 1;
+        } else {
+            println!("  Warning: {} not found", bin);
+        }
+    }
+    println!("📦 Test initramfs: init + {} test binaries", count);
+
+    // Create CPIO archive
+    let cpio_file = std::fs::File::create("initramfs_test.cpio")?;
+    
+    let find = Command::new("find")
+        .current_dir(&root)
+        .arg(".")
+        .stdout(Stdio::piped())
+        .spawn()
+        .context("Failed to run find")?;
+
+    let mut cpio = Command::new("cpio")
+        .current_dir(&root)
+        .args(["-o", "-H", "newc"])
+        .stdin(find.stdout.unwrap())
+        .stdout(cpio_file)
+        .spawn()
+        .context("Failed to run cpio")?;
+
+    let status = cpio.wait()?;
+    if !status.success() {
+        bail!("cpio failed");
+    }
+
+    println!("✅ Created initramfs_test.cpio");
+    Ok(())
+}
+
 fn build_kernel_with_features(features: &[&str]) -> Result<()> {
     println!("Building kernel...");
     let mut args = vec![
