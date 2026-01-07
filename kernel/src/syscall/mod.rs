@@ -5,9 +5,10 @@ pub mod mm;
 pub mod process;
 pub mod signal;
 pub mod sync;
+pub mod sys;
 pub mod time;
 
-use crate::arch::{SyscallFrame, SyscallNumber, Stat, is_svc_exception, Timespec};
+pub use crate::arch::{Stat, SyscallFrame, SyscallNumber, Timespec, is_svc_exception};
 use los_hal::println;
 
 /// TEAM_073: Error codes for syscalls.

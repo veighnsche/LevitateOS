@@ -43,37 +43,37 @@ pub enum SyscallNumber {
     SigProcMask = 135,
     SigReturn = 139,
     GetPid = 172,
-    GetPpid = 173, // TEAM_217: Added standard Linux syscall
+    GetPpid = 173, // TEAM: Added standard Linux syscall
     Sbrk = 214,    // brk
     Exec = 221,    // execve
     Waitpid = 260, // wait4
     Pause = 236,
-    Writev = 66, // TEAM_217: Added for std println!
-    Readv = 65,  // TEAM_217: Added for completeness
-    // TEAM_228: Memory management syscalls for std support
+    Writev = 66, // TEAM: Added for std println!
+    Readv = 65,  // TEAM: Added for completeness
+    // TEAM: Memory management syscalls for std support
     Mmap = 222,
     Munmap = 215,
     Mprotect = 226,
-    // TEAM_228: Threading syscalls for std support
+    // TEAM: Threading syscalls for std support
     Clone = 220,
     SetTidAddress = 96,
-    // TEAM_233: Pipe and dup syscalls for std support
+    // TEAM: Pipe and dup syscalls for std support
     Dup = 23,
     Dup3 = 24,
     Pipe2 = 59,
 
     // === Custom LevitateOS syscalls (temporary, until clone/execve work) ===
-    /// TEAM_120: Spawn process (custom, will be replaced by clone+execve)
+    /// TEAM: Spawn process (custom, will be replaced by clone+execve)
     Spawn = 1000,
-    /// TEAM_186: Spawn with args (custom, will be replaced by clone+execve)
+    /// TEAM: Spawn with args (custom, will be replaced by clone+execve)
     SpawnArgs = 1001,
-    /// TEAM_220: Set foreground process (custom)
+    /// TEAM: Set foreground process (custom)
     SetForeground = 1002,
-    /// TEAM_244: Get foreground process (custom)
+    /// TEAM: Get foreground process (custom)
     GetForeground = 1003,
-    /// TEAM_244: Check if fd is a terminal (custom)
+    /// TEAM: Check if fd is a terminal (custom)
     Isatty = 1010,
-    /// TEAM_246: Ioctl (Linux standard)
+    /// TEAM: Ioctl (Linux standard)
     Ioctl = 29,
 }
 
@@ -115,14 +115,14 @@ impl SyscallNumber {
             260 => Some(Self::Waitpid),
             66 => Some(Self::Writev),
             65 => Some(Self::Readv),
-            // TEAM_228: Memory management
+            // TEAM: Memory management
             222 => Some(Self::Mmap),
             215 => Some(Self::Munmap),
             226 => Some(Self::Mprotect),
-            // TEAM_228: Threading
+            // TEAM: Threading
             220 => Some(Self::Clone),
             96 => Some(Self::SetTidAddress),
-            // TEAM_233: Pipe and dup
+            // TEAM: Pipe and dup
             23 => Some(Self::Dup),
             24 => Some(Self::Dup3),
             59 => Some(Self::Pipe2),
@@ -138,7 +138,7 @@ impl SyscallNumber {
     }
 }
 
-/// TEAM_217: Linux-compatible Stat structure (128 bytes).
+/// TEAM: Linux-compatible Stat structure (128 bytes).
 /// Matches AArch64 asm-generic layout used by Rust std and musl/glibc.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
@@ -195,7 +195,7 @@ pub fn is_svc_exception(esr: u64) -> bool {
     esr_exception_class(esr) == EC_SVC_AARCH64
 }
 
-/// TEAM_217: Linux-compatible Timespec.
+/// TEAM: Linux-compatible Timespec.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Timespec {
@@ -203,7 +203,95 @@ pub struct Timespec {
     pub tv_nsec: i64,
 }
 
-/// TEAM_162: Saved user context during syscall.
+/// TEAM: Number of control characters in termios.
+pub const NCCS: usize = 32;
+
+/// TEAM: termios structure (matches Linux AArch64 layout)
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Termios {
+    pub c_iflag: u32,
+    pub c_oflag: u32,
+    pub c_cflag: u32,
+    pub c_lflag: u32,
+    pub c_line: u8,
+    pub c_cc: [u8; NCCS],
+    pub c_ispeed: u32,
+    pub c_ospeed: u32,
+}
+
+impl Termios {
+    pub const INITIAL_TERMIOS: Termios = {
+        let mut cc = [0u8; NCCS];
+        cc[0] = 0x03; // VINTR = Ctrl+C
+        cc[1] = 0x1C; // VQUIT = Ctrl+\
+        cc[2] = 0x7F; // VERASE = DEL
+        cc[3] = 0x15; // VKILL = Ctrl+U
+        cc[4] = 0x04; // VEOF = Ctrl+D
+        cc[5] = 0x00; // VTIME
+        cc[6] = 0x01; // VMIN
+        cc[8] = 0x11; // VSTART = Ctrl+Q
+        cc[9] = 0x13; // VSTOP = Ctrl+S
+        cc[10] = 0x1A; // VSUSP = Ctrl+Z
+
+        Termios {
+            c_iflag: 0x0500, // ICRNL | IXON
+            c_oflag: 0x0005, // OPOST | ONLCR
+            c_cflag: 0x00BF, // B38400 | CS8 | CREAD | HUPCL
+            c_lflag: 0x01 | 0x02 | 0x08 | 0x10 | 0x20 | 0x8000, // ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN
+            c_line: 0,
+            c_cc: cc,
+            c_ispeed: 38400,
+            c_ospeed: 38400,
+        }
+    };
+}
+
+impl Default for Termios {
+    fn default() -> Self {
+        Self::INITIAL_TERMIOS
+    }
+}
+
+// Local mode flags (c_lflag)
+pub const ISIG: u32 = 0x01;
+pub const ICANON: u32 = 0x02;
+pub const ECHO: u32 = 0x08;
+pub const ECHOE: u32 = 0x10;
+pub const ECHOK: u32 = 0x20;
+pub const ECHONL: u32 = 0x40;
+pub const NOFLSH: u32 = 0x80;
+pub const TOSTOP: u32 = 0x100;
+pub const IEXTEN: u32 = 0x8000;
+
+// Output mode flags (c_oflag)
+pub const OPOST: u32 = 0x01;
+pub const ONLCR: u32 = 0x04;
+
+// special characters (c_cc index)
+pub const VINTR: usize = 0;
+pub const VQUIT: usize = 1;
+pub const VERASE: usize = 2;
+pub const VKILL: usize = 3;
+pub const VEOF: usize = 4;
+pub const VTIME: usize = 5;
+pub const VMIN: usize = 6;
+pub const VSTART: usize = 8;
+pub const VSTOP: usize = 9;
+pub const VSUSP: usize = 10;
+
+// ioctl requests
+pub const TCGETS: u64 = 0x5401;
+pub const TCSETS: u64 = 0x5402;
+pub const TCSETSW: u64 = 0x5403;
+pub const TCSETSF: u64 = 0x5404;
+
+pub const TIOCGPTN: u64 = 0x80045430;
+pub const TIOCSPTLCK: u64 = 0x40045431;
+pub const TIOCGWINSZ: u64 = 0x5413;
+pub const TIOCSWINSZ: u64 = 0x5414;
+
+/// TEAM: Saved user context during syscall.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SyscallFrame {
@@ -227,7 +315,7 @@ impl SyscallFrame {
     pub fn arg2(&self) -> u64 {
         self.regs[2]
     }
-    // TEAM_163: Part of complete syscall ABI (supports up to 6 args per docs)
+    // TEAM: Part of complete syscall ABI (supports up to 6 args per docs)
     #[allow(dead_code)]
     pub fn arg3(&self) -> u64 {
         self.regs[3]
@@ -248,4 +336,3 @@ impl SyscallFrame {
         self.regs[0] = value as u64;
     }
 }
-// TEAM_163: Removed dead AArch64EarlyConsole (Rule 6: No Dead Code)

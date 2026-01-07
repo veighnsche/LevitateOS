@@ -543,3 +543,36 @@ pub struct Inode {
 
 **Symptom:** "NotFound" errors for `/` or `/tmp` paths.
 
+---
+
+### 27. Multi-Architecture Build Defaults (TEAM_255)
+
+**Location:** `xtask/`
+
+**Problem:** `xtask` commands (build, run, test) default to `aarch64`. If you are working on `x86_64`, you MUST specify the architecture explicitly.
+
+**Symptom:** You run `cargo xtask run` expecting x86 but see ARM boot logs or errors.
+
+**Fix:** Use the `--arch` flag:
+```bash
+cargo xtask build --arch x86_64
+cargo xtask run --arch x86_64
+```
+
+---
+
+### 28. Platform-Specific Syscall and Stat Layouts (TEAM_255)
+
+**Location:** `kernel/src/arch/`
+
+**Gotcha:** `SyscallNumber`, `Stat`, and `Termios` are NOT generic. They are defined in architecture-specific modules because their numeric values and struct layouts must match the target platform's ABI (e.g., Linux AArch64 vs Linux x86_64).
+
+**Pattern:** Never define these in generic modules like `kernel/src/syscall/mod.rs`. Always import them from `crate::arch`.
+
+---
+
+### 29. HAL Trait Implementation Requirements (TEAM_255)
+
+**Location:** `crates/hal/src/traits.rs`
+
+**Gotcha:** When adding support for a new architecture, you must implement the `InterruptController` and `MmuInterface` traits. The kernel depends on `los_hal::active_interrupt_controller()` which uses conditional compilation to return the correct implementation. Failure to provide an implementation for a new target will result in `unimplemented!` panics at runtime.

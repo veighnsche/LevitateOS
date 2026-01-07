@@ -12,7 +12,7 @@ pub extern "C" fn handle_sync_lower_el(frame: *mut crate::arch::SyscallFrame) {
     use aarch64_cpu::registers::{ESR_EL1, Readable};
     let esr: u64 = ESR_EL1.get();
 
-    if crate::syscall::is_svc_exception(esr) {
+    if crate::arch::is_svc_exception(esr) {
         // SVC exception - this is a syscall
         let frame = unsafe { &mut *frame };
         crate::syscall::syscall_dispatch(frame);
@@ -25,7 +25,7 @@ pub extern "C" fn handle_sync_lower_el(frame: *mut crate::arch::SyscallFrame) {
         let elr: u64 = ELR_EL1.get();
         let far: u64 = FAR_EL1.get(); // TEAM_212: Add faulting address for debugging
 
-        let ec = crate::syscall::esr_exception_class(esr);
+        let ec = crate::arch::esr_exception_class(esr);
         crate::println!("\n*** USER EXCEPTION ***");
         crate::println!("Exception Class: 0x{:02x}", ec);
         crate::println!("ESR: 0x{:016x}", esr);

@@ -25,6 +25,11 @@ const TESTS: &[&str] = &[
     "tty_test",
     "pty_test",
     "suite_test_core",
+    "stat_test",
+    "link_test",
+    "time_test",
+    "sched_yield_test",
+    "error_test",
 ];
 
 #[no_mangle]

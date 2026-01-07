@@ -45,14 +45,30 @@ All library crates use the `los_` prefix:
 | `los_gpu` | `crates/gpu/` | VirtIO GPU driver |
 | `los_error` | `crates/error/` | Error handling macros |
 
+## Multi-Architecture Support
+
+LevitateOS supports multiple hardware architectures using a layered abstraction approach.
+
+### 1. Architecture Abstraction Layer (`kernel/src/arch/`)
+Generic kernel logic interacts with hardware through the `crate::arch` module. Each supported architecture (e.g., `aarch64`, `x86_64`) must implement a standard set of types and functions:
+- **`SyscallFrame`**: Register state saved during a syscall.
+- **`SyscallNumber`**: Platform-specific syscall mapping.
+- **`Stat` / `Timespec`**: Platform-specific metadata layouts.
+- **`Termios`**: Terminal configuration layout.
+- **`cpu::wait_for_interrupt()`**: Idle loop implementation.
+
+### 2. Hardware Abstraction Layer (`los_hal`)
+The HAL defines traits in `crates/hal/src/traits.rs` that decouple the kernel from specific interrupt controllers and MMUs:
+- **`InterruptController`**: Generic interface for GIC (ARM) or APIC (x86).
+- **`MmuInterface`**: Generic interface for page table management.
+
 ## Build System
 
-- **Toolchain**: `aarch64-unknown-none`
-- **Runner**: `run.sh`
-  - Builds the workspace (`cargo build --release`).
-  - Extracts the binary from `target/aarch64-unknown-none/release/levitate-kernel`.
-  - Converts it to a raw binary (`objcopy`).
-  - Launches QEMU with specific device flags (`-device virtio-gpu`, etc.).
+- **Toolchain**: Supports `aarch64-unknown-none` and `x86_64-unknown-none`.
+- **xtask**: The primary development tool.
+  - Use `--arch <arch>` to specify the target (default: `aarch64`).
+  - `cargo xtask build --arch x86_64`
+  - `cargo xtask run --arch aarch64`
 
 ## Gotchas & Notes
 

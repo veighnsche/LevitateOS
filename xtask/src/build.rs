@@ -148,7 +148,7 @@ pub fn create_test_initramfs(arch: &str) -> Result<()> {
     std::fs::copy(&test_runner_src, root.join("init"))?;
 
     // Copy all test binaries (*_test)
-    let test_binaries = ["mmap_test", "pipe_test", "signal_test", "clone_test", "interrupt_test", "tty_test", "pty_test", "pty_interact"];
+    let test_binaries = ["mmap_test", "pipe_test", "signal_test", "clone_test", "interrupt_test", "tty_test", "pty_test", "pty_interact", "stat_test", "link_test", "time_test", "sched_yield_test", "error_test"];
     let mut count = 0;
     for bin in &test_binaries {
         let src = PathBuf::from(format!("userspace/target/{}/release/{}", target, bin));

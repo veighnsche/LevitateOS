@@ -3,96 +3,17 @@
 //! Implements POSIX terminal features including line discipline,
 //! termios configuration, and signal generation.
 
+pub use crate::arch::{NCCS, Termios};
 use alloc::sync::Arc;
 use los_utils::Mutex;
 
-/// TEAM_247: Number of control characters in termios.
-pub const NCCS: usize = 32;
-
-/// TEAM_247: termios structure (matches Linux AArch64 layout)
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct Termios {
-    pub c_iflag: u32,
-    pub c_oflag: u32,
-    pub c_cflag: u32,
-    pub c_lflag: u32,
-    pub c_line: u8,
-    pub c_cc: [u8; NCCS],
-    pub c_ispeed: u32,
-    pub c_ospeed: u32,
-}
-
-// Local mode flags (c_lflag)
-pub const ISIG: u32 = 0x01;
-pub const ICANON: u32 = 0x02;
-pub const ECHO: u32 = 0x08;
-pub const ECHOE: u32 = 0x10;
-pub const ECHOK: u32 = 0x20;
-pub const ECHONL: u32 = 0x40;
-pub const NOFLSH: u32 = 0x80;
-pub const TOSTOP: u32 = 0x100;
-pub const IEXTEN: u32 = 0x8000;
-
-// Output mode flags (c_oflag)
-pub const OPOST: u32 = 0x01;
-pub const ONLCR: u32 = 0x04;
-
-// special characters (c_cc index)
-pub const VINTR: usize = 0;
-pub const VQUIT: usize = 1;
-pub const VERASE: usize = 2;
-pub const VKILL: usize = 3;
-pub const VEOF: usize = 4;
-pub const VTIME: usize = 5;
-pub const VMIN: usize = 6;
-pub const VSTART: usize = 8;
-pub const VSTOP: usize = 9;
-pub const VSUSP: usize = 10;
+pub use crate::arch::{
+    ECHO, ECHOE, ECHOK, ECHONL, ICANON, IEXTEN, ISIG, NOFLSH, ONLCR, OPOST, TCGETS, TCSETS,
+    TCSETSF, TCSETSW, TIOCGPTN, TIOCGWINSZ, TIOCSPTLCK, TIOCSWINSZ, TOSTOP, VEOF, VERASE, VINTR,
+    VKILL, VMIN, VQUIT, VSTART, VSTOP, VSUSP, VTIME,
+};
 
 pub mod pty;
-
-// ioctl requests
-pub const TCGETS: u64 = 0x5401;
-pub const TCSETS: u64 = 0x5402;
-pub const TCSETSW: u64 = 0x5403;
-pub const TCSETSF: u64 = 0x5404;
-
-pub const TIOCGPTN: u64 = 0x80045430;
-pub const TIOCSPTLCK: u64 = 0x40045431;
-pub const TIOCGWINSZ: u64 = 0x5413;
-pub const TIOCSWINSZ: u64 = 0x5414;
-
-impl Termios {
-    pub const INITIAL_TERMIOS: Termios = {
-        let mut cc = [0u8; NCCS];
-        cc[VINTR] = 0x03; // Ctrl+C
-        cc[VQUIT] = 0x1C; // Ctrl+\
-        cc[VERASE] = 0x7F; // DEL
-        cc[VKILL] = 0x15; // Ctrl+U
-        cc[VEOF] = 0x04; // Ctrl+D
-        cc[VSTART] = 0x11; // Ctrl+Q
-        cc[VSTOP] = 0x13; // Ctrl+S
-        cc[VSUSP] = 0x1A; // Ctrl+Z
-
-        Termios {
-            c_iflag: 0x0500, // ICRNL | IXON (common defaults)
-            c_oflag: 0x0005, // OPOST | ONLCR (common defaults)
-            c_cflag: 0x00BF, // B38400 | CS8 | CREAD | HUPCL
-            c_lflag: ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN,
-            c_line: 0,
-            c_cc: cc,
-            c_ispeed: 38400,
-            c_ospeed: 38400,
-        }
-    };
-}
-
-impl Default for Termios {
-    fn default() -> Self {
-        Self::INITIAL_TERMIOS
-    }
-}
 
 use alloc::collections::VecDeque;
 

@@ -136,49 +136,12 @@ pub const GIC_SPI_START: u32 = 32;
 // TEAM_015: Typed IRQ identifiers and handler registry
 // ======================================================
 
-/// Known IRQ sources in LevitateOS.
-/// Maps symbolic names to hardware IRQ numbers for the QEMU virt machine.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IrqId {
-    /// Virtual Timer (PPI, IRQ 27)
-    VirtualTimer,
-    /// PL011 UART (SPI, IRQ 33)
-    Uart,
-    /// TEAM_241: VirtIO Input device (SPI, IRQ = 48 + slot_index)
-    VirtioInput(u32),
-}
+pub use crate::traits::IrqId;
+pub use crate::traits::InterruptHandler;
 
 /// Maximum number of registered handlers
 /// TEAM_241: Increased to 34 (VirtualTimer=0, Uart=1, VirtioInput slots 0-31 = 2-33)
 const MAX_HANDLERS: usize = 34;
-
-impl IrqId {
-    /// [G1] Maps IrqId to correct IRQ numbers
-    #[inline]
-    pub fn irq_number(self) -> u32 {
-        match self {
-            IrqId::VirtualTimer => 27, // [G1]
-            IrqId::Uart => 33,         // [G1]
-            // TEAM_241: QEMU virt assigns VirtIO MMIO IRQs sequentially from base 48
-            IrqId::VirtioInput(slot) => 48 + slot,
-        }
-    }
-
-    /// [G2] Returns correct IrqId for known IRQ, [G3] returns None for unknown
-    #[inline]
-    pub fn from_irq_number(irq: u32) -> Option<Self> {
-        match irq {
-            27 => Some(IrqId::VirtualTimer), // [G2]
-            33 => Some(IrqId::Uart),         // [G2]
-            // TEAM_241: VirtIO MMIO IRQs range from 48 to 48+31
-            48..=79 => Some(IrqId::VirtioInput(irq - 48)),
-            _ => None, // [G3]
-        }
-    }
-}
-
-/// IRQ handler trait.
-pub use crate::traits::InterruptHandler;
 
 /// Static handler table (single-core assumption, set at boot).
 static mut HANDLERS: [Option<&'static dyn InterruptHandler>; MAX_HANDLERS] = [None; MAX_HANDLERS];
@@ -187,19 +150,25 @@ static mut HANDLERS: [Option<&'static dyn InterruptHandler>; MAX_HANDLERS] = [No
 ///
 /// # Safety
 /// Must be called before interrupts are enabled. Not thread-safe.
-pub fn register_handler(irq: IrqId, handler: &'static dyn InterruptHandler) {
+pub fn register_handler(irq: crate::traits::IrqId, handler: &'static dyn crate::traits::InterruptHandler) {
     // TEAM_241: Map IrqId to handler table index
     let idx = match irq {
-        IrqId::VirtualTimer => 0,
-        IrqId::Uart => 1,
-        IrqId::VirtioInput(slot) => 2 + slot as usize, // slots 0-31 map to indices 2-33
+        crate::traits::IrqId::VirtualTimer => 0,
+        crate::traits::IrqId::Uart => 1,
+        crate::traits::IrqId::VirtioInput(slot) => 2 + slot as usize, // slots 0-31 map to indices 2-33
     };
 
     if idx >= MAX_HANDLERS {
         return; // Silently fail if out of bounds
     }
 
-    handler.on_register(irq.irq_number());
+    let irq_num = match irq {
+        crate::traits::IrqId::VirtualTimer => 27,
+        crate::traits::IrqId::Uart => 33,
+        crate::traits::IrqId::VirtioInput(slot) => 48 + slot,
+    };
+
+    handler.on_register(irq_num);
     unsafe {
         HANDLERS[idx] = Some(handler); // [G4] stores handler
     }
@@ -209,22 +178,21 @@ pub fn register_handler(irq: IrqId, handler: &'static dyn InterruptHandler) {
 ///
 /// Returns `true` if a handler was found and called, `false` otherwise.
 pub fn dispatch(irq_num: u32) -> bool {
-    if let Some(irq_id) = IrqId::from_irq_number(irq_num) {
-        // TEAM_241: Map IrqId to handler table index (must match register_handler)
-        let idx = match irq_id {
-            IrqId::VirtualTimer => 0,
-            IrqId::Uart => 1,
-            IrqId::VirtioInput(slot) => 2 + slot as usize,
-        };
+    // TEAM_241: Map hardware IRQ to handler table index
+    let idx = match irq_num {
+        27 => Some(0),
+        33 => Some(1),
+        48..=79 => Some(2 + (irq_num - 48) as usize),
+        _ => None,
+    };
 
-        if idx >= MAX_HANDLERS {
-            return false;
-        }
-
-        unsafe {
-            if let Some(handler) = HANDLERS[idx] {
-                handler.handle(irq_num); // [G5] calls handler
-                return true;
+    if let Some(idx) = idx {
+        if idx < MAX_HANDLERS {
+            unsafe {
+                if let Some(handler) = HANDLERS[idx] {
+                    handler.handle(irq_num); // [G5] calls handler
+                    return true;
+                }
             }
         }
     }
@@ -299,12 +267,16 @@ impl crate::traits::InterruptController for Gic {
         Self::is_spurious(irq)
     }
 
-    fn register_handler(&self, irq: IrqId, handler: &'static dyn InterruptHandler) {
+    fn register_handler(&self, irq: crate::traits::IrqId, handler: &'static dyn crate::traits::InterruptHandler) {
         register_handler(irq, handler);
     }
 
-    fn map_irq(&self, irq: IrqId) -> u32 {
-        irq.irq_number()
+    fn map_irq(&self, irq: crate::traits::IrqId) -> u32 {
+        match irq {
+            crate::traits::IrqId::VirtualTimer => 27,
+            crate::traits::IrqId::Uart => 33,
+            crate::traits::IrqId::VirtioInput(slot) => 48 + slot,
+        }
     }
 }
 

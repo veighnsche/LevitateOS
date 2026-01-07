@@ -30,7 +30,7 @@ pub fn cache_clean_range(start_va: usize, size: usize) {
     }
 }
 pub mod traits;
-pub use traits::{InterruptController, MmuInterface, InterruptHandler};
+pub use traits::{InterruptController, MmuInterface, InterruptHandler, IrqId};
 
 /// Get the active interrupt controller.
 pub fn active_interrupt_controller() -> &'static dyn InterruptController {

@@ -72,6 +72,36 @@ pub struct Timespec {
     pub tv_nsec: i64,
 }
 
+/// TEAM_247: Number of control characters in termios.
+pub const NCCS: usize = 32;
+
+/// x86_64 Termios stub
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Termios {
+    pub c_iflag: u32,
+    pub c_oflag: u32,
+    pub c_cflag: u32,
+    pub c_lflag: u32,
+    pub c_line: u8,
+    pub c_cc: [u8; NCCS],
+    pub c_ispeed: u32,
+    pub c_ospeed: u32,
+}
+
+impl Termios {
+    pub const INITIAL_TERMIOS: Termios = Termios {
+        c_iflag: 0,
+        c_oflag: 0,
+        c_cflag: 0,
+        c_lflag: 0,
+        c_line: 0,
+        c_cc: [0u8; NCCS],
+        c_ispeed: 0,
+        c_ospeed: 0,
+    };
+}
+
 // TEAM_162: Stubs for types that need to be provided by the architecture
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
