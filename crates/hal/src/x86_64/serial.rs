@@ -1,5 +1,5 @@
-use core::fmt;
 use core::arch::asm;
+use core::fmt;
 
 // TEAM_259: Simple Serial Port (COM1) driver for x86_64 early logging.
 
@@ -90,5 +90,4 @@ impl fmt::Write for SerialPort {
     }
 }
 
-/// Global COM1 instance.
-pub static COM1_PORT: los_utils::Mutex<SerialPort> = los_utils::Mutex::new(SerialPort::new(COM1));
+// COM1_PORT removed: Replace with console::WRITER (IrqSafeLock) to avoid deadlocks

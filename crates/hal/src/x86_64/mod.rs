@@ -2,28 +2,29 @@
 
 use crate::traits::InterruptController;
 
+pub mod apic;
+pub mod console;
+pub mod exceptions;
+pub mod idt;
+pub mod interrupts;
+pub mod ioapic;
+pub mod mmu;
+pub mod pit;
 pub mod serial;
 pub mod vga;
-pub mod idt;
-pub mod exceptions;
-pub mod apic;
-pub mod ioapic;
-pub mod pit;
-pub mod interrupts;
-pub mod mmu;
 
 pub fn init() {
     // 1. Initialize serial for early logging
-    unsafe { serial::COM1_PORT.lock().init() };
-    
+    unsafe { console::WRITER.lock().init() };
+
     // 2. Initialize IDT and exceptions
     idt::init();
     exceptions::init();
-    
+
     // 3. Initialize APIC and IOAPIC
     apic::APIC.init();
     ioapic::IOAPIC.init();
-    
+
     // 4. Initialize PIT
     pit::Pit::init(100); // 100Hz
 }

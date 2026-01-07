@@ -258,6 +258,7 @@ irq_entry:
     str     x30, [sp, #240]
 
     /* Call Rust handler */
+    mov     x0, xzr             // TEAM_262: Clear frame pointer for kernel IRQs
     bl      handle_irq
 
     /* Restore context */

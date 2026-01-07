@@ -13,35 +13,8 @@
 extern crate alloc;
 
 use core::panic::PanicInfo;
-
 use los_hal::println;
 
-// =============================================================================
-// Kernel Modules
-// =============================================================================
-
-mod arch;
-mod block;
-mod fs;
-mod gpu;
-mod init;
-mod input;
-mod loader;
-mod logger;
-mod memory;
-mod net;
-mod syscall;
-mod task;
-mod terminal;
-mod virtio;
-
-// =============================================================================
-// Verbose Macro (Feature-Gated)
-// =============================================================================
-
-/// Verbose print macro - only outputs when `verbose` feature is enabled.
-/// Use for successful initialization messages (Rule 4: Silence is Golden).
-/// Errors should always use println! directly.
 #[cfg(feature = "verbose")]
 #[macro_export]
 macro_rules! verbose {
@@ -54,14 +27,21 @@ macro_rules! verbose {
     ($($arg:tt)*) => {};
 }
 
-// =============================================================================
-// Kernel Entry Point
-// =============================================================================
+pub mod arch;
+pub mod block;
+pub mod fs;
+pub mod gpu;
+pub mod init;
+pub mod input;
+pub mod loader;
+pub mod logger;
+pub mod memory;
+pub mod net;
+pub mod syscall;
+pub mod task;
+pub mod terminal;
+pub mod virtio;
 
-/// Main kernel entry point, called from assembly boot code.
-///
-/// This function performs minimal early initialization then delegates
-/// to `init::run()` for the full boot sequence.
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
     // Stage 1: Early HAL - Console must be first for debug output
@@ -70,18 +50,24 @@ pub extern "C" fn kmain() -> ! {
     // TEAM_221: Initialize logger (Info level silences Debug/Trace)
     logger::init(log::LevelFilter::Info);
 
-    init::transition_to(init::BootStage::EarlyHAL);
+    crate::init::transition_to(crate::init::BootStage::EarlyHAL);
 
     // Initialize heap (required for alloc)
-    arch::init_heap();
+    crate::arch::init_heap();
+
+    // --- Stage 1: CPU & Basic Initialization ---
+    crate::arch::print_boot_regs();
+
+    // TEAM_262: Initialize bootstrap task immediately after heap
+    // This satisfies current_task() calls (e.g. from early IRQs)
+    let bootstrap = alloc::sync::Arc::new(crate::task::TaskControlBlock::new_bootstrap());
+    unsafe {
+        crate::task::set_current_task(bootstrap);
+    }
 
     // Hand off to init sequence (never returns)
-    init::run()
+    crate::init::run()
 }
-
-// =============================================================================
-// Panic Handler
-// =============================================================================
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {

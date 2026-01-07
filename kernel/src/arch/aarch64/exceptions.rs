@@ -53,15 +53,14 @@ pub extern "C" fn handle_sync_lower_el(frame: *mut crate::arch::SyscallFrame) {
 pub extern "C" fn handle_sync_exception(esr: u64, elr: u64) {
     // raw prints to avoid core::fmt
     use core::fmt::Write;
-    use los_hal::console;
-    let _ = console::WRITER
+    let _ = los_hal::arch::console::WRITER
         .lock()
         .write_str("\n*** KERNEL EXCEPTION: Synchronous ***\n");
-    let _ = console::WRITER.lock().write_str("ESR: ");
-    console::print_hex(esr);
-    let _ = console::WRITER.lock().write_str("\nELR: ");
-    console::print_hex(elr);
-    let _ = console::WRITER.lock().write_str("\n");
+    let _ = los_hal::arch::console::WRITER.lock().write_str("ESR: ");
+    los_hal::arch::console::print_hex(esr);
+    let _ = los_hal::arch::console::WRITER.lock().write_str("\nELR: ");
+    los_hal::arch::console::print_hex(elr);
+    let _ = los_hal::arch::console::WRITER.lock().write_str("\n");
 }
 
 /// Handle IRQs.
