@@ -46,3 +46,8 @@ tests/gicv3_*.txt
 tmp/
 initrd_root/
 initrd_test_root/
+# ISO and Boot Artifacts
+iso_root/
+levitate.iso
+limine-bin/
+test_disk.img

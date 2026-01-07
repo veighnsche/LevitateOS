@@ -50,7 +50,7 @@ pub mod virtio;
 ///
 /// Note: The caller must call `boot::set_boot_info()` before calling this
 /// to make boot info available globally.
-pub fn kernel_main_unified(boot_info: &boot::BootInfo) -> ! {
+pub fn kernel_main_unified(boot_info: &crate::boot::BootInfo) -> ! {
     // Stage 1: Early HAL - Console must be first for debug output
     los_hal::console::init();
 
@@ -68,7 +68,7 @@ pub fn kernel_main_unified(boot_info: &boot::BootInfo) -> ! {
 
     // Log boot protocol
     println!("[BOOT] Protocol: {:?}", boot_info.protocol);
-    if boot_info.memory_map.len() > 0 {
+    if !boot_info.memory_map.is_empty() {
         println!(
             "[BOOT] Memory: {} regions, {} MB usable",
             boot_info.memory_map.len(),
@@ -91,6 +91,7 @@ pub fn kernel_main_unified(boot_info: &boot::BootInfo) -> ! {
 }
 
 /// TEAM_282: Legacy AArch64 entry point (wrapper).
+#[cfg(target_arch = "aarch64")]
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
     // AArch64 requires DTB parsing to get BootInfo if not using Limine

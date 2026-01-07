@@ -467,9 +467,9 @@ pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> 
     for region in boot_info_ref.memory_map.iter() {
         if region.kind == crate::boot::MemoryKind::Usable && count < 16 {
             ram_regions[count] = Some(los_hal::x86_64::multiboot2::MemoryRegion {
-                start: region.start,
-                end: region.start + region.size,
-                kind: los_hal::x86_64::multiboot2::MemoryKind::Usable,
+                start: region.base,
+                end: region.base + region.size,
+                typ: los_hal::x86_64::multiboot2::MemoryType::Available,
             });
             count += 1;
         }

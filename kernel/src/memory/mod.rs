@@ -3,9 +3,6 @@ use los_hal::aarch64::fdt;
 use los_hal::mmu::{self, PageAllocator};
 use los_utils::Mutex;
 
-// pub mod buddy; // Moved to HAL
-// pub mod page; // Moved to HAL
-
 pub use los_hal::allocator::BuddyAllocator;
 pub use los_hal::allocator::Page;
 
@@ -27,6 +24,72 @@ impl PageAllocator for FrameAllocator {
 
 pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator(Mutex::new(BuddyAllocator::new()));
 
+fn add_reserved(
+    regions: &mut [Option<(usize, usize)>],
+    count: &mut usize,
+    start: usize,
+    end: usize,
+) {
+    if *count < regions.len() {
+        regions[*count] = Some((start & !4095, (end + 4095) & !4095));
+        *count += 1;
+    }
+}
+
+fn add_range_with_holes(
+    allocator: &mut BuddyAllocator,
+    ram: (usize, usize),
+    reserved: &[Option<(usize, usize)>],
+) {
+    fn add_split(
+        allocator: &mut BuddyAllocator,
+        ram: (usize, usize),
+        reserved: &[Option<(usize, usize)>],
+        idx: usize,
+    ) {
+        if ram.0 >= ram.1 {
+            return;
+        }
+
+        // Find next valid reserved region
+        let mut next_idx = idx;
+        while next_idx < reserved.len() && reserved[next_idx].is_none() {
+            next_idx += 1;
+        }
+
+        if next_idx >= reserved.len() {
+            // No more reserved regions to check
+            // SAFETY: The range (ram.0, ram.1) has been validated against all reserved
+            // regions and is within discovered RAM bounds.
+            unsafe {
+                allocator.add_range(ram.0, ram.1);
+            }
+            return;
+        }
+
+        let res = reserved[next_idx].as_ref().expect("Checked None above");
+
+        // Check for overlap
+        if ram.0 < res.1 && ram.1 > res.0 {
+            // Overlap! Split RAM into pieces that don't overlap with THIS reserved range
+            // 1. Portion before reserved
+            if ram.0 < res.0 {
+                add_split(allocator, (ram.0, res.0), reserved, next_idx + 1);
+            }
+            // 2. Portion after reserved
+            if ram.1 > res.1 {
+                add_split(allocator, (res.1, ram.1), reserved, next_idx + 1);
+            }
+            // Portion inside is skipped
+        } else {
+            // No overlap with this one, try next reserved
+            add_split(allocator, ram, reserved, next_idx + 1);
+        }
+    }
+
+    add_split(allocator, ram, reserved, 0);
+}
+
 /// Initialize physical memory management.
 #[cfg(target_arch = "aarch64")]
 pub fn init(boot_info: &crate::boot::BootInfo) {
@@ -36,7 +99,7 @@ pub fn init(boot_info: &crate::boot::BootInfo) {
 
     for region in boot_info.memory_map.iter() {
         if region.kind == crate::boot::MemoryKind::Usable && ram_count < 16 {
-            ram_regions[ram_count] = Some((region.start, region.start + region.size));
+            ram_regions[ram_count] = Some((region.base, region.base + region.size));
             ram_count += 1;
         }
     }
@@ -49,8 +112,8 @@ pub fn init(boot_info: &crate::boot::BootInfo) {
             add_reserved(
                 &mut reserved_regions,
                 &mut res_count,
-                region.start,
-                region.start + region.size,
+                region.base,
+                region.base + region.size,
             );
         }
     }
@@ -151,72 +214,6 @@ pub fn init(boot_info: &crate::boot::BootInfo) {
     crate::verbose!("Buddy Allocator initialized with unified BootInfo.");
 }
 
-fn add_reserved(
-    regions: &mut [Option<(usize, usize)>],
-    count: &mut usize,
-    start: usize,
-    end: usize,
-) {
-    if *count < regions.len() {
-        regions[*count] = Some((start & !4095, (end + 4095) & !4095));
-        *count += 1;
-    }
-}
-
-fn add_range_with_holes(
-    allocator: &mut BuddyAllocator,
-    ram: (usize, usize),
-    reserved: &[Option<(usize, usize)>],
-) {
-    fn add_split(
-        allocator: &mut BuddyAllocator,
-        ram: (usize, usize),
-        reserved: &[Option<(usize, usize)>],
-        idx: usize,
-    ) {
-        if ram.0 >= ram.1 {
-            return;
-        }
-
-        // Find next valid reserved region
-        let mut next_idx = idx;
-        while next_idx < reserved.len() && reserved[next_idx].is_none() {
-            next_idx += 1;
-        }
-
-        if next_idx >= reserved.len() {
-            // No more reserved regions to check
-            // SAFETY: The range (ram.0, ram.1) has been validated against all reserved
-            // regions and is within discovered RAM bounds.
-            unsafe {
-                allocator.add_range(ram.0, ram.1);
-            }
-            return;
-        }
-
-        let res = reserved[next_idx].as_ref().expect("Checked None above");
-
-        // Check for overlap
-        if ram.0 < res.1 && ram.1 > res.0 {
-            // Overlap! Split RAM into pieces that don't overlap with THIS reserved range
-            // 1. Portion before reserved
-            if ram.0 < res.0 {
-                add_split(allocator, (ram.0, res.0), reserved, next_idx + 1);
-            }
-            // 2. Portion after reserved
-            if ram.1 > res.1 {
-                add_split(allocator, (res.1, ram.1), reserved, next_idx + 1);
-            }
-            // Portion inside is skipped
-        } else {
-            // No overlap with this one, try next reserved
-            add_split(allocator, ram, reserved, next_idx + 1);
-        }
-    }
-
-    add_split(allocator, ram, reserved, 0);
-}
-
 unsafe extern "C" {
     static _kernel_virt_start: u8;
     static _kernel_end: u8;
@@ -236,7 +233,7 @@ pub fn init(boot_info: &crate::boot::BootInfo) {
 
     for region in boot_info.memory_map.iter() {
         if region.kind == crate::boot::MemoryKind::Usable && ram_count < 16 {
-            ram_regions[ram_count] = Some((region.start, region.start + region.size));
+            ram_regions[ram_count] = Some((region.base, region.base + region.size));
             ram_count += 1;
         }
     }
@@ -252,8 +249,8 @@ pub fn init(boot_info: &crate::boot::BootInfo) {
             add_reserved(
                 &mut reserved_regions,
                 &mut res_count,
-                region.start,
-                region.start + region.size,
+                region.base,
+                region.base + region.size,
             );
         }
     }
