@@ -1,4 +1,4 @@
-// TEAM_259: x86_64 HAL module structure.
+// TEAM_260: x86_64 HAL module structure.
 
 use crate::traits::InterruptController;
 
@@ -9,6 +9,8 @@ pub mod exceptions;
 pub mod apic;
 pub mod ioapic;
 pub mod pit;
+pub mod interrupts;
+pub mod mmu;
 
 pub fn init() {
     // 1. Initialize serial for early logging

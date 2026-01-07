@@ -2,7 +2,10 @@
 //!
 //! TEAM_255: Decouples the kernel from architecture-specific hardware logic.
 
-use crate::mmu::{PageFlags, MmuError};
+#[cfg(target_arch = "aarch64")]
+use crate::aarch64::mmu::{PageFlags, MmuError};
+#[cfg(target_arch = "x86_64")]
+use crate::x86_64::mmu::{PageFlags, MmuError};
 
 /// Known IRQ sources in LevitateOS.
 /// Maps symbolic names to hardware IRQ numbers.
@@ -62,4 +65,12 @@ pub trait MmuInterface: Send + Sync {
 
     /// Switch the hardware to use this MMU configuration (e.g., load TTBR0/CR3).
     fn switch_to(&self);
+}
+
+/// Trait for physical page allocation, to be used by MMU for dynamic page tables.
+pub trait PageAllocator: Send + Sync {
+    /// Allocate a 4KB physical page.
+    fn alloc_page(&self) -> Option<usize>;
+    /// Free a 4KB physical page.
+    fn free_page(&self, pa: usize);
 }

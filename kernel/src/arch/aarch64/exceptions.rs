@@ -67,18 +67,19 @@ pub extern "C" fn handle_sync_exception(esr: u64, elr: u64) {
 /// Handle IRQs.
 #[unsafe(no_mangle)]
 pub extern "C" fn handle_irq(frame: *mut crate::arch::SyscallFrame) {
-    let gic = los_hal::gic::active_api();
-    let irq = gic.acknowledge();
+    use los_hal::aarch64::gic;
+    let gic_api = gic::active_api();
+    let irq = gic_api.acknowledge();
 
-    if los_hal::gic::Gic::is_spurious(irq) {
+    if gic::Gic::is_spurious(irq) {
         return;
     }
 
-    if !los_hal::gic::dispatch(irq) {
+    if !gic::dispatch(irq) {
         crate::println!("Unhandled IRQ: {}", irq);
     }
 
-    gic.end_interrupt(irq);
+    gic_api.end_interrupt(irq);
 
     // TEAM_216: If IRQ came from userspace, check for signals
     if !frame.is_null() {

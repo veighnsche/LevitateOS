@@ -176,7 +176,10 @@ impl SlabCache {
     /// Returns pointer to the new page, which has been added to partial list.
     fn grow(&mut self) -> Option<NonNull<SlabPage>> {
         use crate::memory::FRAME_ALLOCATOR; // TEAM_051: Now in HAL
-        use crate::mmu;
+        #[cfg(target_arch = "aarch64")]
+        use crate::aarch64::mmu;
+        #[cfg(target_arch = "x86_64")]
+        use crate::x86_64::mmu;
 
         // Get physical page from buddy allocator (order 0 = 4KB)
         let phys_addr = FRAME_ALLOCATOR.0.lock().alloc(0)?;

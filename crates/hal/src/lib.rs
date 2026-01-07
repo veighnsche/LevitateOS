@@ -1,7 +1,51 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// TEAM_260: HAL Crate - Symmetrical Architecture Support
+// Root contains generic traits and utilities.
+// Arch-specific logic is isolated in aarch64/ and x86_64/ submodules.
+
 pub mod allocator;
 pub mod console;
+pub mod traits;
+pub mod interrupts;
+pub mod mmu;
+pub mod memory; // TEAM_051: Frame allocator
+pub mod virtio;
+
+pub use traits::{InterruptController, MmuInterface, InterruptHandler, IrqId};
+
+#[cfg(target_arch = "aarch64")]
+pub mod aarch64;
+#[cfg(target_arch = "aarch64")]
+pub use self::aarch64 as arch;
+
+#[cfg(target_arch = "x86_64")]
+pub mod x86_64;
+#[cfg(target_arch = "x86_64")]
+pub use self::x86_64 as arch;
+
+// Re-export common arch-specific modules to root for backward compatibility
+#[cfg(target_arch = "aarch64")]
+pub use self::arch::{gic, timer, fdt, serial};
+#[cfg(target_arch = "x86_64")]
+pub use self::arch::{apic, pit, vga, idt, exceptions, ioapic, serial};
+
+/// Get the active interrupt controller.
+pub fn active_interrupt_controller() -> &'static dyn InterruptController {
+    #[cfg(target_arch = "aarch64")]
+    {
+        arch::gic::active_api()
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        arch::apic::active_api()
+    }
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    {
+        unimplemented!("Interrupt controller not implemented for this architecture")
+    }
+}
+
 // TEAM_112: Export cache maintenance for DMA
 // TEAM_132: Migrate barriers to aarch64-cpu
 pub fn cache_clean_range(start_va: usize, size: usize) {
@@ -25,39 +69,10 @@ pub fn cache_clean_range(start_va: usize, size: usize) {
 
     #[cfg(not(target_arch = "aarch64"))]
     {
-        // No-op for host tests
+        // No-op for other architectures or host tests
         let _ = (start_va, size);
     }
 }
-pub mod traits;
-pub use traits::{InterruptController, MmuInterface, InterruptHandler, IrqId};
-
-/// Get the active interrupt controller.
-pub fn active_interrupt_controller() -> &'static dyn InterruptController {
-    #[cfg(target_arch = "aarch64")]
-    {
-        gic::active_api()
-    }
-    #[cfg(target_arch = "x86_64")]
-    {
-        x86_64::apic::active_api()
-    }
-    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
-    {
-        unimplemented!("Interrupt controller not implemented for this architecture")
-    }
-}
-
-pub mod fdt;
-pub mod gic;
-#[cfg(target_arch = "x86_64")]
-pub mod x86_64;
-pub mod interrupts;
-pub mod memory; // TEAM_051: Frame allocator
-pub mod mmu;
-pub mod timer;
-pub mod uart_pl011;
-pub mod virtio;
 
 // TEAM_103: LevitateVirtioHal moved to levitate-virtio/src/hal_impl.rs
 // Only VirtioHal (for virtio-drivers) and StaticMmioTransport remain here

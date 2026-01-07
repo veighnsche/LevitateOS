@@ -3,7 +3,7 @@
 // See docs/planning/slab-allocator/phase-3.md
 
 use crate::allocator::BuddyAllocator;
-use crate::mmu::PageAllocator;
+use crate::traits::PageAllocator;
 use los_utils::Mutex;
 
 /// Global Frame Allocator wrapper around BuddyAllocator

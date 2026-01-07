@@ -6,7 +6,8 @@
 //! - Address space layout for user processes
 
 use crate::memory::FRAME_ALLOCATOR;
-use los_hal::mmu::{self, MmuError, PAGE_SIZE, PageAllocator, PageFlags, PageTable};
+use los_hal::mmu::{self, MmuError, PAGE_SIZE, PageFlags, PageTable};
+use los_hal::traits::PageAllocator;
 
 /// TEAM_073: User address space layout constants.
 pub mod layout {

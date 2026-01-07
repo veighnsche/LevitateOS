@@ -38,7 +38,7 @@ unsafe impl Hal for VirtioHal {
         // Rule 14: DMA allocation failure is unrecoverable - fail fast
         let ptr = NonNull::new(ptr).expect("TEAM_130: VirtIO DMA allocation failed - OOM");
         let vaddr = ptr.as_ptr() as usize;
-        let paddr = crate::mmu::virt_to_phys(vaddr);
+        let paddr = crate::arch::mmu::virt_to_phys(vaddr);
         (paddr as u64, ptr)
     }
 
@@ -46,14 +46,14 @@ unsafe impl Hal for VirtioHal {
         // SAFETY: Same layout constraints as dma_alloc
         let layout = core::alloc::Layout::from_size_align(pages * 4096, 4096)
             .expect("TEAM_130: Layout creation failed - invalid page count");
-        let vaddr = crate::mmu::phys_to_virt(paddr as usize);
+        let vaddr = crate::arch::mmu::phys_to_virt(paddr as usize);
         // SAFETY: vaddr was allocated by dma_alloc with same layout
         unsafe { alloc::alloc::dealloc(vaddr as *mut u8, layout) };
         0
     }
 
     unsafe fn mmio_phys_to_virt(paddr: PhysAddr, _size: usize) -> NonNull<u8> {
-        let vaddr = crate::mmu::phys_to_virt(paddr as usize);
+        let vaddr = crate::arch::mmu::phys_to_virt(paddr as usize);
         // SAFETY: phys_to_virt returns valid mapped address for MMIO regions
         // Rule 14: Null MMIO mapping is unrecoverable - fail fast
         NonNull::new(vaddr as *mut u8).expect("TEAM_130: MMIO phys_to_virt returned null")
@@ -64,7 +64,8 @@ unsafe impl Hal for VirtioHal {
         _direction: virtio_drivers::BufferDirection,
     ) -> PhysAddr {
         let vaddr = buffer.as_ptr() as *mut u8 as usize;
-        crate::mmu::virt_to_phys(vaddr) as u64
+        let paddr = crate::arch::mmu::virt_to_phys(vaddr);
+        paddr as u64
     }
 
     unsafe fn unshare(

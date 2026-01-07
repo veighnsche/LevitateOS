@@ -1,6 +1,8 @@
 use crate::IrqSafeLock;
-use crate::mmu;
-use crate::uart_pl011::Pl011Uart;
+#[cfg(target_arch = "aarch64")]
+use crate::aarch64::mmu;
+#[cfg(target_arch = "aarch64")]
+use crate::aarch64::serial::Pl011Uart;
 use core::fmt::{self, Write};
 use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use los_utils::RingBuffer;
@@ -140,6 +142,7 @@ pub fn _print(args: fmt::Arguments) {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 impl Write for Pl011Uart {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for byte in s.bytes() {

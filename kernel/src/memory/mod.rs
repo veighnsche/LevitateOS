@@ -1,4 +1,5 @@
-use los_hal::fdt;
+#[cfg(target_arch = "aarch64")]
+use los_hal::aarch64::fdt;
 use los_hal::mmu::{self, PageAllocator};
 use los_utils::Mutex;
 
@@ -27,6 +28,7 @@ impl PageAllocator for FrameAllocator {
 pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator(Mutex::new(BuddyAllocator::new()));
 
 /// Initialize physical memory management.
+#[cfg(target_arch = "aarch64")]
 pub fn init(dtb: &[u8]) {
     let fdt = fdt::Fdt::new(dtb).expect("Invalid DTB for memory init");
 

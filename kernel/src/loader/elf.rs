@@ -447,7 +447,7 @@ impl<'a> Elf<'a> {
     }
 }
 
-use los_hal::mmu::PageAllocator;
+use los_hal::traits::PageAllocator;
 
 #[cfg(test)]
 mod tests {

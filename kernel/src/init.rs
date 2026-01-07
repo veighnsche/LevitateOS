@@ -12,9 +12,11 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use los_hal::fdt::{self, Fdt};
+#[cfg(target_arch = "aarch64")]
+use los_hal::aarch64::fdt::{self, Fdt};
 use los_hal::mmu;
-use los_hal::timer::{self, Timer};
+#[cfg(target_arch = "aarch64")]
+use los_hal::aarch64::timer::{self, Timer};
 use los_hal::{print, println, InterruptHandler, IrqId};
 
 use crate::arch;
@@ -160,7 +162,9 @@ pub fn maintenance_shell() -> ! {
 // =============================================================================
 
 // TEAM_045: IRQ handlers refactored to use InterruptHandler trait
+#[cfg(target_arch = "aarch64")]
 struct TimerHandler;
+#[cfg(target_arch = "aarch64")]
 impl InterruptHandler for TimerHandler {
     fn handle(&self, _irq: u32) {
         // TEAM_083: Removed debug "T" output - was flooding console
@@ -202,7 +206,9 @@ impl InterruptHandler for TimerHandler {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 struct UartHandler;
+#[cfg(target_arch = "aarch64")]
 impl InterruptHandler for UartHandler {
     fn handle(&self, _irq: u32) {
         // TEAM_139: Note - UART RX interrupts may not fire when QEMU stdin is piped
@@ -217,7 +223,9 @@ impl InterruptHandler for UartHandler {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 static TIMER_HANDLER: TimerHandler = TimerHandler;
+#[cfg(target_arch = "aarch64")]
 static UART_HANDLER: UartHandler = UartHandler;
 
 // =============================================================================
@@ -237,64 +245,58 @@ pub fn run() -> ! {
     crate::verbose!("Exceptions initialized.");
 
     // --- GIC and Timer Setup ---
-    let dtb_phys = arch::get_dtb_phys();
-    let dtb_slice = dtb_phys.map(|phys| {
-        let ptr = phys as *const u8;
-        // Assume 1MB for early discovery
-        unsafe { core::slice::from_raw_parts(ptr, 1024 * 1024) }
-    });
-    let fdt = dtb_slice.and_then(|slice| Fdt::new(slice).ok());
+    #[cfg(target_arch = "aarch64")]
+    let (dtb_slice, initrd_found) = {
+        let dtb_phys = arch::get_dtb_phys();
+        let dtb_slice = dtb_phys.map(|phys| {
+            let ptr = phys as *const u8;
+            // Assume 1MB for early discovery
+            unsafe { core::slice::from_raw_parts(ptr, 1024 * 1024) }
+        });
+        let fdt = dtb_slice.and_then(|slice| Fdt::new(slice).ok());
 
-    // TEAM_255: Initialize interrupt controller using generic HAL interface
-    let ic = los_hal::active_interrupt_controller();
-    ic.init();
+        // TEAM_255: Initialize interrupt controller using generic HAL interface
+        let ic = los_hal::active_interrupt_controller();
+        ic.init();
 
-    // TEAM_047: Initialize physical memory management (Buddy Allocator)
-    if let Some(slice) = dtb_slice {
-        crate::memory::init(slice);
-    }
+        // TEAM_047: Initialize physical memory management (Buddy Allocator)
+        if let Some(slice) = dtb_slice {
+            crate::memory::init(slice);
+        }
 
-    // TEAM_255: Register IRQ handlers using generic HAL traits
-    let ic = los_hal::active_interrupt_controller();
-    ic.register_handler(IrqId::VirtualTimer, &TIMER_HANDLER);
-    ic.register_handler(IrqId::Uart, &UART_HANDLER);
-    ic.enable_irq(ic.map_irq(IrqId::VirtualTimer));
-    ic.enable_irq(ic.map_irq(IrqId::Uart));
+        // TEAM_255: Register IRQ handlers using generic HAL traits
+        ic.register_handler(IrqId::VirtualTimer, &TIMER_HANDLER);
+        ic.register_handler(IrqId::Uart, &UART_HANDLER);
+        ic.enable_irq(ic.map_irq(IrqId::VirtualTimer));
+        ic.enable_irq(ic.map_irq(IrqId::Uart));
 
-    crate::verbose!("Core drivers initialized.");
+        crate::verbose!("Core drivers initialized.");
 
-    // --- Multitasking Setup ---
-    let bootstrap_task = Arc::new(task::TaskControlBlock::new_bootstrap());
-    unsafe {
-        task::set_current_task(bootstrap_task);
-    }
+        // Set initial timer timeout
+        timer::API.set_timeout(timer::API.read_frequency() / 100);
+        timer::API.enable();
+        crate::verbose!("Timer initialized.");
 
-    // TEAM_071: Demo tasks gated behind feature to not break behavior tests
-    #[cfg(feature = "multitask-demo")]
-    {
-        task::scheduler::SCHEDULER.add_task(Arc::new(task::TaskControlBlock::new(
-            task1 as *const () as usize,
-        )));
-        task::scheduler::SCHEDULER.add_task(Arc::new(task::TaskControlBlock::new(
-            task2 as *const () as usize,
-        )));
-    }
+        // --- Stage 4: Discovery (VirtIO, Filesystem, Init) ---
+        transition_to(BootStage::Discovery);
+        init_devices();
+        arch::print_boot_regs();
 
-    // Set initial timer timeout
-    timer::API.set_timeout(timer::API.read_frequency() / 100);
-    timer::API.enable();
-    crate::verbose!("Timer initialized.");
+        (dtb_slice, init_userspace(dtb_slice))
+    };
 
-    // --- Stage 3: Boot Console (GPU + Terminal) ---
-    transition_to(BootStage::BootConsole);
-    init_display();
+    #[cfg(target_arch = "x86_64")]
+    let (_dtb_slice, initrd_found) = {
+        // x86_64 HAL init is called in kmain
+        // TODO: Move shared init logic here
+        
+        // --- Stage 4: Discovery (VirtIO, Filesystem, Init) ---
+        transition_to(BootStage::Discovery);
+        init_devices();
+        arch::print_boot_regs();
 
-    // --- Stage 4: Discovery (VirtIO, Filesystem, Init) ---
-    transition_to(BootStage::Discovery);
-    init_devices();
-    arch::print_boot_regs();
-
-    let initrd_found = init_userspace(dtb_slice);
+        (None as Option<&[u8]>, false) // TODO: Multiboot2 initrd
+    };
 
     // TEAM_065: SPEC-4 enforcement per Rule 14 (Fail Loud, Fail Fast)
     #[cfg(not(feature = "diskless"))]
@@ -372,6 +374,7 @@ fn init_devices() {
 /// Initialize userspace: load and spawn init from initramfs.
 ///
 /// Returns true if init was successfully spawned.
+#[cfg(target_arch = "aarch64")]
 fn init_userspace(dtb_slice: Option<&[u8]>) -> bool {
     // TEAM_121: SPEC-4 Initrd Discovery with Fail-Fast (Rule 14)
     println!("Detecting Initramfs...");

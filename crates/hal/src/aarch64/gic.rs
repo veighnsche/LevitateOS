@@ -7,9 +7,9 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 // TEAM_045: FDT-based detection implemented for reliable version discovery
 
 // TEAM_078: Use high VA for GIC (accessible via TTBR1 regardless of TTBR0 state)
-pub const GICD_BASE: usize = crate::mmu::GIC_DIST_VA;
-pub const GICC_BASE: usize = crate::mmu::GIC_CPU_VA; // GICv2 CPU interface
-pub const GICR_BASE: usize = crate::mmu::GIC_REDIST_VA; // GICv3 Redistributor (QEMU virt)
+pub const GICD_BASE: usize = crate::aarch64::mmu::GIC_DIST_VA;
+pub const GICC_BASE: usize = crate::aarch64::mmu::GIC_CPU_VA; // GICv2 CPU interface
+pub const GICR_BASE: usize = crate::aarch64::mmu::GIC_REDIST_VA; // GICv3 Redistributor (QEMU virt)
 
 // Distributor registers (shared between v2 and v3)
 const GICD_CTLR: usize = 0x000;
@@ -301,13 +301,13 @@ pub fn set_active_api(gic: &'static Gic) {
 pub fn get_api(fdt: Option<&fdt::Fdt>) -> &'static Gic {
     let api = if let Some(fdt) = fdt {
         // TEAM_048: Try to find GICv3 node first
-        if let Some(_node) = crate::fdt::find_node_by_compatible(fdt, "arm,gic-v3") {
+        if let Some(_node) = crate::aarch64::fdt::find_node_by_compatible(fdt, "arm,gic-v3") {
             // Found GICv3! Try to read register addresses
             // reg: <dist_base size redist_base size ...>
             // Note: GICv3 reg property usually has Distributor then Redistributors.
             // We need to parse robustly. For now we just detect presence.
             &API_V3
-        } else if let Some(_node) = crate::fdt::find_node_by_compatible(fdt, "arm,cortex-a15-gic") {
+        } else if let Some(_node) = crate::aarch64::fdt::find_node_by_compatible(fdt, "arm,cortex-a15-gic") {
             // Found GICv2!
             &API
         } else {
