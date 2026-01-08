@@ -46,3 +46,33 @@ if !all_files_exist {      // Checks if all files exist
 - [x] Fix implemented in `xtask/src/build.rs`
 - [x] Verified via act
 - [x] Debug output removed
+
+## Part 2 — AArch64 Release Failure
+**Symptom**: `act -j build-aarch64` failed at "Build All" step.
+**Root Causes & Fixes**:
+1. **Userspace Linker Error** (`cannot find crt1.o`):
+   - Cause: `aarch64-linux-gnu-gcc` tries to link C runtime startup files unless `-nostartfiles` is used.
+   - Fix: Added `cargo:rustc-link-arg=-nostartfiles` to `build.rs` for `init`, `shell`, `levbox`, `repro_crash`, and created `systest/build.rs`.
+
+2. **Missing Entry Points**:
+   - `shell`: `_start` was x86_64 specific. Added `#[cfg(target_arch)]` gating and AArch64 `_start`.
+   - `repro_crash`: Had `#![no_main]` but defined `main()` instead of `_start`. Renamed to `_start`.
+
+3. **Kernel Build Error (`dtb` module missing)**:
+   - Cause: `.gitignore` had `dtb*` which ignored `kernel/src/boot/dtb.rs`. `act` checkout skipped it.
+   - Fix: Changed `.gitignore` to `*.dtb` and added `dtb.rs` to git.
+
+4. **Kernel Linker Error**:
+   - Cause: Missing `-nostartfiles` and incorrect reference to non-existent `linker.ld`.
+   - Fix: Updated `kernel/build.rs` to add `-nostartfiles` for AArch64.
+
+5. **Act Dependencies**:
+   - Cause: `cpio`, `fdisk`, `git` missing in `build-aarch64` job.
+   - Fix: Updated `release.yml`.
+
+## Final Verification
+```
+[act] AArch64:
+[act] ✅  Success - Main Run unit tests 
+[act] ✅  Success - Main Build All
+```

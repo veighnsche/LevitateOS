@@ -21,7 +21,7 @@ qemu_higher_half_debug.log
 *.txt
 !docs/**/*.txt
 !tests/golden_*.txt
-dtb*
+*.dtb
 Image
 qmp.sock
 test_copy.bin

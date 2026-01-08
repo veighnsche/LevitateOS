@@ -292,6 +292,7 @@ pub extern "C" fn shell_entry() -> ! {
 /// TEAM_299: Naked entry point to align stack for x86_64.
 /// The kernel might not align the stack to 16 bytes when jumping to userspace.
 /// This trampoline ensures alignment to prevent SIMD/Rust ABI issues.
+#[cfg(target_arch = "x86_64")]
 #[no_mangle]
 #[unsafe(naked)]
 pub unsafe extern "C" fn _start() -> ! {
@@ -301,6 +302,21 @@ pub unsafe extern "C" fn _start() -> ! {
         "and rsp, -16",      // Align stack to 16 bytes
         "call {entry}",      // Call Rust entry point
         "ud2",               // Should not return
+        entry = sym shell_entry,
+    )
+}
+
+/// TEAM_304: Naked entry point for aarch64.
+#[cfg(target_arch = "aarch64")]
+#[no_mangle]
+#[unsafe(naked)]
+pub unsafe extern "C" fn _start() -> ! {
+    core::arch::naked_asm!(
+        "mov x29, #0",       // Clear frame pointer
+        "mov x30, #0",       // Clear link register
+        "mov x0, sp",        // Preserve original SP
+        "and sp, x0, #-16",  // Align stack to 16 bytes
+        "b {entry}",         // Tail call to Rust entry
         entry = sym shell_entry,
     )
 }

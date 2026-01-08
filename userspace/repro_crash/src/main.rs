@@ -4,7 +4,7 @@
 use libsyscall::*;
 
 #[no_mangle]
-fn main() {
+pub extern "C" fn _start() -> ! {
     // We can't use println! easily without a buffer, but sys_write is what we are testing.
     // Let's try to print a banner first to verify we are running.
     println!("REPRO: Starting crash test...");

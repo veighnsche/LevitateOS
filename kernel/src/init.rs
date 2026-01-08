@@ -15,6 +15,7 @@ use alloc::sync::Arc;
 #[cfg(target_arch = "aarch64")]
 use los_hal::aarch64::fdt::{self, Fdt};
 use los_hal::mmu;
+use los_hal::timer::Timer;
 use los_hal::{InterruptHandler, IrqId, print, println};
 
 use crate::arch;
