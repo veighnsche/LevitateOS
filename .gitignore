@@ -51,3 +51,5 @@ iso_root/
 levitate.iso
 limine-bin/
 test_disk.img
+
+*.gdb

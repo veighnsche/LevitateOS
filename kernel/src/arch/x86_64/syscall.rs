@@ -194,15 +194,19 @@ pub extern "C" fn syscall_handler(frame: &mut super::SyscallFrame) {
     // Print entry for syscalls we care about (read=0, write=1)
     #[cfg(feature = "verbose-syscalls")]
     if nr <= 1 {
-        let pid = crate::task::current_task().id.0;
+        let task = crate::task::current_task();
+        let pid = task.id.0;
+        let mut cr3: u64;
+        unsafe {
+            core::arch::asm!("mov {}, cr3", out(reg) cr3);
+        }
         los_hal::println!(
-            "[SYSCALL][{}] ENTER nr={} rcx={:x} arg0={:x} arg1={:x} arg2={:x}",
+            "[SYSCALL][{}] ENTER nr={} rcx={:x} ttbr0={:x} cr3={:x}",
             pid,
             nr,
             pc_before,
-            frame.rdi,
-            frame.rsi,
-            frame.rdx
+            task.ttbr0,
+            cr3
         );
     }
 
