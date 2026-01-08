@@ -66,12 +66,13 @@ use crate::task::fd_table::SharedFdTable;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pid(pub u64);
 
+static NEXT_PID: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(1);
+
 impl Pid {
     /// Generate the next unique PID.
     pub fn next() -> Self {
-        use core::sync::atomic::AtomicU64;
-        static NEXT_PID: AtomicU64 = AtomicU64::new(1); // PID 0 reserved for kernel/idle
-        Pid(NEXT_PID.fetch_add(1, Ordering::SeqCst))
+        let n = NEXT_PID.fetch_add(1, Ordering::SeqCst);
+        Pid(n)
     }
 }
 
@@ -158,8 +159,15 @@ impl UserTask {
         // TEAM_166: Initialize heap with brk from ELF loader
         let heap = ProcessHeap::new(brk);
 
+        let pid = Pid::next();
+        log::trace!(
+            "[TASK] UserTask::new: PID={} Entry=0x{:x}",
+            pid.0,
+            entry_point
+        );
+
         Self {
-            pid: Pid::next(),
+            pid,
             state: AtomicU8::new(ProcessState::Ready as u8),
             ttbr0,
             user_sp,

@@ -142,12 +142,12 @@ pub unsafe extern "C" fn syscall_entry() {
         "pop r14",
         "pop r15",
 
+        // TEAM_299: Best Practice - Disable interrupts before restoring User RSP
+        "cli",
+
         // After popping R15, RSP points to 'frame.rsp' (index 15)
         // We need to restore User RSP from here
         "mov rsp, [rsp]",
-
-        // TEAM_299: Best Practice - Disable interrupts before swapgs/sysretq
-        "cli",
 
         // TEAM_299: Best Practice - Sanitize return address (RCX)
         // sysretq #GP faults if RCX is non-canonical.
