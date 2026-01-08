@@ -6,9 +6,9 @@ pub struct IoApic {
 }
 
 impl IoApic {
-    pub const fn new() -> Self {
+    pub const fn new(base_addr: usize) -> Self {
         Self {
-            base_addr: 0xFEC00000,
+            base_addr,
         }
     }
 
