@@ -18,6 +18,12 @@ pub use self::task::*;
 
 pub const ELF_MACHINE: u16 = 62; // EM_X86_64
 
+/// TEAM_293: GDT segment selectors
+pub const GDT_KERNEL_CODE: u16 = 0x08;
+pub const GDT_KERNEL_DATA: u16 = 0x10;
+pub const GDT_USER_DATA: u16 = 0x18 | 3; // 0x1B - Ring 3
+pub const GDT_USER_CODE: u16 = 0x20 | 3; // 0x23 - Ring 3
+
 /// TEAM_258: Linux x86_64 compatible syscall numbers
 /// Reference: https://github.com/torvalds/linux/blob/master/arch/x86/entry/syscalls/syscall_64.tbl
 /// NOTE: Using names expected by syscall dispatcher (some differ from Linux canonical names)
@@ -445,16 +451,22 @@ pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> 
     let is_limine = multiboot_magic == 0 || crate::boot::limine::is_limine_boot();
     let boot_info = if is_limine {
         // Diagnostic 'L' for Limine Path
-        unsafe { core::arch::asm!("mov al, 'L'", "out dx, al"); }
+        unsafe {
+            core::arch::asm!("mov al, 'L'", "out dx, al");
+        }
         crate::boot::limine::parse()
     } else {
         // Diagnostic 'M' for Multiboot Path
-        unsafe { core::arch::asm!("mov al, 'M'", "out dx, al"); }
+        unsafe {
+            core::arch::asm!("mov al, 'M'", "out dx, al");
+        }
         unsafe { crate::boot::multiboot::parse(multiboot_magic as u32, multiboot_info) }
     };
 
     // Diagnostic 'P' for Parse Done
-    unsafe { core::arch::asm!("mov al, 'P'", "out dx, al"); }
+    unsafe {
+        core::arch::asm!("mov al, 'P'", "out dx, al");
+    }
 
     // Store boot info globally
     unsafe {

@@ -72,9 +72,13 @@ pub fn build_userspace(arch: &str) -> Result<()> {
 pub fn create_initramfs(arch: &str) -> Result<()> {
     println!("Creating initramfs for {}...", arch);
     let root = PathBuf::from("initrd_root");
-    if !root.exists() {
-        std::fs::create_dir(&root)?;
+    
+    // TEAM_292: Always clean initrd_root to ensure correct arch binaries
+    // Without this, stale binaries from other architectures persist
+    if root.exists() {
+        std::fs::remove_dir_all(&root)?;
     }
+    std::fs::create_dir(&root)?;
 
     // 1. Create content
     std::fs::write(root.join("hello.txt"), "Hello from initramfs!\n")?;

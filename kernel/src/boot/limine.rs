@@ -14,14 +14,14 @@
 //! - https://crates.io/crates/limine
 
 use super::{
-    BootInfo, BootProtocol, Framebuffer, FirmwareInfo, MemoryKind, MemoryRegion, PixelFormat,
+    BootInfo, BootProtocol, FirmwareInfo, Framebuffer, MemoryKind, MemoryRegion, PixelFormat,
 };
-use limine::request::{
-    FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest,
-    StackSizeRequest,
-};
-use limine::memory_map::EntryType;
 use limine::BaseRevision;
+use limine::memory_map::EntryType;
+use limine::request::{
+    FramebufferRequest, HhdmRequest, KernelAddressRequest, MemoryMapRequest, ModuleRequest,
+    RsdpRequest, StackSizeRequest,
+};
 
 /// TEAM_282: Limine base revision request.
 /// This tells Limine which protocol version we support.
@@ -63,6 +63,12 @@ static MODULE_REQUEST: ModuleRequest = ModuleRequest::new();
 #[unsafe(link_section = ".requests")]
 static STACK_SIZE_REQUEST: StackSizeRequest = StackSizeRequest::new().with_size(64 * 1024);
 
+/// TEAM_288: Request for kernel address.
+/// Used to get actual physical load address for virt_to_phys calculations.
+#[used]
+#[unsafe(link_section = ".requests")]
+static KERNEL_ADDRESS_REQUEST: KernelAddressRequest = KernelAddressRequest::new();
+
 /// TEAM_282: Get the Higher Half Direct Map offset.
 ///
 /// Returns the virtual address offset for accessing physical memory.
@@ -84,6 +90,13 @@ pub fn parse() -> BootInfo {
     if !BASE_REVISION.is_supported() {
         // Limine v7 may not fill responses, but we're still booting via Limine
         // Don't return early - try to parse what we can
+    }
+
+    // TEAM_288: Set kernel physical base from Limine if available
+    // This fixes virt_to_phys() when Limine loads kernel at different PA than linker assumes
+    #[cfg(target_arch = "x86_64")]
+    if let Some(addr_response) = KERNEL_ADDRESS_REQUEST.get_response() {
+        los_hal::mmu::set_kernel_phys_base(addr_response.physical_base() as usize);
     }
 
     // Parse memory map
@@ -154,8 +167,7 @@ pub fn parse() -> BootInfo {
             let base = module.addr() as *const u8 as usize;
             let size = module.size() as usize;
             if size > 0 {
-                boot_info.initramfs =
-                    Some(MemoryRegion::new(base, size, MemoryKind::Bootloader));
+                boot_info.initramfs = Some(MemoryRegion::new(base, size, MemoryKind::Bootloader));
             }
         }
     }

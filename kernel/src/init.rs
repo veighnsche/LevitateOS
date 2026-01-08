@@ -354,7 +354,8 @@ fn init_devices() {
 /// Returns true if init was successfully spawned.
 fn init_userspace() -> bool {
     // TEAM_284: Use unified BootInfo to locate initramfs
-    let boot_info = crate::boot::boot_info().expect("BootInfo must be available for userspace init");
+    let boot_info =
+        crate::boot::boot_info().expect("BootInfo must be available for userspace init");
 
     println!("Detecting Initramfs...");
 
@@ -372,8 +373,16 @@ fn init_userspace() -> bool {
         start, end, size
     );
 
-    // Initramfs access via High VA (PHYS_OFFSET) for stability
-    let initrd_va = los_hal::mmu::phys_to_virt(start);
+    // TEAM_289: Limine module.addr() returns VA directly (HHDM-mapped).
+    // Only call phys_to_virt if address looks like a physical address.
+    // HHDM VAs start at 0xffff800... on x86_64. Limine loads modules into HHDM.
+    let initrd_va = if start >= 0xFFFF_0000_0000_0000 {
+        // Already a virtual address (HHDM or kernel higher-half)
+        start
+    } else {
+        // Physical address - translate
+        los_hal::mmu::phys_to_virt(start)
+    };
     let initrd_slice = unsafe { core::slice::from_raw_parts(initrd_va as *const u8, size) };
 
     // TEAM_205: Initialize Initramfs VFS

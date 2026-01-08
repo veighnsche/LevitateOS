@@ -39,8 +39,22 @@ impl Context {
     }
 }
 
-pub unsafe fn enter_user_mode(_entry_point: usize, _user_sp: usize) -> ! {
-    unimplemented!("x86_64 enter_user_mode")
+/// TEAM_293: Enter Ring 3 userspace using sysretq.
+/// RCX = entry point (becomes RIP after sysretq)
+/// R11 = RFLAGS (should have IF=1 for interrupts)
+/// RSP = user stack pointer
+pub unsafe fn enter_user_mode(entry_point: usize, user_sp: usize) -> ! {
+    unsafe {
+        core::arch::asm!(
+            "mov rsp, {sp}",        // Set user stack
+            "mov rcx, {entry}",     // sysretq: RCX -> RIP
+            "mov r11, 0x202",       // sysretq: R11 -> RFLAGS (IF=1, bit1=1 reserved)
+            "sysretq",
+            sp = in(reg) user_sp,
+            entry = in(reg) entry_point,
+            options(noreturn)
+        );
+    }
 }
 
 // TEAM_277: External references that will be defined in global_asm below
@@ -48,12 +62,21 @@ unsafe extern "C" {
     pub fn cpu_switch_to(old: *mut Context, new: *const Context);
 }
 
-// TEAM_277: Task entry trampoline - jumps to saved entry point in x19
+// TEAM_293: Task entry trampoline - called after context switch to new task
+// Entry wrapper address is in rbx (restored from context.x19)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn task_entry_trampoline() {
-    // The entry wrapper address is in x19 (rbx in x86_64 convention)
-    // Call it to start the task
-    unimplemented!("task_entry_trampoline - x86_64 task entry not yet implemented")
+    // Get entry wrapper from rbx (was context.x19)
+    let entry_wrapper: extern "C" fn();
+    unsafe {
+        core::arch::asm!("mov {}, rbx", out(reg) entry_wrapper);
+    }
+
+    // Call the entry wrapper (which will call enter_user_mode or run kernel task)
+    entry_wrapper();
+
+    // If the entry wrapper returns, exit the task
+    crate::task::task_exit();
 }
 
 // TEAM_277: Context switch stub

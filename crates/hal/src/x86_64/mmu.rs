@@ -57,6 +57,11 @@ pub const KERNEL_VIRT_BASE: usize = 0xFFFFFFFF80000000;
 /// Defaults to the legacy 0xFFFF800000000000.
 pub static mut PHYS_OFFSET: usize = 0xFFFF800000000000;
 
+/// TEAM_288: Runtime kernel physical base address.
+/// Set during boot from Limine's KernelAddressRequest response.
+/// Defaults to linker script value (0x200000) for non-Limine boots.
+pub static mut KERNEL_PHYS_BASE: usize = 0x200000;
+
 /// TEAM_285: Set the physical memory offset (HHDM offset).
 /// Called during early boot once the offset is known from the bootloader.
 pub fn set_phys_offset(offset: usize) {
@@ -68,6 +73,19 @@ pub fn set_phys_offset(offset: usize) {
 /// TEAM_285: Get the current physical memory offset.
 pub fn get_phys_offset() -> usize {
     unsafe { PHYS_OFFSET }
+}
+
+/// TEAM_288: Set the kernel physical base address.
+/// Called during early boot from Limine's KernelAddressRequest response.
+pub fn set_kernel_phys_base(pa: usize) {
+    unsafe {
+        KERNEL_PHYS_BASE = pa;
+    }
+}
+
+/// TEAM_288: Get the kernel physical base address.
+pub fn get_kernel_phys_base() -> usize {
+    unsafe { KERNEL_PHYS_BASE }
 }
 
 // TEAM_284: PCI constants for x86_64 (QEMU q35)
@@ -87,9 +105,12 @@ pub const GIC_CPU_VA: usize = 0;
 pub const GIC_REDIST_VA: usize = 0;
 pub const UART_VA: usize = 0;
 
+/// TEAM_288: Convert virtual address to physical address.
+/// Uses runtime KERNEL_PHYS_BASE for higher-half addresses (set from Limine).
 pub fn virt_to_phys(va: usize) -> usize {
     if va >= KERNEL_VIRT_BASE {
-        va - KERNEL_VIRT_BASE + unsafe { &__kernel_phys_start as *const _ as usize }
+        // TEAM_288: Use runtime kernel physical base instead of linker symbol
+        va - KERNEL_VIRT_BASE + unsafe { KERNEL_PHYS_BASE }
     } else if va >= unsafe { PHYS_OFFSET } {
         va - unsafe { PHYS_OFFSET }
     } else {
@@ -374,7 +395,13 @@ pub fn init_kernel_mappings_refined(root: &mut PageTable) {
     let bss_end_va = unsafe { &__bss_end as *const _ as usize };
 
     // .text segment: Read-Execute (no NX bit)
-    map_segment(root, text_start_va, text_end_va, phys_start, PageFlags::KERNEL_CODE);
+    map_segment(
+        root,
+        text_start_va,
+        text_end_va,
+        phys_start,
+        PageFlags::KERNEL_CODE,
+    );
 
     // .rodata segment: Read-Only + NX
     map_segment(
@@ -408,7 +435,13 @@ pub fn init_kernel_mappings_refined(root: &mut PageTable) {
 }
 
 /// Helper to map a kernel segment
-fn map_segment(root: &mut PageTable, va_start: usize, va_end: usize, phys_base: usize, flags: PageFlags) {
+fn map_segment(
+    root: &mut PageTable,
+    va_start: usize,
+    va_end: usize,
+    phys_base: usize,
+    flags: PageFlags,
+) {
     let mut va = va_start & !(PAGE_SIZE - 1);
     while va < va_end {
         let offset = va - KERNEL_VIRT_BASE;

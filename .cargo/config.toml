@@ -1,4 +1,5 @@
 [target.aarch64-unknown-none]
+linker = "aarch64-linux-gnu-gcc"
 rustflags = [
     "-C", "link-arg=-Tlinker.ld",
 ]

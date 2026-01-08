@@ -38,6 +38,10 @@ pub static mut SYSCALL_STACK: SyscallStack = SyscallStack { data: [0; 16384] };
 
 /// Initialize syscall/sysret MSRs
 pub unsafe fn init() {
+    // TEAM_293: STAR MSR format: [63:48]=SYSRET base, [47:32]=SYSCALL base
+    // SYSRET: User CS = [63:48]+16|3, User SS = [63:48]+8|3
+    // We want: User CS = 0x23 (0x20|3), User SS = 0x1B (0x18|3)
+    // So [63:48] = 0x10: CS = 0x10+16|3 = 0x23, SS = 0x10+8|3 = 0x1B ✓
     let star = (0x10_u64 << 48) | (GDT_KERNEL_CODE << 32);
     let lstar = syscall_entry as usize as u64;
     let fmask = RFLAGS_IF | RFLAGS_TF | RFLAGS_DF;

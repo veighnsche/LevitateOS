@@ -28,5 +28,29 @@ pub fn kill_qemu(arch: &str) -> Result<()> {
 pub fn clean(arch: &str) -> Result<()> {
     println!("🧹 Cleaning for {}...", arch);
     kill_qemu(arch)?;
+
+    // TEAM_294: Remove generated artifacts and staging directories
+    let artifacts = [
+        "initramfs.cpio",
+        "initramfs_test.cpio",
+        "tinyos_disk.img",
+        "levitate.iso",
+        "kernel64_rust.bin",
+    ];
+    for artifact in artifacts {
+        if std::path::Path::new(artifact).exists() {
+            let _ = std::fs::remove_file(artifact);
+            println!("✅ Removed {}", artifact);
+        }
+    }
+
+    let dirs = ["initrd_root", "initrd_test_root", "iso_root", "limine-bin"];
+    for dir in dirs {
+        if std::path::Path::new(dir).exists() {
+            let _ = std::fs::remove_dir_all(dir);
+            println!("✅ Removed directory {}", dir);
+        }
+    }
+
     Ok(())
 }

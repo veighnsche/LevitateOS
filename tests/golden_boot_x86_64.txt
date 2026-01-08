@@ -1,8 +1,9 @@
 limine: Loading kernel `boot:///boot/levitate-kernel`...
+limine: Loading module `boot:///boot/initramfs.cpio`...
 LH123456789CXLR[BOOT] Stage 1: Early HAL (SEC)
 Heap initialized.
 [BOOT] Protocol: Limine
-[BOOT] Memory: 16 regions, 476 MB usable
+[BOOT] Memory: 21 regions, 476 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
 [MEM] Buddy Allocator initialized with unified BootInfo
 [SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff80010048
@@ -13,3 +14,75 @@ Exceptions initialized.
 [PCI] Scanning Bus 0 for GPU...
 [PCI] Found VirtIO GPU at 00:02.0
 [PCI] PciTransport created successfully
+[GPU] Resolution: 1280x800
+[GPU] Initialized via PCI transport
+GPU initialized successfully.
+[TERM] GPU resolution: 1280x800
+[TERM] Terminal::new(1280x800) -> 128x36 chars (font 10x20, spacing 2)
+Terminal initialized.
+[BOOT] Stage 4: Discovery & FS (DXE/BDS)
+Skipping VirtIO MMIO scan (x86_64 uses PCI)...
+Detecting Initramfs...
+Initramfs found at 0xffff80001dd2e000 - 0xffff80001dd5fc00 (203776 bytes)
+Files in initramfs:
+ - .
+ - hello.txt
+ - cat
+ - clone_test
+ - cp
+ - error_test
+ - init
+ - interrupt_test
+ - link_test
+ - ln
+ - ls
+ - mkdir
+ - mmap_test
+ - mv
+ - pipe_test
+ - pty_interact
+ - pty_test
+ - pwd
+ - repro
+ - rm
+ - rmdir
+ - sched_yield_test
+ - shell
+ - signal_test
+ - stat_test
+ - suite_test_core
+ - test_runner
+ - time_test
+ - touch
+ - tty_test
+[BOOT] spawning init task...
+[SPAWN] Parsing ELF header (12672 bytes)...
+ELF Header e_ident verified
+[SPAWN] ELF parsed.
+[SPAWN] Creating user page table...
+[MMU] Creating user page table...
+[MMU] Allocated L0 table at phys [MASKED]
+[MMU] Zeroing L0 table at va [MASKED]
+[SPAWN] Loading segments...
+[ELF] Copying segment: src[0]=53 to VA 10000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=25 to VA 10dc8
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=bd to VA 10fc0
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=0 to VA 11018
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[SPAWN] Setting up stack...
+[SPAWN] Setting up stack arguments...
+[SPAWN] Success: PID=1 entry=0x10000 sp=0x7ffffffeff68
+[BOOT] Init process scheduled.
+Mounting filesystems...
+ERROR: Failed to mount FAT32: E0501: Failed to open volume
+[BOOT] WARNING: Filesystem mount failed: E0501: Failed to open volume
+  (Check tinyos_disk.img format/presence)
+[BOOT] Mounted tmpfs at /tmp
+[GPU_TEST] Flush count: 63
+[GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
+
+[SUCCESS] LevitateOS System Ready.
+--------------------------------------

@@ -299,6 +299,13 @@ GDT64:
     /* Data segment descriptor (entry 2, selector 0x10) */
     /* Base=0, Limit=0, Type=Data, P=1 */
     .quad 0x00CF92000000FFFF
+
+    /* TEAM_293: User segments for Ring 3 userspace execution */
+    /* User Data segment (entry 3, selector 0x18) - DPL=3 */
+    .quad 0x00CFF2000000FFFF
+
+    /* User Code segment (entry 4, selector 0x20) - DPL=3, L=1 (64-bit) */
+    .quad 0x00AFFA000000FFFF
 gdt64_end:
 
 .global GDT64_Pointer

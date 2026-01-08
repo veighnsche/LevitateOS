@@ -48,12 +48,18 @@ if [ "$ARCH" = "aarch64" ]; then
         -qmp unix:./qmp.sock,server,nowait \
         -no-reboot
 else
-    BIN="kernel64_x86.bin"
+    # TEAM_292: x86_64 uses Limine ISO boot (builds ELF, not raw binary)
+    ISO="levitate.iso"
+    if [ ! -f "$ISO" ]; then
+        echo "Building Limine ISO..."
+        cargo xtask build iso --arch x86_64
+    fi
     qemu-system-x86_64 \
         -M q35 \
         -cpu qemu64 \
-        -m 1G \
-        -kernel "$BIN" \
+        -m 512M \
+        -boot d \
+        -cdrom "$ISO" \
         -display sdl \
         -device virtio-gpu-pci,xres=1280,yres=800 \
         -device virtio-keyboard-pci \
@@ -62,7 +68,6 @@ else
         -netdev user,id=net0 \
         -drive file=tinyos_disk.img,format=raw,if=none,id=hd0 \
         -device virtio-blk-pci,drive=hd0 \
-        -initrd initramfs.cpio \
         -serial mon:stdio \
         -qmp unix:./qmp.sock,server,nowait \
         -no-reboot
