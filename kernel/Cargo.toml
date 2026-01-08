@@ -7,7 +7,7 @@ edition = "2024"
 workspace = true
 
 [features]
-default = ["verbose-syscalls"]
+default = []
 verbose = []        # Enable verbose boot messages for golden file testing
 diskless = []       # TEAM_065: Skip initrd requirement for diskless boot scenarios
 multitask-demo = [] # TEAM_071: Enable demo tasks for preemption verification

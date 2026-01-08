@@ -115,8 +115,10 @@ fn execute(line: &[u8]) {
 
     // [SH8] External command execution with argument passing
     // TEAM_186: Parse command line and spawn with arguments
+    println!("[DEBUG] execute: splitting args...");
     let mut result = -1isize;
     let (parts, argc) = split_args(cmd);
+    println!("[DEBUG] execute: argc={}", argc);
     if argc > 0 {
         // Convert parts to str slices
         let mut argv_strs: [&str; 16] = [""; 16];
@@ -134,6 +136,7 @@ fn execute(line: &[u8]) {
         if valid {
             // First part is the command name
             let cmd_name = argv_strs[0];
+            println!("[DEBUG] execute: cmd_name='{}'", cmd_name);
 
             // Build path (prepend / if needed)
             // Use a static buffer since we can't allocate
@@ -151,7 +154,9 @@ fn execute(line: &[u8]) {
             };
 
             // Spawn with all arguments
+            println!("[DEBUG] execute: spawning {}...", path);
             result = libsyscall::spawn_args(path, &argv_strs[..argc]);
+            println!("[DEBUG] execute: spawn result={}", result);
             if result >= 0 {
                 // Process spawned successfully with PID = result
                 // TEAM_188: Wait for child process to complete

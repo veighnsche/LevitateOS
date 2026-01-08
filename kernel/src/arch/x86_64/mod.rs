@@ -439,6 +439,7 @@ impl SyscallFrame {
     }
 
     pub fn set_return(&mut self, value: i64) {
+        log::trace!("[SYSCALL] set_return: rax <- 0x{:x}", value);
         self.rax = value as u64;
     }
     pub fn arg6(&self) -> u64 {

@@ -176,13 +176,6 @@ impl InterruptHandler for TimerHandler {
         static COUNTER: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
         let count = COUNTER.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 
-        // TEAM_092: Verify timer is actually advancing (verbose-only)
-        // TEAM_122: Removed verbose log to prevent deadlocks with UART lock
-        // TEAM_148: Disabled [TICK] output to prevents prompt interleaving failures in behavior tests
-        // if count % 100 == 0 {
-        //     crate::verbose!("[TICK] count={}", count);
-        // }
-
         // TEAM_129: GPU flush was commented out, causing black screen
         if count % 5 == 0 {
             if let Some(mut guard) = crate::gpu::GPU.try_lock() {
@@ -259,6 +252,8 @@ pub fn run() -> ! {
         {
             // TEAM_303: Route PIT (legacy IRQ 0) to vector 32
             los_hal::arch::ioapic::IOAPIC.route_irq(0, 32, 0);
+            // TEAM_303: Initialize PIT for 100Hz
+            los_hal::pit::Pit::init(100);
         }
 
         crate::verbose!("Core drivers initialized.");

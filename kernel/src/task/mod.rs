@@ -167,6 +167,7 @@ pub fn yield_now() {
 }
 
 /// TEAM_070: Unique identifier for a task.
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskId(pub usize);
 
@@ -191,6 +192,7 @@ pub const DEFAULT_STACK_SIZE: usize = 65536;
 /// TEAM_070: Task Control Block (TCB).
 /// Stores all information about a task.
 /// TEAM_071: State uses AtomicU8 for safe mutation from task_exit.
+#[repr(C)]
 pub struct TaskControlBlock {
     #[allow(dead_code)]
     pub id: TaskId,

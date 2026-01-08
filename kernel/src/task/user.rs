@@ -63,6 +63,7 @@ pub mod layout {
 use crate::memory::heap::ProcessHeap;
 use crate::task::fd_table::SharedFdTable;
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pid(pub u64);
 
@@ -98,6 +99,7 @@ pub enum ProcessState {
 ///
 /// Extends the kernel TCB with user-specific fields needed for
 /// EL0 execution and process isolation.
+#[repr(C)]
 pub struct UserTask {
     /// Unique process identifier
     pub pid: Pid,

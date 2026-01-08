@@ -60,6 +60,22 @@ pub extern "C" fn _start() -> ! {
     )
 }
 
+/// TEAM_303: x86_64 entry point.
+#[cfg(all(target_arch = "x86_64", feature = "entry"))]
+#[link_section = ".text._start"]
+#[unsafe(naked)]
+#[no_mangle]
+pub extern "C" fn _start() -> ! {
+    core::arch::naked_asm!(
+        "xor rbp, rbp",      // Clear frame pointer
+        "mov rdi, rsp",      // Pass original SP as first argument
+        "and rsp, -16",      // Align stack to 16 bytes
+        "call {entry}",      // Call Rust entry point
+        "ud2",               // Should not return
+        entry = sym _start_rust,
+    )
+}
+
 /// Rust entry point that receives the original stack pointer.
 ///
 /// Stack layout at entry (Linux ABI):

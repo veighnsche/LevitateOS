@@ -125,16 +125,33 @@ pub unsafe extern "C" fn syscall_entry() {
         // Call Rust handler
         "call {handler}",
 
+        // TEAM_299: Best Practice - Sanitize return address (RCX) and RFLAGS (R11) in frame
+        // Do this before popping any registers to avoid RAX corruption.
+        "mov rax, [rsp + 7*8]",              // Load frame.rcx (Index 7)
+        "test rax, rax",
+        "jz 3f",                             // RIP=0 is illegal
+        "mov rdx, rax",                      // Check canonical
+        "shl rdx, 16",
+        "sar rdx, 16",
+        "cmp rdx, rax",
+        "jne 3f",                            // Non-canonical is illegal
+
+        // Sanitize RFLAGS (Index 8)
+        "mov rax, [rsp + 8*8]",              // Load frame.r11
+        "and rax, 0x3C7FD7",                 // Mask restricted bits
+        "or rax, 0x202",                     // Force IF=1, bit1=1
+        "mov [rsp + 8*8], rax",              // Store back sanitized RFLAGS
+
         // 3. Restore registers
-        "pop rax",
+        "pop rax",                           // Restore syscall return value (RAX)
         "pop rdi",
         "pop rsi",
         "pop rdx",
         "pop r10",
         "pop r8",
         "pop r9",
-        "pop rcx",                           // RCX = user pc
-        "pop r11",                           // R11 = user rflags
+        "pop rcx",                           // Restore RCX (PC) - already checked
+        "pop r11",                           // Restore R11 (RFLAGS) - already sanitized
         "pop rbx",
         "pop rbp",
         "pop r12",
@@ -149,24 +166,10 @@ pub unsafe extern "C" fn syscall_entry() {
         // We need to restore User RSP from here
         "mov rsp, [rsp]",
 
-        // TEAM_299: Best Practice - Sanitize return address (RCX)
-        // sysretq #GP faults if RCX is non-canonical.
-        "mov rax, rcx",
-        "shl rax, 16",
-        "sar rax, 16",
-        "cmp rax, rcx",
-        "jne 3f",                            // Jump to emergency exit if non-canonical
-
-        // TEAM_299: Best Practice - Sanitize RFLAGS (R11)
-        // Ensure user cannot set sensitive bits (IOPL, NT, etc.)
-        // Keep IF (0x200), fixed bit 1 (0x2), and standard user flags
-        "and r11, 0x3C7FD7",                 // Mask out restricted bits
-        "or r11, 0x202",                     // Force IF=1 and bit1=1
-
         "swapgs",                            // Restore user GS
-        "sysretq",
+        "sysretq",                           // Return to Ring 3
 
-        "3:",                                // Emergency exit for non-canonical RCX
+        "3:",                                // Emergency exit for invalid RIP
         "ud2",                               // Panic via invalid opcode
 
         handler = sym syscall_handler,
@@ -181,9 +184,9 @@ pub extern "C" fn syscall_handler(frame: &mut super::SyscallFrame) {
     let _pc_before = frame.rcx;
     let _nr = frame.rax;
 
-    // Print entry for syscalls we care about (read=0, write=1)
+    // Print entry for all syscalls on x86_64 for debugging
     #[cfg(feature = "verbose-syscalls")]
-    if _nr <= 1 {
+    {
         let task = crate::task::current_task();
         let pid = task.id.0;
         los_hal::println!("[SYSCALL][{}] ENTER nr={} rcx={:x}", pid, _nr, _pc_before,);
@@ -191,9 +194,9 @@ pub extern "C" fn syscall_handler(frame: &mut super::SyscallFrame) {
 
     crate::syscall::syscall_dispatch(frame);
 
-    // Print exit for syscalls we care about
+    // Print exit for all syscalls on x86_64 for debugging
     #[cfg(feature = "verbose-syscalls")]
-    if _nr <= 1 {
+    {
         let pid = crate::task::current_task().id.0;
         los_hal::println!("[SYSCALL][{}] EXIT nr={} rax={:x}", pid, _nr, frame.rax);
     }
