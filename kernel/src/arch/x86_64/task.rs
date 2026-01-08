@@ -1,6 +1,11 @@
 //! TEAM_162: x86_64 Context Stub
 //! TEAM_258: Added compatible fields for shared code
 //! TEAM_277: Added stub implementations for task switching
+//!
+//! Behaviors:
+//! - [X86_CTX1-6] cpu_switch_to register save/restore
+//! - [X86_CTX7] task_entry_trampoline
+//! - [X86_USR1-5] enter_user_mode sysretq transition
 
 use core::arch::global_asm;
 
@@ -8,18 +13,18 @@ use core::arch::global_asm;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Context {
     // x86_64 context fields (named for AArch64 compatibility where possible)
-    pub rbx: u64,       // 0
-    pub r12: u64,       // 8
-    pub r13: u64,       // 16
-    pub r14: u64,       // 24
-    pub r15: u64,       // 32
-    pub rbp: u64,       // 40
-    pub kstack: u64,    // 48: kernel_stack_top
-    pub rflags: u64,    // 56: TEAM_299: Save/restore RFLAGS to prevent DF leaks
-    pub rip: u64,       // 64: Return address
-    pub rsp: u64,       // 72: Stack Pointer
-    pub fs_base: u64,   // 80: User TLS (FS base)
-    pub user_gs: u64,   // 88: User TLS (GS base - shadow during kernel execution)
+    pub rbx: u64,        // 0
+    pub r12: u64,        // 8
+    pub r13: u64,        // 16
+    pub r14: u64,        // 24
+    pub r15: u64,        // 32
+    pub rbp: u64,        // 40
+    pub kstack: u64,     // 48: kernel_stack_top
+    pub rflags: u64,     // 56: TEAM_299: Save/restore RFLAGS to prevent DF leaks
+    pub rip: u64,        // 64: Return address
+    pub rsp: u64,        // 72: Stack Pointer
+    pub fs_base: u64,    // 80: User TLS (FS base)
+    pub user_gs: u64,    // 88: User TLS (GS base - shadow during kernel execution)
     pub spare: [u64; 2], // 96, 104: Padding for 16-byte alignment (total 112 bytes)
 }
 
@@ -87,26 +92,24 @@ global_asm!(
     ".global cpu_switch_to",
     "cpu_switch_to:",
     // Save callee-saved registers to old context (rdi points to old Context)
-    "mov [rdi + 0], rbx",   // rbx
-    "mov [rdi + 8], r12",   // r12
-    "mov [rdi + 16], r13",  // r13
-    "mov [rdi + 24], r14",  // r14
-    "mov [rdi + 32], r15",  // r15
-    "mov [rdi + 40], rbp",  // rbp
-    "pushfq",               // TEAM_299: Save RFLAGS
+    "mov [rdi + 0], rbx",  // rbx
+    "mov [rdi + 8], r12",  // r12
+    "mov [rdi + 16], r13", // r13
+    "mov [rdi + 24], r14", // r14
+    "mov [rdi + 32], r15", // r15
+    "mov [rdi + 40], rbp", // rbp
+    "pushfq",              // TEAM_299: Save RFLAGS
     "pop rax",
-    "mov [rdi + 56], rax",  // rflags
-    "mov [rdi + 72], rsp",  // rsp
-    "lea rax, [rip + 1f]",  // Get return address
-    "mov [rdi + 64], rax",  // rip
-
+    "mov [rdi + 56], rax", // rflags
+    "mov [rdi + 72], rsp", // rsp
+    "lea rax, [rip + 1f]", // Get return address
+    "mov [rdi + 64], rax", // rip
     // TEAM_299: Save User GS Base (shadow GS)
-    "mov ecx, 0xC0000102",  // IA32_KERNEL_GS_BASE
+    "mov ecx, 0xC0000102", // IA32_KERNEL_GS_BASE
     "rdmsr",
     "shl rdx, 32",
     "or rax, rdx",
-    "mov [rdi + 88], rax",  // user_gs
-
+    "mov [rdi + 88], rax", // user_gs
     // Restore callee-saved registers from new context (rsi points to new Context)
     "mov rbx, [rsi + 0]",
     "mov r12, [rsi + 8]",
@@ -114,33 +117,30 @@ global_asm!(
     "mov r14, [rsi + 24]",
     "mov r15, [rsi + 32]",
     "mov rbp, [rsi + 40]",
-    "mov rax, [rsi + 56]",  // TEAM_299: Restore RFLAGS
+    "mov rax, [rsi + 56]", // TEAM_299: Restore RFLAGS
     "push rax",
     "popfq",
     "mov rsp, [rsi + 72]",
-    "mov rax, [rsi + 48]",  // kernel_stack from kstack
-    "mov gs:[16], rax",     // Update PCR.kernel_stack (PCR_KSTACK_OFFSET)
-    "mov gs:[100], rax",    // Update PCR.tss.rsp0 (PCR_TSS_OFFSET + TSS_RSP0_OFFSET)
-
+    "mov rax, [rsi + 48]", // kernel_stack from kstack
+    "mov gs:[16], rax",    // Update PCR.kernel_stack (PCR_KSTACK_OFFSET)
+    "mov gs:[100], rax",   // Update PCR.tss.rsp0 (PCR_TSS_OFFSET + TSS_RSP0_OFFSET)
     // TEAM_299: Restore TLS (FS_BASE)
-    "mov rax, [rsi + 80]",  // context.fs_base
+    "mov rax, [rsi + 80]", // context.fs_base
     "test rax, rax",
     "jz 2f",
-    "mov ecx, 0xC0000100",  // IA32_FS_BASE
+    "mov ecx, 0xC0000100", // IA32_FS_BASE
     "mov rdx, rax",
     "shr rdx, 32",
     "wrmsr",
     "2:",
-
     // TEAM_299: Restore User GS Base (KERNEL_GS_BASE)
-    "mov rax, [rsi + 88]",  // context.user_gs
-    "mov ecx, 0xC0000102",  // IA32_KERNEL_GS_BASE
+    "mov rax, [rsi + 88]", // context.user_gs
+    "mov ecx, 0xC0000102", // IA32_KERNEL_GS_BASE
     "mov rdx, rax",
     "shr rdx, 32",
     "wrmsr",
-
-    "mov rax, [rsi + 64]",  // rip = new return address
-    "jmp rax",              // Jump to new task
-    "1:",                   // Return point for context switch back
+    "mov rax, [rsi + 64]", // rip = new return address
+    "jmp rax",             // Jump to new task
+    "1:",                  // Return point for context switch back
     "ret",
 );

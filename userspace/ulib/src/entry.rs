@@ -3,6 +3,9 @@
 //! This module provides the `_start` entry point that all userspace programs use.
 //! It follows the Linux/musl libc ABI for compatibility.
 //!
+//! ## Behaviors
+//! - [X86_ENT1-4] x86_64 _start naked function (entry.rs)
+//!
 //! ## How it works
 //! 1. Kernel loads ELF, sets up stack with argc/argv/envp
 //! 2. `_start` (naked asm) captures SP before prologue modifies it

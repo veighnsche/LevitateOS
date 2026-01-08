@@ -1,7 +1,14 @@
+//! x86_64 GDT and TSS implementation.
+//!
+//! Behaviors: [X86_GDT1] GDT structure, [X86_GDT2] Kernel code DPL=0,
+//! [X86_GDT3] User code DPL=3, [X86_GDT4] TSS 64-bit base,
+//! [X86_TSS1] TSS.rsp0 for Ring 0 transitions, [X86_TSS2] set_kernel_stack()
+
 use core::arch::asm;
 use core::ptr::addr_of;
 
 // TEAM_296: GDT Segment Selectors
+// [X86_GDT2] Kernel code segment DPL=0, [X86_GDT3] User segments DPL=3
 pub const KERNEL_CODE: u16 = 0x08;
 pub const KERNEL_DATA: u16 = 0x10;
 pub const USER_DATA: u16 = 0x18 | 3; // 0x1B
@@ -114,8 +121,10 @@ pub unsafe fn init() {
 
 /// TEAM_296: Update the kernel stack pointer in the TSS for user-mode entry.
 /// This ensures that if an interrupt occurs in userspace, the CPU switches to the correct kernel stack.
+/// [X86_TSS2] Updates TSS.rsp[0] for Ring 0 transitions
 pub fn set_kernel_stack(stack_top: usize) {
     unsafe {
+        // [X86_TSS1] TSS.rsp0 provides kernel stack for Ring 0 entry
         TSS.rsp[0] = stack_top as u64;
     }
 }

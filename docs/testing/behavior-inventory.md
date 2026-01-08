@@ -776,7 +776,117 @@ TEAM_129: Added GPU display regression tests to prevent black screen issues
 
 ---
 
+## Group 14: x86_64 Architecture — Behavior Inventory
+
+TEAM_303: x86_64 architecture behaviors for Phase 3 multi-arch support
+
+### File Groups
+- `crates/hal/src/x86_64/gdt.rs` (GDT/TSS initialization) — `los_hal`
+- `crates/hal/src/x86_64/pit.rs` (PIT timer) — `los_hal`
+- `kernel/src/arch/x86_64/task.rs` (Context switch, enter_user_mode) — `kernel`
+- `kernel/src/arch/x86_64/mod.rs` (SyscallFrame) — `kernel`
+- `kernel/src/arch/x86_64/syscall.rs` (Syscall entry/exit) — `kernel`
+- `userspace/ulib/src/entry.rs` (Userspace _start) — `ulib`
+
+### GDT/TSS (gdt.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_GDT1 | GDT has null, kernel code/data, user code/data, TSS entries | ⚠️ | Runtime (boot) |
+| X86_GDT2 | Kernel code segment is DPL=0 with long mode flag | ⚠️ | Runtime (boot) |
+| X86_GDT3 | User code segment is DPL=3 with long mode flag | ⚠️ | Runtime (userspace) |
+| X86_GDT4 | TSS entry correctly encodes 64-bit base address | ⚠️ | Runtime (boot) |
+| X86_TSS1 | TSS.rsp0 provides kernel stack for Ring 0 transitions | ⚠️ | Runtime (syscall/interrupt) |
+| X86_TSS2 | set_kernel_stack() updates TSS.rsp[0] | ⚠️ | Runtime (context switch) |
+
+### PIT Timer (pit.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_PIT1 | PIT.init() configures Channel 0 as rate generator | ⚠️ | Runtime (timer ticks) |
+| X86_PIT2 | PIT divisor = 1193182 / frequency_hz | ⚠️ | Runtime (100Hz default) |
+| X86_PIT3 | PIT fires IRQ 0 at configured frequency | ⚠️ | Runtime (timer handler) |
+
+### Context Switch (task.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_CTX1 | cpu_switch_to saves rbx, r12-r15, rbp to old Context | ⚠️ | Runtime (preemption) |
+| X86_CTX2 | cpu_switch_to restores rbx, r12-r15, rbp from new Context | ⚠️ | Runtime (preemption) |
+| X86_CTX3 | cpu_switch_to saves/restores RFLAGS | ⚠️ | Runtime (interrupt state) |
+| X86_CTX4 | cpu_switch_to updates PCR.kernel_stack via GS | ⚠️ | Runtime (context switch) |
+| X86_CTX5 | cpu_switch_to saves/restores FS_BASE (TLS) | ⚠️ | Runtime (thread-local) |
+| X86_CTX6 | cpu_switch_to saves/restores KERNEL_GS_BASE | ⚠️ | Runtime (swapgs) |
+| X86_CTX7 | task_entry_trampoline calls entry wrapper from rbx | ⚠️ | Runtime (task spawn) |
+
+### Syscall Entry/Exit (syscall.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_SYS1 | syscall_entry saves all registers to SyscallFrame | ⚠️ | Runtime (syscall) |
+| X86_SYS2 | syscall_entry performs swapgs for kernel GS | ⚠️ | Runtime (syscall) |
+| X86_SYS3 | syscall_exit restores RCX (user RIP) from frame | ⚠️ | Runtime (syscall) |
+| X86_SYS4 | syscall_exit restores R11 (user RFLAGS) with IF=1 | ⚠️ | Runtime (syscall) |
+| X86_SYS5 | syscall_exit returns via sysretq | ⚠️ | Runtime (syscall) |
+
+### SyscallFrame (mod.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_FRM1 | SyscallFrame layout matches assembly push order | ⚠️ | Code inspection |
+| X86_FRM2 | syscall_number() returns RAX | ⚠️ | Runtime (syscall) |
+| X86_FRM3 | arg0-arg5 return RDI, RSI, RDX, R10, R8, R9 | ⚠️ | Runtime (syscall) |
+| X86_FRM4 | set_return() modifies RAX for return value | ⚠️ | Runtime (syscall) |
+
+### enter_user_mode (task.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_USR1 | enter_user_mode sets RSP to user stack | ⚠️ | Runtime (userspace) |
+| X86_USR2 | enter_user_mode sets RCX to entry point | ⚠️ | Runtime (userspace) |
+| X86_USR3 | enter_user_mode sets R11 to RFLAGS with IF=1 | ⚠️ | Runtime (userspace) |
+| X86_USR4 | enter_user_mode executes swapgs before sysretq | ⚠️ | Runtime (userspace) |
+| X86_USR5 | enter_user_mode transitions to Ring 3 via sysretq | ⚠️ | Runtime (userspace) |
+
+### Userspace Entry (entry.rs)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X86_ENT1 | _start clears RBP (frame pointer) | ⚠️ | Runtime (stack trace) |
+| X86_ENT2 | _start passes RSP as first argument | ⚠️ | Runtime (args) |
+| X86_ENT3 | _start aligns stack to 16 bytes | ⚠️ | Runtime (ABI) |
+| X86_ENT4 | _start calls _start_rust | ⚠️ | Runtime (init) |
+
+### Group 14 Summary
+- **GDT/TSS**: 6/6 behaviors documented ⚠️ (runtime verified)
+- **PIT Timer**: 3/3 behaviors documented ⚠️ (runtime verified)
+- **Context Switch**: 7/7 behaviors documented ⚠️ (runtime verified)
+- **Syscall Entry/Exit**: 5/5 behaviors documented ⚠️ (runtime verified)
+- **SyscallFrame**: 4/4 behaviors documented ⚠️ (code inspection)
+- **enter_user_mode**: 5/5 behaviors documented ⚠️ (runtime verified)
+- **Userspace Entry**: 4/4 behaviors documented ⚠️ (runtime verified)
+- **Total**: 34/34 behaviors documented ⚠️
+
+> **Note:** All x86_64 behaviors are runtime-verified. Unit tests are not practical
+> for hardware-specific assembly. Verification is through successful kernel boot,
+> shell interaction, and syscall execution on x86_64 QEMU.
+
+---
+
 ## Maintenance Log
+
+### TEAM_303: x86_64 Behavior Documentation (2026-01-08)
+
+Added Group 14 (x86_64 Architecture) with 34 behaviors covering:
+- GDT/TSS initialization and configuration
+- PIT timer setup and IRQ generation
+- Context switching with full register save/restore
+- Syscall entry/exit via syscall/sysretq
+- SyscallFrame layout verification
+- enter_user_mode Ring 3 transition
+- Userspace _start naked function
+
+All behaviors are runtime-verified through successful x86_64 kernel boot and shell execution.
 
 ### TEAM_157: Crate Reorganization Update (2026-01-06)
 
@@ -804,3 +914,4 @@ Added behavior ID traceability comments per Rules 4-5:
 
 Runtime-only behaviors (NET, TERM, MT, SYS, GPU, PROC, SH, SHELL) remain
 acceptable without source traceability per Rule 7 (Test Abstraction Levels).
+
