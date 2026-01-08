@@ -86,22 +86,32 @@ _start:
     /* Disable interrupts */
     cli
 
-    /* Save multiboot magic and info pointer */
+    /* Save multiboot magic and info pointer first to avoid clobbering */
     mov edi, eax                        /* Magic in EDI */
     mov esi, ebx                        /* Multiboot info pointer in ESI */
 
+    /* TEAM_308: Diagnostic 'S' - 32-bit Entry (Start) */
+    mov dx, 0x3f8
+    mov al, 'S'
+    out dx, al
+
     /* Check for multiboot2 magic */
-    cmp eax, 0x36D76289
+    cmp edi, 0x36D76289
     je .magic_ok
 
     /* Check for multiboot1 magic (QEMU -kernel) */
-    cmp eax, 0x2BADB002
+    cmp edi, 0x2BADB002
     je .magic_ok
 
     /* Unknown magic - hang */
     jmp .hang
 
 .magic_ok:
+    /* TEAM_308: Diagnostic 'M' - Magic OK */
+    mov dx, 0x3f8
+    mov al, 'M'
+    out dx, al
+
     /* Set up stack (in low memory .data.boot) */
     mov esp, offset boot_stack_top_phys
 
@@ -116,8 +126,18 @@ _start:
     mov dword ptr [GDT64_Pointer_32_phys + 2], eax
     lgdt [GDT64_Pointer_32_phys]
 
+    /* TEAM_308: Diagnostic 'G' - GDT Loaded */
+    mov dx, 0x3f8
+    mov al, 'G'
+    out dx, al
+
     /* Setup page tables */
     call setup_early_page_tables
+
+    /* TEAM_308: Diagnostic 'P' - Page Tables Setup */
+    mov dx, 0x3f8
+    mov al, 'P'
+    out dx, al
 
     /* TEAM_278: Restore multiboot args after page table setup */
     pop edi                             /* Restore magic */
@@ -132,18 +152,34 @@ _start:
     mov eax, offset early_pml4_phys
     mov cr3, eax
 
+    /* TEAM_308: Diagnostic 'C' - CR3 Loaded */
+    mov dx, 0x3f8
+    mov al, 'C'
+    out dx, al
+
     /* Enable long mode in EFER MSR */
     mov ecx, 0xC0000080                 /* EFER MSR */
     rdmsr
     or eax, 0x100                       /* Bit 8: LME (Long Mode Enable) */
     wrmsr
 
+    /* TEAM_308: Diagnostic 'L' - LME Enabled */
+    mov dx, 0x3f8
+    mov al, 'L'
+    out dx, al
+
     /* Enable paging and protected mode in CR0 */
     mov eax, cr0
     or eax, 0x80000001                  /* Bit 31: PG, Bit 0: PE */
-    mov dword ptr [esp], 0x08           /* Seg selector */
-    mov dword ptr [esp + 4], offset long_mode_start_phys
+    /* TEAM_308: Prepare far jump target on stack: [esp] = offset, [esp+4] = selector */
+    mov dword ptr [esp], offset long_mode_start_phys
+    mov dword ptr [esp + 4], 0x08       /* Seg selector */
     mov cr0, eax
+
+    /* TEAM_308: Diagnostic 'E' - PG Enabled */
+    mov dx, 0x3f8
+    mov al, 'E'
+    out dx, al
 
     /* Far jump to 64-bit code segment */
     ljmp [esp]

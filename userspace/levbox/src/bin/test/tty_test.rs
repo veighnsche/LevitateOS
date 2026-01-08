@@ -99,12 +99,12 @@ fn test_termios_syscalls_exist() {
 
 fn test_sigint_on_ctrl_c() {
     // Register handler
-    register_signal(libsyscall::SIGINT, sigint_handler);
+    register_signal(libsyscall::SIGINT as i32, sigint_handler);
     SIGINT_RECEIVED.store(false, Ordering::Release);
 
     // Send SIGINT to self (simulating Ctrl+C)
     let pid = libsyscall::getpid() as i32;
-    libsyscall::kill(pid, libsyscall::SIGINT);
+    libsyscall::kill(pid, libsyscall::SIGINT as i32);
 
     if SIGINT_RECEIVED.load(Ordering::Acquire) {
         test_pass("sigint_ctrl_c");

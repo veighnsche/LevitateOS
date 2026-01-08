@@ -28,6 +28,9 @@ ptr_as_ptr = "allow"
 missing_panics_doc = "allow"
 missing_errors_doc = "allow"
 
+[profile.dev]
+panic = "abort"
+
 [profile.release]
 panic = "abort"
 opt-level = "z"

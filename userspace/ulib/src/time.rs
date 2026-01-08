@@ -16,13 +16,19 @@ pub struct Duration {
 impl Duration {
     /// One second.
     pub const SECOND: Duration = Duration { secs: 1, nanos: 0 };
-    
+
     /// One millisecond.
-    pub const MILLISECOND: Duration = Duration { secs: 0, nanos: 1_000_000 };
-    
+    pub const MILLISECOND: Duration = Duration {
+        secs: 0,
+        nanos: 1_000_000,
+    };
+
     /// One microsecond.
-    pub const MICROSECOND: Duration = Duration { secs: 0, nanos: 1_000 };
-    
+    pub const MICROSECOND: Duration = Duration {
+        secs: 0,
+        nanos: 1_000,
+    };
+
     /// Zero duration.
     pub const ZERO: Duration = Duration { secs: 0, nanos: 0 };
 
@@ -98,7 +104,10 @@ impl Duration {
         let total_nanos = self.nanos as u64 + rhs.nanos as u64;
         let extra_secs = total_nanos / 1_000_000_000;
         let nanos = (total_nanos % 1_000_000_000) as u32;
-        let secs = self.secs.saturating_add(rhs.secs).saturating_add(extra_secs);
+        let secs = self
+            .secs
+            .saturating_add(rhs.secs)
+            .saturating_add(extra_secs);
         Self { secs, nanos }
     }
 
@@ -143,7 +152,7 @@ pub struct Instant {
 impl Instant {
     /// TEAM_170: Get the current instant.
     pub fn now() -> Self {
-        let mut ts = libsyscall::Timespec::default();
+        let mut ts: libsyscall::Timespec = unsafe { core::mem::zeroed() };
         // TEAM_186: Check syscall return, use zeros on error
         if libsyscall::clock_gettime(&mut ts) < 0 {
             return Self { secs: 0, nanos: 0 };
@@ -180,7 +189,10 @@ impl Instant {
         let total_nanos = self.nanos as u64 + duration.nanos as u64;
         let extra_secs = total_nanos / 1_000_000_000;
         let nanos = (total_nanos % 1_000_000_000) as u32;
-        let secs = self.secs.checked_add(duration.secs)?.checked_add(extra_secs)?;
+        let secs = self
+            .secs
+            .checked_add(duration.secs)?
+            .checked_add(extra_secs)?;
         Some(Self { secs, nanos })
     }
 }

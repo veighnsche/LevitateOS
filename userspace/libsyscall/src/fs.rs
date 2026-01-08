@@ -1,76 +1,41 @@
 //! Filesystem operations
 //! TEAM_275: Refactored to use arch::syscallN
+//! TEAM_310: Deep integration of linux-raw-sys
 
 use crate::arch;
 use crate::sysno::{
-    SYS_DUP, SYS_DUP3, SYS_FSTAT, SYS_GETCWD, SYS_GETDENTS, SYS_LINKAT, SYS_MKDIRAT, SYS_OPENAT,
-    SYS_PIPE2, SYS_READLINKAT, SYS_RENAMEAT, SYS_SYMLINKAT, SYS_UNLINKAT, SYS_UTIMENSAT,
+    __NR_dup, __NR_dup3, __NR_fstat, __NR_getcwd, __NR_getdents, __NR_linkat, __NR_mkdirat,
+    __NR_openat, __NR_pipe2, __NR_readlinkat, __NR_renameat, __NR_symlinkat, __NR_unlinkat,
+    __NR_utimensat,
 };
 use crate::time::Timespec;
 
 /// TEAM_250: Open flags for suite_test_core
-pub const O_RDONLY: u32 = 0;
-pub const O_WRONLY: u32 = 1;
-pub const O_RDWR: u32 = 2;
-pub const O_CREAT: u32 = 64;
-pub const O_EXCL: u32 = 128;
-pub const O_TRUNC: u32 = 512;
-pub const O_APPEND: u32 = 1024;
-pub const O_CLOEXEC: u32 = 0x80000;
+// Re-exporting directly from linux-raw-sys
+pub use linux_raw_sys::general::{
+    O_APPEND, O_CLOEXEC, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY,
+};
 
-/// TEAM_217: Linux-compatible Stat structure (128 bytes).
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Stat {
-    pub st_dev: u64,
-    pub st_ino: u64,
-    pub st_mode: u32,
-    pub st_nlink: u32,
-    pub st_uid: u32,
-    pub st_gid: u32,
-    pub st_rdev: u64,
-    pub __pad1: u64,
-    pub st_size: i64,
-    pub st_blksize: i32,
-    pub __pad2: i32,
-    pub st_blocks: i64,
-    pub st_atime: i64,
-    pub st_atime_nsec: u64,
-    pub st_mtime: i64,
-    pub st_mtime_nsec: u64,
-    pub st_ctime: i64,
-    pub st_ctime_nsec: u64,
-    pub __unused: [u32; 2],
-}
+use linux_raw_sys::general::{linux_dirent64, stat};
+
+/// TEAM_217: Linux-compatible Stat structure.
+pub type Stat = stat;
 
 /// TEAM_176: Dirent64 structure for directory entries.
-#[repr(C, packed)]
-#[derive(Debug, Clone, Copy)]
-pub struct Dirent64 {
-    pub d_ino: u64,
-    pub d_off: i64,
-    pub d_reclen: u16,
-    pub d_type: u8,
-    // d_name follows
-}
+pub type Dirent64 = linux_dirent64;
 
 /// TEAM_176: File type constants for d_type field.
 pub mod d_type {
-    pub const DT_UNKNOWN: u8 = 0;
-    pub const DT_FIFO: u8 = 1;
-    pub const DT_CHR: u8 = 2;
-    pub const DT_DIR: u8 = 4;
-    pub const DT_BLK: u8 = 6;
-    pub const DT_REG: u8 = 8;
-    pub const DT_LNK: u8 = 10;
-    pub const DT_SOCK: u8 = 12;
+    pub use linux_raw_sys::general::{
+        DT_BLK, DT_CHR, DT_DIR, DT_FIFO, DT_LNK, DT_REG, DT_SOCK, DT_UNKNOWN,
+    };
 }
 
 /// TEAM_168: Open a file.
 #[inline]
 pub fn openat(path: &str, flags: u32) -> isize {
     arch::syscall3(
-        SYS_OPENAT,
+        __NR_openat as u64,
         path.as_ptr() as u64,
         path.len() as u64,
         flags as u64,
@@ -80,14 +45,14 @@ pub fn openat(path: &str, flags: u32) -> isize {
 /// TEAM_168: Get file status.
 #[inline]
 pub fn fstat(fd: usize, stat: &mut Stat) -> isize {
-    arch::syscall2(SYS_FSTAT, fd as u64, stat as *mut Stat as u64) as isize
+    arch::syscall2(__NR_fstat as u64, fd as u64, stat as *mut Stat as u64) as isize
 }
 
 /// TEAM_176: Read directory entries.
 #[inline]
 pub fn getdents(fd: usize, buf: &mut [u8]) -> isize {
     arch::syscall3(
-        SYS_GETDENTS,
+        __NR_getdents as u64,
         fd as u64,
         buf.as_mut_ptr() as u64,
         buf.len() as u64,
@@ -97,14 +62,18 @@ pub fn getdents(fd: usize, buf: &mut [u8]) -> isize {
 /// TEAM_192: Get current working directory.
 #[inline]
 pub fn getcwd(buf: &mut [u8]) -> isize {
-    arch::syscall2(SYS_GETCWD, buf.as_mut_ptr() as u64, buf.len() as u64) as isize
+    arch::syscall2(
+        __NR_getcwd as u64,
+        buf.as_mut_ptr() as u64,
+        buf.len() as u64,
+    ) as isize
 }
 
 /// TEAM_192: Create directory.
 #[inline]
 pub fn mkdirat(dfd: i32, path: &str, mode: u32) -> isize {
     arch::syscall4(
-        SYS_MKDIRAT,
+        __NR_mkdirat as u64,
         dfd as u64,
         path.as_ptr() as u64,
         path.len() as u64,
@@ -116,7 +85,7 @@ pub fn mkdirat(dfd: i32, path: &str, mode: u32) -> isize {
 #[inline]
 pub fn unlinkat(dfd: i32, path: &str, flags: u32) -> isize {
     arch::syscall4(
-        SYS_UNLINKAT,
+        __NR_unlinkat as u64,
         dfd as u64,
         path.as_ptr() as u64,
         path.len() as u64,
@@ -128,7 +97,7 @@ pub fn unlinkat(dfd: i32, path: &str, flags: u32) -> isize {
 #[inline]
 pub fn renameat(old_dfd: i32, old_path: &str, new_dfd: i32, new_path: &str) -> isize {
     arch::syscall6(
-        SYS_RENAMEAT,
+        __NR_renameat as u64,
         old_dfd as u64,
         old_path.as_ptr() as u64,
         old_path.len() as u64,
@@ -142,7 +111,7 @@ pub fn renameat(old_dfd: i32, old_path: &str, new_dfd: i32, new_path: &str) -> i
 #[inline]
 pub fn symlinkat(target: &str, linkdirfd: i32, linkpath: &str) -> isize {
     arch::syscall5(
-        SYS_SYMLINKAT,
+        __NR_symlinkat as u64,
         target.as_ptr() as u64,
         target.len() as u64,
         linkdirfd as u64,
@@ -155,7 +124,7 @@ pub fn symlinkat(target: &str, linkdirfd: i32, linkpath: &str) -> isize {
 #[inline]
 pub fn readlinkat(dirfd: i32, path: &str, buf: &mut [u8]) -> isize {
     arch::syscall5(
-        SYS_READLINKAT,
+        __NR_readlinkat as u64,
         dirfd as u64,
         path.as_ptr() as u64,
         path.len() as u64,
@@ -168,7 +137,7 @@ pub fn readlinkat(dirfd: i32, path: &str, buf: &mut [u8]) -> isize {
 #[inline]
 pub fn linkat(olddfd: i32, oldpath: &str, newdfd: i32, newpath: &str, flags: u32) -> isize {
     arch::syscall7(
-        SYS_LINKAT,
+        __NR_linkat as u64,
         olddfd as u64,
         oldpath.as_ptr() as u64,
         oldpath.len() as u64,
@@ -192,7 +161,7 @@ pub fn utimensat(dirfd: i32, path: &str, times: Option<&[Timespec; 2]>, flags: u
         None => 0,
     };
     arch::syscall5(
-        SYS_UTIMENSAT,
+        __NR_utimensat as u64,
         dirfd as u64,
         path.as_ptr() as u64,
         path.len() as u64,
@@ -204,13 +173,13 @@ pub fn utimensat(dirfd: i32, path: &str, times: Option<&[Timespec; 2]>, flags: u
 /// TEAM_233: Create a pipe.
 #[inline]
 pub fn pipe2(pipefd: &mut [i32; 2], flags: u32) -> isize {
-    arch::syscall2(SYS_PIPE2, pipefd.as_mut_ptr() as u64, flags as u64) as isize
+    arch::syscall2(__NR_pipe2 as u64, pipefd.as_mut_ptr() as u64, flags as u64) as isize
 }
 
 /// TEAM_233: Duplicate a file descriptor to lowest available.
 #[inline]
 pub fn dup(oldfd: usize) -> isize {
-    arch::syscall1(SYS_DUP, oldfd as u64) as isize
+    arch::syscall1(__NR_dup as u64, oldfd as u64) as isize
 }
 
 /// TEAM_233: Duplicate a file descriptor to a specific number.
@@ -222,5 +191,5 @@ pub fn dup2(oldfd: usize, newfd: usize) -> isize {
 /// TEAM_233: Duplicate a file descriptor with flags.
 #[inline]
 pub fn dup3(oldfd: usize, newfd: usize, flags: u32) -> isize {
-    arch::syscall3(SYS_DUP3, oldfd as u64, newfd as u64, flags as u64) as isize
+    arch::syscall3(__NR_dup3 as u64, oldfd as u64, newfd as u64, flags as u64) as isize
 }

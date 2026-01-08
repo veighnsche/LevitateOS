@@ -235,7 +235,10 @@ impl Elf64ProgramHeader {
     pub fn page_flags(&self) -> PageFlags {
         let flags = self.p_flags;
 
-        if flags & PF_X != 0 {
+        if (flags & PF_X != 0) && (flags & PF_W != 0) {
+            // TEAM_308: Both writable and executable (common in single-segment ELFs)
+            PageFlags::USER_CODE_DATA
+        } else if flags & PF_X != 0 {
             // Executable segment (code)
             PageFlags::USER_CODE
         } else {

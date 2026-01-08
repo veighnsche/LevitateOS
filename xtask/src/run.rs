@@ -421,7 +421,7 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("Running QEMU (headless, {}s timeout)...\n", timeout_secs);
 
     // Build QEMU args - headless, serial to stdout
-    let args = vec![
+    let mut args = vec![
         format!("{}s", timeout_secs),
         qemu_bin.to_string(),
         "-M".to_string(), profile.machine().to_string(),
@@ -431,12 +431,12 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
         "-display".to_string(), "none".to_string(),
         "-serial".to_string(), "stdio".to_string(),
         "-device".to_string(), "virtio-gpu-pci".to_string(),
-        "-device".to_string(), "virtio-keyboard-device".to_string(),
-        "-device".to_string(), "virtio-tablet-device".to_string(),
-        "-device".to_string(), "virtio-net-device,netdev=net0".to_string(),
+        "-device".to_string(), if arch == "x86_64" { "virtio-keyboard-pci" } else { "virtio-keyboard-device" }.to_string(),
+        "-device".to_string(), if arch == "x86_64" { "virtio-tablet-pci" } else { "virtio-tablet-device" }.to_string(),
+        "-device".to_string(), if arch == "x86_64" { "virtio-net-pci,netdev=net0" } else { "virtio-net-device,netdev=net0" }.to_string(),
         "-netdev".to_string(), "user,id=net0".to_string(),
         "-drive".to_string(), "file=tinyos_disk.img,format=raw,if=none,id=hd0".to_string(),
-        "-device".to_string(), "virtio-blk-device,drive=hd0".to_string(),
+        "-device".to_string(), if arch == "x86_64" { "virtio-blk-pci,drive=hd0" } else { "virtio-blk-device,drive=hd0" }.to_string(),
         "-initrd".to_string(), "initramfs_test.cpio".to_string(),
         "-no-reboot".to_string(),
     ];
@@ -449,7 +449,12 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
 
     // Print stdout (serial output)
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
     print!("{}", stdout);
+
+    if !output.status.success() && !stderr.is_empty() {
+        eprintln!("\nQEMU Stderr:\n{}", stderr);
+    }
 
     // Check for test results in output
     if stdout.contains("[TEST_RUNNER] RESULT: PASSED") {

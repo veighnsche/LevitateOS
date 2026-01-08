@@ -254,7 +254,7 @@ fn get_reference_times(ref_path: &str) -> Option<(u64, u64)> {
     }
 
     // Get file stats
-    let mut stat = libsyscall::Stat::default();
+    let mut stat: libsyscall::Stat = unsafe { core::mem::zeroed() };
     let ret = libsyscall::fstat(fd as usize, &mut stat);
     libsyscall::close(fd as usize);
 

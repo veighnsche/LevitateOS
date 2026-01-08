@@ -61,9 +61,20 @@ pub fn kernel_main_unified(boot_info: &crate::boot::BootInfo) -> ! {
 
     // TEAM_285: Initialize dynamic PHYS_OFFSET for Limine HHDM
     #[cfg(target_arch = "x86_64")]
-    if boot_info.protocol == crate::boot::BootProtocol::Limine {
-        if let Some(offset) = crate::boot::limine::hhdm_offset() {
-            los_hal::mmu::set_phys_offset(offset as usize);
+    {
+        if boot_info.protocol == crate::boot::BootProtocol::Limine {
+            // Diagnostic 'i' for Limine
+            unsafe {
+                core::arch::asm!("mov al, 'i'", "out dx, al");
+            }
+            if let Some(offset) = crate::boot::limine::hhdm_offset() {
+                los_hal::mmu::set_phys_offset(offset as usize);
+            }
+        } else {
+            // Diagnostic 'j' for Non-Limine
+            unsafe {
+                core::arch::asm!("mov al, 'j'", "out dx, al");
+            }
         }
     }
 
@@ -72,6 +83,10 @@ pub fn kernel_main_unified(boot_info: &crate::boot::BootInfo) -> ! {
     // TEAM_286: For Limine boot, skip CR3 switch - Limine's page tables are already correct
     #[cfg(target_arch = "x86_64")]
     {
+        // Diagnostic 'k' before HAL Init
+        unsafe {
+            core::arch::asm!("mov al, 'k'", "out dx, al");
+        }
         let switch_cr3 = boot_info.protocol != crate::boot::BootProtocol::Limine;
         los_hal::arch::init_with_options(switch_cr3);
     }

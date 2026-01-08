@@ -1,4 +1,8 @@
 fn main() {
+    let out_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    println!("cargo:rerun-if-changed=link.ld");
+    println!("cargo:rustc-link-arg=-T{}/link.ld", out_dir);
+
     // TEAM_304: aarch64-linux-gnu-gcc requires -nostartfiles to avoid crt1.o/crti.o
     let target = std::env::var("TARGET").unwrap_or_default();
 

@@ -5,9 +5,9 @@
 
 extern crate alloc;
 
+use crate::io::{Error, ErrorKind, Read, Result};
 use alloc::string::String;
 use alloc::vec::Vec;
-use crate::io::{Error, ErrorKind, Read, Result};
 
 /// TEAM_168: An open file handle.
 ///
@@ -44,7 +44,7 @@ impl File {
     /// TEAM_193: Create a file (truncate if exists).
     pub fn create(path: &str) -> Result<Self> {
         // O_CREAT (64) | O_WRONLY (1) | O_TRUNC (512) = 577
-        let flags = 577; 
+        let flags = 577;
         let fd = libsyscall::openat(path, flags);
         if fd < 0 {
             return Err(Error::from_errno(fd));
@@ -59,7 +59,7 @@ impl File {
 
     /// TEAM_168: Get file metadata.
     pub fn metadata(&self) -> Result<Metadata> {
-        let mut stat = libsyscall::Stat::default();
+        let mut stat: libsyscall::Stat = unsafe { core::mem::zeroed() };
         let ret = libsyscall::fstat(self.fd, &mut stat);
         if ret < 0 {
             return Err(Error::from_errno(ret));
@@ -157,7 +157,7 @@ pub enum FileType {
 impl FileType {
     /// TEAM_176: Parse from dirent d_type field.
     fn from_d_type(d_type: u8) -> Self {
-        match d_type {
+        match d_type as u32 {
             libsyscall::d_type::DT_REG => Self::File,
             libsyscall::d_type::DT_DIR => Self::Directory,
             libsyscall::d_type::DT_LNK => Self::Symlink,
@@ -271,7 +271,7 @@ impl ReadDir {
         }
 
         let buf = &self.buf[self.pos..];
-        
+
         // Parse header fields (careful with packed struct alignment)
         let d_ino = u64::from_le_bytes([
             buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
@@ -287,9 +287,12 @@ impl ReadDir {
         let name_start = 19;
         let name_end = d_reclen;
         let name_bytes = &buf[name_start..name_end];
-        
+
         // Find null terminator
-        let name_len = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
+        let name_len = name_bytes
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or(name_bytes.len());
         let name = match core::str::from_utf8(&name_bytes[..name_len]) {
             Ok(s) => String::from(s),
             Err(_) => return Some(Err(Error::new(ErrorKind::InvalidArgument))),

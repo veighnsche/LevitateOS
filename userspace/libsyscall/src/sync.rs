@@ -2,7 +2,7 @@
 //! TEAM_275: Refactored to use arch::syscallN
 
 use crate::arch;
-use crate::sysno::SYS_FUTEX;
+use crate::sysno::__NR_futex;
 
 /// TEAM_208: Futex operations
 pub mod futex_ops {
@@ -23,7 +23,7 @@ pub mod futex_ops {
 #[inline]
 pub fn futex(addr: *const u32, op: usize, val: u32) -> isize {
     arch::syscall5(
-        SYS_FUTEX,
+        __NR_futex as u64,
         addr as u64,
         op as u64,
         val as u64,
@@ -43,7 +43,7 @@ pub fn sys_futex(
     val3: u32,
 ) -> isize {
     arch::syscall6(
-        SYS_FUTEX,
+        __NR_futex as u64,
         uaddr as u64,
         op as u64,
         val as u64,

@@ -2,7 +2,9 @@
 //! TEAM_275: Refactored to use arch::syscallN
 
 use crate::arch;
-use crate::sysno::{SYS_MMAP, SYS_MPROTECT, SYS_MUNMAP, SYS_SBRK};
+use crate::sysno::{__NR_brk, __NR_mmap, __NR_mprotect, __NR_munmap};
+
+// ... constants unchanged ...
 
 // TEAM_228: mmap protection flags
 pub const PROT_NONE: u32 = 0;
@@ -19,7 +21,9 @@ pub const MAP_ANONYMOUS: u32 = 0x20;
 /// Adjust program break (heap allocation).
 #[inline]
 pub fn sbrk(increment: isize) -> i64 {
-    arch::syscall1(SYS_SBRK, increment as u64)
+    // Note: This maps to __NR_brk which assumes standard brk behavior.
+    // LevitateOS kernel handler implementation determines if it accepts increment or addr.
+    arch::syscall1(__NR_brk as u64, increment as u64)
 }
 
 /// TEAM_228: Map memory into process address space.
@@ -37,7 +41,7 @@ pub fn sbrk(increment: isize) -> i64 {
 #[inline]
 pub fn mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset: usize) -> isize {
     arch::syscall6(
-        SYS_MMAP,
+        __NR_mmap as u64,
         addr as u64,
         len as u64,
         prot as u64,
@@ -57,7 +61,7 @@ pub fn mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset: usi
 /// * 0 on success, negative error code on failure.
 #[inline]
 pub fn munmap(addr: usize, len: usize) -> isize {
-    arch::syscall2(SYS_MUNMAP, addr as u64, len as u64) as isize
+    arch::syscall2(__NR_munmap as u64, addr as u64, len as u64) as isize
 }
 
 /// TEAM_228: Change protection on memory region.
@@ -71,5 +75,5 @@ pub fn munmap(addr: usize, len: usize) -> isize {
 /// * 0 on success, negative error code on failure.
 #[inline]
 pub fn mprotect(addr: usize, len: usize, prot: u32) -> isize {
-    arch::syscall3(SYS_MPROTECT, addr as u64, len as u64, prot as u64) as isize
+    arch::syscall3(__NR_mprotect as u64, addr as u64, len as u64, prot as u64) as isize
 }

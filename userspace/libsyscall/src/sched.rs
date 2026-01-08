@@ -2,12 +2,12 @@
 //! TEAM_275: Refactored to use arch::syscallN
 
 use crate::arch;
-use crate::sysno::SYS_SCHED_YIELD;
+use crate::sysno::__NR_sched_yield;
 
 /// Yield execution to another thread.
 #[inline]
 pub fn sched_yield() {
-    arch::syscall0(SYS_SCHED_YIELD);
+    arch::syscall0(__NR_sched_yield as u64);
 }
 
 #[inline]
