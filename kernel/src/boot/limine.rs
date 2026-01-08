@@ -79,10 +79,11 @@ pub fn parse() -> BootInfo {
     boot_info.protocol = BootProtocol::Limine;
 
     // Check if Limine responded to our base revision request
+    // TEAM_286: Even if unsupported, keep protocol as Limine since we know we're
+    // booting via Limine (boot.S sets magic=0). This ensures CR3 switch is skipped.
     if !BASE_REVISION.is_supported() {
-        // Limine didn't boot us or doesn't support our revision
-        boot_info.protocol = BootProtocol::Unknown;
-        return boot_info;
+        // Limine v7 may not fill responses, but we're still booting via Limine
+        // Don't return early - try to parse what we can
     }
 
     // Parse memory map

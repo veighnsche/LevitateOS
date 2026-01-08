@@ -1,0 +1,15 @@
+limine: Loading kernel `boot:///boot/levitate-kernel`...
+LH123456789CXLR[BOOT] Stage 1: Early HAL (SEC)
+Heap initialized.
+[BOOT] Protocol: Limine
+[BOOT] Memory: 16 regions, 476 MB usable
+[BOOT] Stage 2: Memory & MMU (PEI)
+[MEM] Buddy Allocator initialized with unified BootInfo
+[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff80010048
+[BOOT] Stage 2: Memory & MMU (PEI)
+Exceptions initialized.
+[BOOT] Stage 3: Boot Console (DXE)
+[GPU] Initializing via PCI...
+[PCI] Scanning Bus 0 for GPU...
+[PCI] Found VirtIO GPU at 00:02.0
+[PCI] PciTransport created successfully

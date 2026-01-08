@@ -11,7 +11,7 @@
 #![no_std]
 #![allow(clippy::unwrap_used)]
 
-use los_hal::mmu::{ECAM_VA, PCI_MEM32_PA, PCI_MEM32_SIZE};
+use los_hal::mmu::{ECAM_PA, PCI_MEM32_PA, PCI_MEM32_SIZE, phys_to_virt};
 use los_hal::serial_println;
 use virtio_drivers::transport::pci::bus::{
     BarInfo, Cam, Command, DeviceFunction, MemoryBarType, MmioCam, PciRoot,
@@ -105,8 +105,9 @@ pub fn find_virtio_device<H: Hal>(device_type: DeviceType) -> Option<PciTranspor
     serial_println!("[PCI] Scanning Bus 0 for {:?}...", device_type);
 
     // Create MmioCam for ECAM access
-    // SAFETY: ECAM_VA must be mapped as Device memory before calling this
-    let cam = unsafe { MmioCam::new(ECAM_VA as *mut u8, Cam::Ecam) };
+    // TEAM_287: Use phys_to_virt(ECAM_PA) for HHDM-compatible access (works for both Limine and Multiboot)
+    let ecam_va = phys_to_virt(ECAM_PA);
+    let cam = unsafe { MmioCam::new(ecam_va as *mut u8, Cam::Ecam) };
 
     let mut pci_root = PciRoot::new(cam);
     let mut allocator = PciMemoryAllocator::new();

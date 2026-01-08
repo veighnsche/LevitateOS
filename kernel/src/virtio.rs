@@ -40,40 +40,51 @@ pub fn init_gpu() -> bool {
 
 /// TEAM_065: Initialize non-GPU VirtIO devices (Stage 4 - Discovery)
 /// Block, Network, Input devices are initialized here.
+/// TEAM_287: MMIO scanning only on aarch64. x86_64 uses PCI for VirtIO devices.
 pub fn init() {
-    crate::verbose!("Scanning VirtIO MMIO bus...");
-    for i in 0..VIRTIO_MMIO_COUNT {
-        let addr = VIRTIO_MMIO_START + i * VIRTIO_MMIO_SIZE;
-        let header =
-            core::ptr::NonNull::new(addr as *mut virtio_drivers::transport::mmio::VirtIOHeader)
-                .unwrap();
+    #[cfg(target_arch = "aarch64")]
+    {
+        crate::verbose!("Scanning VirtIO MMIO bus...");
+        for i in 0..VIRTIO_MMIO_COUNT {
+            let addr = VIRTIO_MMIO_START + i * VIRTIO_MMIO_SIZE;
+            let header =
+                core::ptr::NonNull::new(addr as *mut virtio_drivers::transport::mmio::VirtIOHeader)
+                    .unwrap();
 
-        // TEAM_032: MmioTransport::new now requires mmio_size
-        match unsafe {
-            virtio_drivers::transport::mmio::MmioTransport::new(header, VIRTIO_MMIO_SIZE)
-        } {
-            Ok(transport) => {
-                let device_type = transport.device_type();
-                match device_type {
-                    // GPU already initialized in Stage 3 via init_gpu()
-                    virtio_drivers::transport::DeviceType::GPU => {}
-                    virtio_drivers::transport::DeviceType::Input => {
-                        // TEAM_241: Pass MMIO slot index for IRQ computation
-                        crate::input::init(transport, i);
+            // TEAM_032: MmioTransport::new now requires mmio_size
+            match unsafe {
+                virtio_drivers::transport::mmio::MmioTransport::new(header, VIRTIO_MMIO_SIZE)
+            } {
+                Ok(transport) => {
+                    let device_type = transport.device_type();
+                    match device_type {
+                        // GPU already initialized in Stage 3 via init_gpu()
+                        virtio_drivers::transport::DeviceType::GPU => {}
+                        virtio_drivers::transport::DeviceType::Input => {
+                            // TEAM_241: Pass MMIO slot index for IRQ computation
+                            crate::input::init(transport, i);
+                        }
+                        virtio_drivers::transport::DeviceType::Block => {
+                            crate::block::init(transport);
+                        }
+                        // TEAM_057: VirtIO Net driver
+                        virtio_drivers::transport::DeviceType::Network => {
+                            crate::net::init(transport);
+                        }
+                        _ => {}
                     }
-                    virtio_drivers::transport::DeviceType::Block => {
-                        crate::block::init(transport);
-                    }
-                    // TEAM_057: VirtIO Net driver
-                    virtio_drivers::transport::DeviceType::Network => {
-                        crate::net::init(transport);
-                    }
-                    _ => {}
+                }
+                Err(_) => {
+                    // Not a valid VirtIO device
                 }
             }
-            Err(_) => {
-                // Not a valid VirtIO device
-            }
         }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        // x86_64 uses PCI for VirtIO devices, not MMIO
+        // VirtIO devices should be discovered via PCI enumeration
+        crate::verbose!("Skipping VirtIO MMIO scan (x86_64 uses PCI)...");
     }
 }

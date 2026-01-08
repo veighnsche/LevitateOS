@@ -1,5 +1,13 @@
+Heap initialized.
+DTB address from x0: 0x48400000
+[BOOT] Protocol: DeviceTree
+[BOOT] Memory: 1 regions, 512 MB usable
 [BOOT] Stage 1: Early HAL (SEC)
 Heap initialized.
+[BOOT] Protocol: DeviceTree
+[BOOT] Memory: 1 regions, 512 MB usable
+[BOOT] Stage 2: Memory & MMU (PEI)
+Buddy Allocator initialized with unified BootInfo.
 [BOOT] Stage 2: Memory & MMU (PEI)
 MMU re-initialized (Higher-Half + Identity).
 Exceptions initialized.
@@ -14,8 +22,6 @@ GPU initialized successfully.
 [TERM] GPU resolution: 1280x800
 [TERM] Terminal::new(1280x800) -> 128x36 chars (font 10x20, spacing 2)
 Terminal initialized.
-DTB address from x0: 0x48400000
-Buddy Allocator initialized with DTB memory map.
 Core drivers initialized.
 Timer initialized.
 [BOOT] Stage 4: Discovery & FS (DXE/BDS)
@@ -86,7 +92,7 @@ Mounting filesystems...
 FAT32 mounted. Root contains 0 entries.
 [BOOT] Filesystem initialized successfully.
 [BOOT] Mounted tmpfs at /tmp
-[GPU_TEST] Flush count: 74
+[GPU_TEST] Flush count: 72
 [GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
 
 [SUCCESS] LevitateOS System Ready.

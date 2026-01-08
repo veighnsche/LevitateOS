@@ -440,7 +440,10 @@ pub extern "C" fn kernel_main(multiboot_magic: usize, multiboot_info: usize) -> 
     }
 
     // 1. Detect and parse boot information
-    let boot_info = if crate::boot::limine::is_limine_boot() {
+    // TEAM_286: boot.S sets multiboot_magic=0 for Limine path
+    // Use this as primary detection since BASE_REVISION may not be reliable
+    let is_limine = multiboot_magic == 0 || crate::boot::limine::is_limine_boot();
+    let boot_info = if is_limine {
         // Diagnostic 'L' for Limine Path
         unsafe { core::arch::asm!("mov al, 'L'", "out dx, al"); }
         crate::boot::limine::parse()

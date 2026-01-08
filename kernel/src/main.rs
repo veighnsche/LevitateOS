@@ -51,26 +51,31 @@ pub mod virtio;
 /// Note: The caller must call `boot::set_boot_info()` before calling this
 /// to make boot info available globally.
 pub fn kernel_main_unified(boot_info: &crate::boot::BootInfo) -> ! {
-    // TEAM_285: Diagnostic 'R' for Rust Unified Entry
+    // TEAM_285: Diagnostic 'R' for Rust Unified Entry (x86_64 only)
+    #[cfg(target_arch = "x86_64")]
     unsafe {
         core::arch::asm!("mov dx, 0x3f8", "mov al, 'R'", "out dx, al");
     }
 
     // TEAM_285: Initialize dynamic PHYS_OFFSET for Limine HHDM
+    #[cfg(target_arch = "x86_64")]
     if boot_info.protocol == crate::boot::BootProtocol::Limine {
         if let Some(offset) = crate::boot::limine::hhdm_offset() {
-            los_hal::arch::mmu::set_phys_offset(offset as usize);
+            los_hal::mmu::set_phys_offset(offset as usize);
         }
     }
 
     // Stage 1: Early HAL - Console must be first for debug output
     // TEAM_284: Initialize arch-specific HAL early
+    // TEAM_286: For Limine boot, skip CR3 switch - Limine's page tables are already correct
+    #[cfg(target_arch = "x86_64")]
+    {
+        let switch_cr3 = boot_info.protocol != crate::boot::BootProtocol::Limine;
+        los_hal::arch::init_with_options(switch_cr3);
+    }
+    #[cfg(not(target_arch = "x86_64"))]
     los_hal::arch::init();
 
-    // Diagnostic 'K' for Kernel HAL Init Done
-    unsafe {
-        core::arch::asm!("mov dx, 0x3f8", "mov al, 'K'", "out dx, al");
-    }
     crate::init::transition_to(crate::init::BootStage::EarlyHAL);
     los_hal::console::init();
 

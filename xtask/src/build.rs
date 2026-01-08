@@ -255,6 +255,15 @@ fn build_kernel_with_features(features: &[&str], arch: &str) -> Result<()> {
 
 /// TEAM_283: Build a bootable Limine ISO
 pub fn build_iso(arch: &str) -> Result<()> {
+    build_iso_with_features(&[], arch)
+}
+
+/// TEAM_286: Build ISO with verbose feature for behavior testing
+pub fn build_iso_verbose(arch: &str) -> Result<()> {
+    build_iso_with_features(&["verbose"], arch)
+}
+
+fn build_iso_with_features(features: &[&str], arch: &str) -> Result<()> {
     if arch != "x86_64" {
         bail!("ISO build currently only supported for x86_64");
     }
@@ -262,7 +271,10 @@ pub fn build_iso(arch: &str) -> Result<()> {
     println!("💿 Building Limine ISO for {}...", arch);
 
     // 1. Ensure all components are built
-    build_all(arch)?;
+    build_userspace(arch)?;
+    create_initramfs(arch)?;
+    crate::image::install_userspace_to_disk(arch)?;
+    build_kernel_with_features(features, arch)?;
 
     let iso_root = PathBuf::from("iso_root");
     let boot_dir = iso_root.join("boot");
