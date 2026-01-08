@@ -1,234 +1,150 @@
-# LevitateOS Stability Maturation Plan
+# Phase 1 — Discovery and Safeguards
 
-**TEAM_311**: Foundation Layer Audit and ABI/API Stability
-**Status**: Analysis Complete - Awaiting Implementation Approval
+**TEAM_311**: ABI Stability Refactor
+**Parent**: `docs/planning/stability-maturation/`
+**Status**: In Progress
 **Date**: 2026-01-08
 
 ---
 
-## Executive Summary
+## 1. Refactor Summary
 
-The codebase has grown organically with 310+ team contributions. While functional, the lowest-level components exhibit **tight coupling** and **fragile interfaces** that cause cascade failures when modified. This document identifies the root causes and proposes a maturation strategy.
+**What**: Create `crates/abi` as single source of truth for syscall ABI, migrate custom syscalls (Spawn/SpawnArgs) to Linux clone/execve, break code and fix callsites.
 
----
+**Pain Points**:
+1. Syscall numbers defined in 3 places (kernel aarch64, kernel x86_64, userspace) - drift causes crashes
+2. Custom syscalls (1000+) prevent Linux binary compatibility
+3. Errno codes duplicated in 3 places
+4. No compile-time verification of ABI agreement
+5. Hand-rolled code where battle-tested crates exist (ELF, GDT/IDT, Multiboot2)
 
-## 1. Identified Fragility Zones
-
-### 1.1 Syscall Number Definitions (CRITICAL)
-
-**Problem**: Syscall numbers are defined in **3 separate places** that must stay synchronized:
-
-| Location | Purpose |
-|----------|---------|
-| `kernel/src/arch/aarch64/mod.rs` | Kernel AArch64 syscall dispatch |
-| `kernel/src/arch/x86_64/mod.rs` | Kernel x86_64 syscall dispatch |
-| `userspace/libsyscall/src/sysno.rs` | Userspace syscall invocation |
-
-**Risk**: Adding/changing a syscall requires editing 3 files. If any drift, userspace calls wrong syscall.
-
-**Current State**:
-- Custom syscalls (Spawn, SpawnArgs, etc.) use numbers 1000+
-- Standard syscalls use Linux numbers but are duplicated per-arch
-- `libsyscall/sysno.rs` imports from `linux-raw-sys` but custom syscalls are hardcoded
-
-**Proposed Fix**: Create a **single source of truth** crate:
-```
-crates/abi/
-├── src/
-│   ├── lib.rs          # Re-exports
-│   ├── syscall.rs      # Syscall numbers (shared by kernel + userspace)
-│   ├── errno.rs        # Error codes
-│   ├── stat.rs         # Stat structure (arch-specific layouts)
-│   └── termios.rs      # Terminal structures
-```
-
-### 1.2 SyscallFrame / Context Structures (HIGH)
-
-**Problem**: `SyscallFrame` is defined separately in:
-- `kernel/src/arch/aarch64/mod.rs` (lines 414-460)
-- `kernel/src/arch/x86_64/mod.rs` (lines 371-449)
-
-Each has its own field layout, accessor methods, and padding requirements.
-
-**Risk**: If assembly in exception handlers doesn't match struct layout, silent corruption occurs.
-
-**Current State**:
-- AArch64: Clean `regs[31]` array + `sp`, `pc`, `pstate`, `ttbr0`
-- x86_64: Complex hybrid with named registers + redundant aliases + `regs[31]` array
-
-**Proposed Fix**:
-1. Move `SyscallFrame` to HAL traits with arch-specific implementations
-2. Add compile-time assertions for struct size/alignment
-3. Add `#[repr(C)]` with explicit padding documentation
-
-### 1.3 Errno Definitions (MEDIUM)
-
-**Problem**: Error codes defined in 3 places:
-- `kernel/src/syscall/mod.rs` (errno module)
-- `kernel/src/syscall/mod.rs` (errno_file module - duplicate!)
-- `userspace/libsyscall/src/errno.rs`
-
-**Risk**: Different error semantics between kernel and userspace.
-
-**Proposed Fix**: Consolidate into `crates/abi/src/errno.rs`
-
-### 1.4 HAL Global State (HIGH)
-
-**Problem**: HAL uses `static mut` globals without proper synchronization:
-
-```rust
-// crates/hal/src/x86_64/mmu.rs:66
-pub static mut PHYS_OFFSET: usize = 0xFFFF800000000000;
-pub static mut KERNEL_PHYS_BASE: usize = 0x200000;
-
-// crates/hal/src/aarch64/gic.rs:147
-static mut HANDLERS: [Option<&'static dyn InterruptHandler>; MAX_HANDLERS] = [None; MAX_HANDLERS];
-```
-
-**Risk**: Race conditions if accessed from multiple cores or interrupt contexts.
-
-**Proposed Fix**:
-1. Use `AtomicUsize` for single-value globals
-2. Use `IrqSafeLock` for handler arrays
-3. Document single-core assumptions with `// SAFETY:` comments
-
-### 1.5 Memory Management Coupling (HIGH)
-
-**Problem**: MMU code tightly coupled to boot sequence:
-- `EARLY_ALLOCATOR` vs `PAGE_ALLOCATOR_PTR` switching
-- `phys_to_virt()` depends on runtime `PHYS_OFFSET` being set
-- Functions fail silently if called before init
-
-**Current Pattern** (fragile):
-```rust
-let alloc_fn = || unsafe {
-    if let Some(alloc) = PAGE_ALLOCATOR_PTR {
-        alloc.alloc_page()
-    } else {
-        EARLY_ALLOCATOR.alloc_page()
-    }
-};
-```
-
-**Proposed Fix**: 
-1. Use type-state pattern to encode initialization phases
-2. Create `BootPhase<Early>` / `BootPhase<Runtime>` types
-3. Make `phys_to_virt` const where possible or require explicit init proof
-
-### 1.6 Interrupt Handler Registration (MEDIUM)
-
-**Problem**: Different patterns for AArch64 vs x86_64:
-- AArch64 GIC: `unsafe static mut HANDLERS` array with index mapping
-- x86_64 APIC: `Mutex<[Option<...>; 256]>` with vector-based indexing
-
-**Risk**: Adding new IRQ types requires understanding both patterns.
-
-**Proposed Fix**: Standardize on trait-based registration through `InterruptController` trait (already exists, needs enforcement)
+**Motivation**: One change crashes everything. Need proper isolation and stable ABI.
 
 ---
 
-## 2. Proposed Maturation Layers
+## 2. Success Criteria
 
-### Layer 0: ABI Crate (New)
+### Before
+- Syscall numbers: 3 places, manual sync required
+- Custom syscalls: Spawn (1000), SpawnArgs (1001), SetForeground (1002), GetForeground (1003), Isatty (1010)
+- Errno: kernel `errno` + `errno_file` modules + userspace `errno.rs`
+- No compile-time ABI verification
+
+### After
+- Syscall numbers: 1 place (`crates/abi`), kernel + userspace import same types
+- Custom syscalls: REMOVED, use Linux clone(220) + execve(221)
+- Errno: 1 place (use `linux-raw-sys` in userspace)
+- Compile-time size assertions on all ABI structures
+- Hand-rolled code replaced with battle-tested crates
+- All tests pass
+
+---
+
+## 3. Behavioral Contracts
+
+### 3.1 Syscall ABI (Must Preserve)
+| Syscall | AArch64 NR | x86_64 NR | Signature |
+|---------|------------|-----------|-----------|
+| read | 63 | 0 | `(fd, buf, len) -> isize` |
+| write | 64 | 1 | `(fd, buf, len) -> isize` |
+| exit | 93 | 60 | `(code) -> !` |
+| openat | 56 | 257 | `(dirfd, path, flags, mode) -> i32` |
+| close | 57 | 3 | `(fd) -> i32` |
+| clone | 220 | 56 | `(flags, stack, ptid, tls, ctid) -> i32` |
+| execve | 221 | 59 | `(path, argv, envp) -> i32` |
+
+### 3.2 Error Codes (Must Match Linux)
 ```
-crates/abi/
-├── Cargo.toml
-└── src/
-    ├── lib.rs
-    ├── syscall.rs      # SyscallNumber enum (shared)
-    ├── errno.rs        # Error codes
-    ├── stat.rs         # Arch-specific stat layouts
-    ├── termios.rs      # Terminal structures
-    └── flags.rs        # O_*, PROT_*, MAP_* constants
-```
-
-**Benefits**:
-- Single source of truth for kernel/userspace ABI
-- Compile-time verification that both sides agree
-- Documentation lives with code
-
-### Layer 1: HAL Stabilization
-- Add `#[stable_api]` marker attribute (documentation)
-- Add version assertions for breaking changes
-- Convert `static mut` to proper synchronization primitives
-
-### Layer 2: Syscall Dispatch Refactor
-- Generate dispatch table from ABI crate
-- Add syscall tracing infrastructure
-- Add argument validation layer
-
----
-
-## 3. Implementation Priority
-
-| Priority | Issue | Effort | Impact |
-|----------|-------|--------|--------|
-| P0 | Create `crates/abi` for syscall numbers | 2h | HIGH - Prevents ABI drift |
-| P0 | Add compile-time size assertions to SyscallFrame | 1h | HIGH - Catches layout bugs |
-| P1 | Consolidate errno definitions | 1h | MEDIUM - Prevents confusion |
-| P1 | Fix `static mut` in HAL | 3h | HIGH - Race condition prevention |
-| P2 | Type-state for boot phases | 4h | MEDIUM - Better init ordering |
-| P2 | Standardize IRQ registration | 2h | MEDIUM - Cleaner HAL |
-
----
-
-## 4. Migration Strategy
-
-### Phase 1: Non-Breaking Additions (This Sprint)
-1. Create `crates/abi` with types
-2. Re-export from existing locations (backward compatible)
-3. Add deprecation warnings to old locations
-
-### Phase 2: Gradual Migration
-1. Update kernel to import from `los_abi`
-2. Update `libsyscall` to import from `los_abi`
-3. Remove old definitions
-
-### Phase 3: Enforcement
-1. CI check that syscall numbers match
-2. Add behavior tests for ABI compatibility
-3. Document stable vs unstable APIs
-
----
-
-## 5. Immediate Quick Wins
-
-These can be done **today** without architectural changes:
-
-1. **Add size assertions** to `SyscallFrame`:
-```rust
-const _: () = assert!(core::mem::size_of::<SyscallFrame>() == EXPECTED_SIZE);
+ENOENT = -2, EBADF = -9, ENOMEM = -12, EFAULT = -14, 
+EEXIST = -17, EINVAL = -22, ENOSYS = -38, EIO = -5
 ```
 
-2. **Add errno consistency test**:
-```rust
-#[test]
-fn test_errno_consistency() {
-    assert_eq!(kernel_errno::ENOENT, userspace_errno::ENOENT);
-}
+### 3.3 Data Structures (Must Match Linux)
+- `Stat` (128 bytes, arch-specific layout)
+- `Timespec` (16 bytes)
+- `Termios` (60 bytes)
+- `Dirent64` (variable, d_reclen aligned)
+
+---
+
+## 4. Golden/Regression Tests
+
+### 4.1 Existing Tests
+- `tests/golden_boot.txt` - Boot sequence output
+- `tests/golden_boot_x86_64.txt` - x86_64 boot output
+- `tests/golden_shutdown.txt` - Shutdown sequence
+- `cargo test -p los_utils -p los_error --features std` - Library tests
+
+### 4.2 Tests to Add
+- [ ] ABI structure size assertions
+- [ ] Syscall number consistency test
+- [ ] Errno value consistency test
+
+---
+
+## 5. Current Architecture
+
+### 5.1 Dependency Graph (Syscall Path)
+```
+userspace/init
+    └── userspace/libsyscall
+            └── libsyscall/src/sysno.rs (syscall numbers)
+            └── libsyscall/src/arch/*.rs (syscall invocation)
+
+kernel/src/arch/*/mod.rs (SyscallNumber enum)
+    └── kernel/src/syscall/mod.rs (dispatch)
+        └── kernel/src/syscall/*.rs (implementations)
 ```
 
-3. **Document ABI version** in `docs/specs/userspace-abi.md`
+### 5.2 Files to Modify
+
+| File | Change |
+|------|--------|
+| `kernel/src/arch/aarch64/mod.rs` | Remove SyscallNumber, import from los_abi |
+| `kernel/src/arch/x86_64/mod.rs` | Remove SyscallNumber, import from los_abi |
+| `kernel/src/syscall/mod.rs` | Remove errno modules, update dispatch |
+| `userspace/libsyscall/src/sysno.rs` | Remove, use los_abi |
+| `userspace/libsyscall/src/errno.rs` | Remove, use los_abi |
+| `userspace/libsyscall/src/process.rs` | Replace spawn() with clone()+exec() |
+| `userspace/init/src/main.rs` | Update spawn calls |
+| `userspace/levbox/src/*.rs` | Update spawn calls |
+
+### 5.3 Custom Syscalls to Remove
+| Syscall | NR | Replacement |
+|---------|-----|-------------|
+| Spawn | 1000 | `clone()` + `execve()` |
+| SpawnArgs | 1001 | `clone()` + `execve()` |
+| SetForeground | 1002 | Keep (LevitateOS-specific) |
+| GetForeground | 1003 | Keep (LevitateOS-specific) |
+| Isatty | 1010 | Use `ioctl(TCGETS)` or keep |
 
 ---
 
-## 6. Open Questions for USER
+## 6. Constraints
 
-1. **Scope**: Should we pursue full Linux ABI compatibility or define a stable LevitateOS ABI?
-2. **Custom Syscalls**: Keep Spawn/SpawnArgs (1000+) or migrate to clone/execve?
-3. **Breaking Changes**: What's the acceptable disruption window for migration?
+1. **Linux ABI Compatibility**: All standard syscalls must use Linux numbers
+2. **Breaking Changes**: Allowed - fix all callsites
+3. **Architecture Support**: Must work for both aarch64 and x86_64
+4. **No Shims**: Clean migration, no backward-compat wrappers
 
 ---
 
-## Appendix: File Reference
+## 7. Steps
 
-### Syscall Definition Locations
-- `@/home/vince/Projects/LevitateOS/kernel/src/arch/aarch64/mod.rs:17-139` (AArch64 SyscallNumber)
-- `@/home/vince/Projects/LevitateOS/kernel/src/arch/x86_64/mod.rs:30-141` (x86_64 SyscallNumber)
-- `@/home/vince/Projects/LevitateOS/userspace/libsyscall/src/sysno.rs:1-59` (Userspace)
-- `@/home/vince/Projects/LevitateOS/kernel/src/syscall/mod.rs:35-231` (Dispatch)
+### Step 1 — Inventory Current State
+- [ ] List all syscall usages in userspace
+- [ ] List all spawn/spawn_args callsites
+- [ ] Verify golden tests pass
 
-### HAL Static Globals
-- `@/home/vince/Projects/LevitateOS/crates/hal/src/x86_64/mmu.rs:66-71` (PHYS_OFFSET, KERNEL_PHYS_BASE)
-- `@/home/vince/Projects/LevitateOS/crates/hal/src/aarch64/gic.rs:147` (HANDLERS)
-- `@/home/vince/Projects/LevitateOS/crates/hal/src/x86_64/mmu.rs:370` (PAGE_ALLOCATOR_PTR)
+### Step 2 — Create crates/abi Foundation
+- [ ] Create `crates/abi/Cargo.toml`
+- [ ] Create `crates/abi/src/lib.rs`
+- [ ] Create `crates/abi/src/errno.rs`
+- [ ] Add size assertions
+
+### Step 3 — Add Regression Tests
+- [ ] Add syscall number consistency test
+- [ ] Add errno consistency test
+- [ ] Add structure size assertions
+
+See `phase-1-step-1.md`, `phase-1-step-2.md`, `phase-1-step-3.md` for details.
