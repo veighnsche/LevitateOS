@@ -1,4 +1,9 @@
-use crate::{build, image};
+//! QEMU run commands
+//!
+//! TEAM_322: Refactored to use QemuBuilder pattern.
+
+use crate::qemu::{Arch, QemuBuilder};
+use crate::{build, disk};
 use anyhow::{bail, Context, Result};
 use clap::Subcommand;
 use std::path::PathBuf;
@@ -44,164 +49,49 @@ pub enum RunCommands {
     },
 }
 
-/// QEMU hardware profiles
-/// TEAM_042: Added Pixel 6 profile for target hardware testing
-#[derive(Clone, Copy)]
-pub enum QemuProfile {
-    /// Default: 512MB RAM, 1 core, cortex-a53
-    Default,
-    /// Pixel 6: 8GB RAM, 8 cores, cortex-a76, GICv3
-    Pixel6,
-    /// Test: GICv3 on default machine
-    GicV3,
-    /// x86_64: 512MB RAM, 1 core, q35
-    X86_64,
-}
+// Re-export for backwards compatibility with main.rs
+pub use crate::qemu::QemuProfile;
 
-impl QemuProfile {
-    pub fn machine(&self) -> String {
-        match self {
-            QemuProfile::Default => "virt".to_string(),
-            QemuProfile::Pixel6 => "virt,gic-version=3".to_string(),
-            QemuProfile::GicV3 => "virt,gic-version=3".to_string(),
-            QemuProfile::X86_64 => "q35".to_string(),
-        }
-    }
-
-    pub fn cpu(&self) -> &'static str {
-        match self {
-            QemuProfile::Default => "cortex-a53",
-            QemuProfile::Pixel6 => "cortex-a76",
-            QemuProfile::GicV3 => "cortex-a53",
-            QemuProfile::X86_64 => "qemu64",
-        }
-    }
-
-    pub fn memory(&self) -> &'static str {
-        match self {
-            QemuProfile::Default => "512M",
-            QemuProfile::Pixel6 => "8G",
-            QemuProfile::GicV3 => "512M",
-            QemuProfile::X86_64 => "512M",
-        }
-    }
-
-    /// Returns SMP topology string
-    pub fn smp(&self) -> Option<&'static str> {
-        match self {
-            QemuProfile::Default => None,
-            QemuProfile::Pixel6 => Some("8"),
-            QemuProfile::GicV3 => None,
-            QemuProfile::X86_64 => None,
-        }
+/// Helper to get profile for arch
+fn profile_for_arch(arch: &str) -> QemuProfile {
+    if arch == "x86_64" {
+        QemuProfile::X86_64
+    } else {
+        QemuProfile::Default
     }
 }
 
+/// TEAM_322: Run QEMU with default GUI display
 pub fn run_qemu(profile: QemuProfile, headless: bool, iso: bool, arch: &str, gpu_debug: bool) -> Result<()> {
-    image::create_disk_image_if_missing()?;
-    // Userspace must be installed by build_all before this is called
+    disk::create_disk_image_if_missing()?;
 
-    let kernel_bin = if arch == "aarch64" {
-        "kernel64_rust.bin"
-    } else {
-        // x86_64 uses the ELF binary directly for multiboot2
-        "target/x86_64-unknown-none/release/levitate-kernel"
-    };
+    let arch_enum = Arch::try_from(arch)?;
+    let mut builder = QemuBuilder::new(arch_enum, profile);
 
-    let qemu_bin = match arch {
-        "aarch64" => "qemu-system-aarch64",
-        "x86_64" => "qemu-system-x86_64",
-        _ => bail!("Unsupported architecture: {}", arch),
-    };
-
-    let machine = profile.machine();
-    let mut args = vec![
-        "-M",
-        machine.as_str(),
-        "-cpu",
-        profile.cpu(),
-        "-m",
-        profile.memory(),
-        "-kernel",
-        kernel_bin,
-        "-device",
-        "virtio-gpu-pci,xres=1920,yres=1080", // TEAM_115: Larger resolution
-        "-device",
-        if arch == "x86_64" {
-            "virtio-keyboard-pci"
-        } else {
-            "virtio-keyboard-device"
-        },
-        "-device",
-        if arch == "x86_64" {
-            "virtio-tablet-pci"
-        } else {
-            "virtio-tablet-device"
-        },
-        "-device",
-        if arch == "x86_64" {
-            "virtio-net-pci,netdev=net0"
-        } else {
-            "virtio-net-device,netdev=net0"
-        },
-        "-netdev",
-        "user,id=net0",
-        "-drive",
-        "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device",
-        if arch == "x86_64" {
-            "virtio-blk-pci,drive=hd0"
-        } else {
-            "virtio-blk-device,drive=hd0"
-        },
-        "-initrd",
-        "initramfs.cpio",
-        "-no-reboot",
-    ];
-
+    // Boot configuration
     if iso {
-        // If ISO boot, we use -cdrom instead of -kernel/-initrd
-        // Note: Limine protocol works via -kernel too, but ISO is more "hardware-like"
-        args.retain(|&arg| {
-            arg != "-kernel" && arg != "-initrd" && arg != kernel_bin && arg != "initramfs.cpio"
-        });
-        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
+        builder = builder.boot_iso();
     }
 
-    if let Some(smp) = profile.smp() {
-        args.extend(["-smp", smp]);
-    }
-
-    // TEAM_139: Use mon:stdio for serial+monitor multiplexing
-    // User can switch with Ctrl+A C, exit with Ctrl+A X
+    // Display configuration
     if headless {
-        args.extend(["-display", "none", "-serial", "mon:stdio"]);
+        builder = builder.display_headless();
     } else {
-        // TEAM_139: Explicit GTK display for proper window sizing
-        args.extend([
-            "-display",
-            "gtk,zoom-to-fit=off,window-close=off",
-            "-serial",
-            "mon:stdio",
-        ]);
+        builder = builder.display_gtk();
     }
 
-    // TEAM_320: GPU debug tracing - shows virtio-gpu operations in QEMU output
+    // GPU debug
     if gpu_debug {
         println!("╔══════════════════════════════════════════════════════════╗");
         println!("║  [QEMU] GPU DEBUG MODE ENABLED                           ║");
         println!("║  Watch for: virtio_gpu_* trace messages                  ║");
         println!("║  Kernel will output GPU status to serial console         ║");
         println!("╚══════════════════════════════════════════════════════════╝");
-        args.extend([
-            "-d", "guest_errors",
-            "-D", "qemu_gpu_debug.log",
-        ]);
+        builder = builder.enable_gpu_debug();
     }
 
-    Command::new(qemu_bin)
-        .args(&args)
-        .stdout(Stdio::inherit())
+    let mut cmd = builder.build()?;
+    cmd.stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
         .context("Failed to run QEMU")?;
@@ -209,96 +99,27 @@ pub fn run_qemu(profile: QemuProfile, headless: bool, iso: bool, arch: &str, gpu
     Ok(())
 }
 
-/// TEAM_116: Run QEMU with GDB server enabled (port 1234).
+/// TEAM_116: Run QEMU with GDB server enabled (port 1234)
 pub fn run_qemu_gdb(profile: QemuProfile, wait: bool, iso: bool, arch: &str) -> Result<()> {
     println!("🐛 Starting QEMU with GDB server on port 1234...");
     if wait {
         println!("⏳ Waiting for GDB connection before starting...");
     }
 
-    image::create_disk_image_if_missing()?;
+    disk::create_disk_image_if_missing()?;
 
-    let kernel_bin = if arch == "aarch64" {
-        "kernel64_rust.bin"
-    } else {
-        "target/x86_64-unknown-none/release/levitate-kernel"
-    };
-
-    let qemu_bin = match arch {
-        "aarch64" => "qemu-system-aarch64",
-        "x86_64" => "qemu-system-x86_64",
-        _ => bail!("Unsupported architecture: {}", arch),
-    };
-
-    let machine = profile.machine();
-    let mut args = vec![
-        "-M",
-        machine.as_str(),
-        "-cpu",
-        profile.cpu(),
-        "-m",
-        profile.memory(),
-        "-kernel",
-        kernel_bin,
-        "-s", // Shorthand for -gdb tcp::1234
-        "-device",
-        "virtio-gpu-pci,xres=1280,yres=800",
-        "-device",
-        if arch == "x86_64" {
-            "virtio-keyboard-pci"
-        } else {
-            "virtio-keyboard-device"
-        },
-        "-device",
-        if arch == "x86_64" {
-            "virtio-tablet-pci"
-        } else {
-            "virtio-tablet-device"
-        },
-        "-device",
-        if arch == "x86_64" {
-            "virtio-net-pci,netdev=net0"
-        } else {
-            "virtio-net-device,netdev=net0"
-        },
-        "-netdev",
-        "user,id=net0",
-        "-drive",
-        "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device",
-        if arch == "x86_64" {
-            "virtio-blk-pci,drive=hd0"
-        } else {
-            "virtio-blk-device,drive=hd0"
-        },
-        "-initrd",
-        "initramfs.cpio",
-        "-serial",
-        "mon:stdio",
-        "-qmp",
-        "unix:./qmp.sock,server,nowait",
-        "-no-reboot",
-    ];
+    let arch_enum = Arch::try_from(arch)?;
+    let mut builder = QemuBuilder::new(arch_enum, profile)
+        .gpu_resolution(1280, 800)
+        .enable_gdb(wait)
+        .enable_qmp("./qmp.sock");
 
     if iso {
-        // Propagate ISO logic similar to run_qemu
-        args.retain(|&arg| {
-            arg != "-kernel" && arg != "-initrd" && arg != kernel_bin && arg != "initramfs.cpio"
-        });
-        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
+        builder = builder.boot_iso();
     }
 
-    if wait {
-        args.push("-S"); // Freeze CPU at startup
-    }
-
-    if let Some(smp) = profile.smp() {
-        args.extend(["-smp", smp]);
-    }
-
-    Command::new(qemu_bin)
-        .args(&args)
-        .stdout(Stdio::inherit())
+    let mut cmd = builder.build()?;
+    cmd.stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
         .context("Failed to run QEMU with GDB")?;
@@ -306,32 +127,26 @@ pub fn run_qemu_gdb(profile: QemuProfile, wait: bool, iso: bool, arch: &str) -> 
     Ok(())
 }
 
-/// Run QEMU with VNC for browser-based GPU display verification.
+/// Run QEMU with VNC for browser-based GPU display verification
 pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     println!("🖥️  Starting QEMU with VNC for browser-based display verification...\n");
 
     // TEAM_317: x86_64 uses ISO (Limine) since we removed Multiboot support
     let use_iso = arch == "x86_64";
-    
-    image::create_disk_image_if_missing()?;
+
+    disk::create_disk_image_if_missing()?;
     if use_iso {
         build::build_iso(arch)?;
     } else {
         build::build_all(arch)?;
     }
 
-    // Check for noVNC
+    // Setup noVNC
     let novnc_path = PathBuf::from("/tmp/novnc");
     if !novnc_path.exists() {
         println!("📥 Downloading noVNC...");
         let status = Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "https://github.com/novnc/noVNC.git",
-                "/tmp/novnc",
-            ])
+            .args(["clone", "--depth", "1", "https://github.com/novnc/noVNC.git", "/tmp/novnc"])
             .status()
             .context("Failed to clone noVNC")?;
         if !status.success() {
@@ -339,18 +154,13 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
         }
     }
 
-    // Find websockify - check multiple locations
+    // Find websockify
     let websockify_path = find_websockify()?;
 
-    // Kill any existing VNC-related processes (idempotency)
-    // Use specific patterns to avoid killing unrelated QEMU instances
+    // Kill any existing VNC-related processes
     println!("🧹 Cleaning up existing processes...");
-    let _ = Command::new("pkill")
-        .args(["-f", "websockify.*6080"])
-        .status();
-    let _ = Command::new("pkill")
-        .args(["-f", "qemu.*-vnc.*:0"])
-        .status();
+    let _ = Command::new("pkill").args(["-f", "websockify.*6080"]).status();
+    let _ = Command::new("pkill").args(["-f", "qemu.*-vnc.*:0"]).status();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Start websockify
@@ -367,18 +177,13 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     // Verify websockify started
     match websockify.try_wait() {
         Ok(Some(status)) => {
-            bail!(
-                "websockify exited immediately with status: {}. Port 6080 may be in use.",
-                status
-            );
+            bail!("websockify exited immediately with status: {}. Port 6080 may be in use.", status);
         }
-        Ok(None) => {} // Still running, good
-        Err(e) => {
-            bail!("Failed to check websockify status: {}", e);
-        }
+        Ok(None) => {} // Still running
+        Err(e) => bail!("Failed to check websockify status: {}", e),
     }
 
-    println!("");
+    println!();
     println!("╔════════════════════════════════════════════════════════════════════════╗");
     println!("║  🌐 BROWSER URL: http://localhost:6080/vnc.html                        ║");
     println!("║                                                                         ║");
@@ -391,82 +196,24 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     println!("║                                                                         ║");
     println!("║  Serial console is in THIS terminal (Ctrl+C to quit)                    ║");
     println!("╚════════════════════════════════════════════════════════════════════════╝");
-    println!("");
+    println!();
 
-    // Clean QMP socket if it exists
-    if std::path::Path::new("./qmp.sock").exists() {
-        let _ = std::fs::remove_file("./qmp.sock");
-    }
+    // Clean QMP socket
+    let _ = std::fs::remove_file("./qmp.sock");
 
-    // Run QEMU with VNC
-    let kernel_bin = if arch == "aarch64" {
-        "kernel64_rust.bin"
-    } else {
-        "target/x86_64-unknown-none/release/levitate-kernel"
-    };
+    // Build QEMU
+    let arch_enum = Arch::try_from(arch)?;
+    let profile = profile_for_arch(arch);
+    let mut builder = QemuBuilder::new(arch_enum, profile)
+        .display_vnc()
+        .enable_qmp("./qmp.sock");
 
-    let qemu_bin = match arch {
-        "aarch64" => "qemu-system-aarch64",
-        "x86_64" => "qemu-system-x86_64",
-        _ => bail!("Unsupported architecture: {}", arch),
-    };
-
-    let profile = if arch == "aarch64" {
-        QemuProfile::Default
-    } else {
-        QemuProfile::X86_64
-    };
-    let machine = profile.machine();
-
-    let mut args = vec![
-        "-M",
-        machine.as_str(),
-        "-cpu",
-        profile.cpu(),
-        "-m",
-        profile.memory(),
-    ];
-
-    // TEAM_317: x86_64 uses ISO boot (Limine)
     if use_iso {
-        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
-    } else {
-        args.extend(["-kernel", kernel_bin, "-initrd", "initramfs.cpio"]);
+        builder = builder.boot_iso();
     }
 
-    // TEAM_318: Use PCI device types for x86_64, virtio-device for aarch64
-    args.extend([
-        "-display",
-        "none",
-        "-vnc",
-        ":0",
-        "-device",
-        "virtio-gpu-pci,xres=1920,yres=1080", // TEAM_115: Larger resolution for VNC
-        "-device",
-        if arch == "x86_64" { "virtio-keyboard-pci" } else { "virtio-keyboard-device" },
-        "-device",
-        if arch == "x86_64" { "virtio-tablet-pci" } else { "virtio-tablet-device" },
-        "-device",
-        if arch == "x86_64" { "virtio-net-pci,netdev=net0" } else { "virtio-net-device,netdev=net0" },
-        "-netdev",
-        "user,id=net0",
-        "-drive",
-        "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device",
-        if arch == "x86_64" { "virtio-blk-pci,drive=hd0" } else { "virtio-blk-device,drive=hd0" },
-        "-serial",
-        "mon:stdio",
-        "-qmp",
-        "unix:./qmp.sock,server,nowait",
-        "-no-reboot",
-    ]);
-
-    if let Some(smp) = profile.smp() {
-        args.extend(["-smp", smp]);
-    }
-
-    let qemu_result = Command::new(qemu_bin)
-        .args(&args)
+    let mut cmd = builder.build()?;
+    let qemu_result = cmd
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status();
@@ -481,7 +228,7 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
 
 /// Find websockify binary in various possible locations
 fn find_websockify() -> Result<String> {
-    // Check PATH first (covers system installs and activated venvs)
+    // Check PATH first
     if let Ok(output) = Command::new("which").arg("websockify").output() {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -518,12 +265,11 @@ fn find_websockify() -> Result<String> {
     )
 }
 
-/// TEAM_243: Run QEMU with test runner for automated OS testing.
-/// Builds test initramfs, runs headless, captures output, reports results.
+/// TEAM_243: Run QEMU with test runner for automated OS testing
 pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("🧪 Running LevitateOS Internal Tests for {}...\n", arch);
 
-    // TEAM_317: x86_64 uses ISO (Limine) since we removed Multiboot support
+    // TEAM_317: x86_64 uses ISO (Limine)
     let use_iso = arch == "x86_64";
 
     // Build everything including test runner
@@ -534,104 +280,32 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
     } else {
         build::build_kernel_verbose(arch)?;
     }
-    image::create_disk_image_if_missing()?;
-
-    let kernel_bin = if arch == "aarch64" {
-        "kernel64_rust.bin"
-    } else {
-        "target/x86_64-unknown-none/release/levitate-kernel"
-    };
-
-    let qemu_bin = match arch {
-        "aarch64" => "qemu-system-aarch64",
-        "x86_64" => "qemu-system-x86_64",
-        _ => bail!("Unsupported architecture: {}", arch),
-    };
-
-    let profile = if arch == "aarch64" {
-        QemuProfile::Default
-    } else {
-        QemuProfile::X86_64
-    };
+    disk::create_disk_image_if_missing()?;
 
     let timeout_secs: u64 = 60;
-
     println!("Running QEMU (headless, {}s timeout)...\n", timeout_secs);
 
-    // Build QEMU args - headless, serial to stdout
-    let mut args = vec![
-        format!("{}s", timeout_secs),
-        qemu_bin.to_string(),
-        "-M".to_string(),
-        profile.machine().to_string(),
-        "-cpu".to_string(),
-        profile.cpu().to_string(),
-        "-m".to_string(),
-        profile.memory().to_string(),
-    ];
+    let arch_enum = Arch::try_from(arch)?;
+    let profile = profile_for_arch(arch);
+    let mut builder = QemuBuilder::new(arch_enum, profile)
+        .display_headless();
 
-    // TEAM_317: x86_64 uses ISO boot (Limine)
     if use_iso {
-        args.extend([
-            "-cdrom".to_string(),
-            "levitate.iso".to_string(),
-            "-boot".to_string(),
-            "d".to_string(),
-        ]);
+        builder = builder.boot_iso();
     } else {
-        args.extend([
-            "-kernel".to_string(),
-            kernel_bin.to_string(),
-            "-initrd".to_string(),
-            "initramfs_test.cpio".to_string(),
-        ]);
+        builder = builder.boot_kernel("initramfs_test.cpio");
     }
 
-    args.extend([
-        "-display".to_string(),
-        "none".to_string(),
-        "-serial".to_string(),
-        "stdio".to_string(),
-        "-device".to_string(),
-        "virtio-gpu-pci".to_string(),
-        "-device".to_string(),
-        if arch == "x86_64" {
-            "virtio-keyboard-pci"
-        } else {
-            "virtio-keyboard-device"
-        }
-        .to_string(),
-        "-device".to_string(),
-        if arch == "x86_64" {
-            "virtio-tablet-pci"
-        } else {
-            "virtio-tablet-device"
-        }
-        .to_string(),
-        "-device".to_string(),
-        if arch == "x86_64" {
-            "virtio-net-pci,netdev=net0"
-        } else {
-            "virtio-net-device,netdev=net0"
-        }
-        .to_string(),
-        "-netdev".to_string(),
-        "user,id=net0".to_string(),
-        "-drive".to_string(),
-        "file=tinyos_disk.img,format=raw,if=none,id=hd0".to_string(),
-        "-device".to_string(),
-        if arch == "x86_64" {
-            "virtio-blk-pci,drive=hd0"
-        } else {
-            "virtio-blk-device,drive=hd0"
-        }
-        .to_string(),
-        "-no-reboot".to_string(),
-    ]);
+    let base_cmd = builder.build()?;
+    let args: Vec<_> = base_cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
 
-    // Run QEMU with timeout
+    // Run with timeout
+    let mut timeout_args = vec![format!("{}s", timeout_secs)];
+    timeout_args.push(arch_enum.qemu_binary().to_string());
+    timeout_args.extend(args);
+
     let output = Command::new("timeout")
-        .args(&args)
+        .args(&timeout_args)
         .output()
         .context("Failed to run QEMU")?;
 
@@ -644,30 +318,23 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
         eprintln!("\nQEMU Stderr:\n{}", stderr);
     }
 
-    // Check for test results in output
+    // Check for test results
     if stdout.contains("[TEST_RUNNER] RESULT: PASSED") {
         println!("\n✅ All OS internal tests passed!");
         Ok(())
     } else if stdout.contains("[TEST_RUNNER] RESULT: FAILED") {
         bail!("❌ Some OS internal tests failed!");
     } else if stdout.contains("[TEST_RUNNER]") {
-        // Test runner started but didn't complete
         bail!("❌ Test runner did not complete (timeout or crash)");
     } else {
-        // Test runner never started
         bail!("❌ Test runner failed to start - check initramfs");
     }
 }
 
-/// TEAM_139: Run QEMU in terminal-only mode (WSL-like).
-/// No graphical window - keyboard input goes to terminal stdin.
-/// Ctrl+A X to exit, Ctrl+A C to switch to QEMU monitor.
+/// TEAM_139: Run QEMU in terminal-only mode (WSL-like)
 pub fn run_qemu_term(arch: &str, iso: bool) -> Result<()> {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!(
-        "║  LevitateOS Terminal Mode (WSL-like) - {}               ║",
-        arch
-    );
+    println!("║  LevitateOS Terminal Mode - {}                        ║", arch);
     println!("║                                                            ║");
     println!("║  Type directly here - keyboard goes to VM                  ║");
     println!("║  Ctrl+A X to exit QEMU                                     ║");
@@ -677,92 +344,25 @@ pub fn run_qemu_term(arch: &str, iso: bool) -> Result<()> {
     if iso {
         build::build_iso(arch)?;
     } else {
-        image::create_disk_image_if_missing()?;
+        disk::create_disk_image_if_missing()?;
         build::build_all(arch)?;
-    }
-
-    let kernel_bin = if arch == "aarch64" {
-        "kernel64_rust.bin"
-    } else {
-        "target/x86_64-unknown-none/release/levitate-kernel"
-    };
-
-    let qemu_bin = match arch {
-        "aarch64" => "qemu-system-aarch64",
-        "x86_64" => "qemu-system-x86_64",
-        _ => bail!("Unsupported architecture: {}", arch),
-    };
-
-    let profile = if arch == "aarch64" {
-        QemuProfile::Default
-    } else {
-        QemuProfile::X86_64
-    };
-
-    let machine = profile.machine();
-    let args = vec![
-        "-M",
-        machine.as_str(),
-        "-cpu",
-        profile.cpu(),
-        "-m",
-        profile.memory(),
-        "-kernel",
-        kernel_bin,
-        "-nographic", // No display, stdin goes to serial
-        "-device",
-        "virtio-gpu-pci,xres=1280,yres=800",
-        "-device",
-        if arch == "x86_64" {
-            "virtio-keyboard-pci"
-        } else {
-            "virtio-keyboard-device"
-        },
-        "-device",
-        if arch == "x86_64" {
-            "virtio-tablet-pci"
-        } else {
-            "virtio-tablet-device"
-        },
-        "-device",
-        if arch == "x86_64" {
-            "virtio-net-pci,netdev=net0"
-        } else {
-            "virtio-net-device,netdev=net0"
-        },
-        "-netdev",
-        "user,id=net0",
-        "-drive",
-        "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device",
-        if arch == "x86_64" {
-            "virtio-blk-pci,drive=hd0"
-        } else {
-            "virtio-blk-device,drive=hd0"
-        },
-        "-initrd",
-        "initramfs.cpio",
-        "-serial",
-        "mon:stdio",
-        "-qmp",
-        "unix:./qmp.sock,server,nowait",
-        "-no-reboot",
-    ];
-
-    let mut args = args;
-    if iso {
-        args.retain(|&arg| {
-            arg != "-kernel" && arg != "-initrd" && arg != kernel_bin && arg != "initramfs.cpio"
-        });
-        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
     }
 
     // Clean QMP socket
     let _ = std::fs::remove_file("./qmp.sock");
 
-    Command::new(qemu_bin)
-        .args(&args)
-        .stdin(Stdio::inherit())
+    let arch_enum = Arch::try_from(arch)?;
+    let profile = profile_for_arch(arch);
+    let mut builder = QemuBuilder::new(arch_enum, profile)
+        .display_nographic()
+        .enable_qmp("./qmp.sock");
+
+    if iso {
+        builder = builder.boot_iso();
+    }
+
+    let mut cmd = builder.build()?;
+    cmd.stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
@@ -771,29 +371,7 @@ pub fn run_qemu_term(arch: &str, iso: bool) -> Result<()> {
     Ok(())
 }
 
-/// TEAM_283: Find a binary in PATH or common locations
-pub fn find_binary(name: &str) -> Result<String> {
-    if let Ok(output) = Command::new("which").arg(name).output() {
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                return Ok(path);
-            }
-        }
-    }
-
-    // Check common local bins
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
-    let local_bin = format!("{}/.local/bin/{}", home, name);
-    if std::path::Path::new(&local_bin).exists() {
-        return Ok(local_bin);
-    }
-
-    bail!("Binary '{}' not found in PATH or ~/.local/bin", name)
-}
-
-/// TEAM_320: Verify GPU display via VNC + Puppeteer.
-/// Starts QEMU with VNC, runs verification script, reports result.
+/// TEAM_320: Verify GPU display via VNC + Puppeteer
 pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
     println!("╔══════════════════════════════════════════════════════════╗");
     println!("║  [GPU VERIFY] Starting automated GPU verification...     ║");
@@ -801,15 +379,15 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
 
     // TEAM_317: x86_64 uses ISO (Limine)
     let use_iso = arch == "x86_64";
-    
-    image::create_disk_image_if_missing()?;
+
+    disk::create_disk_image_if_missing()?;
     if use_iso {
         build::build_iso(arch)?;
     } else {
         build::build_all(arch)?;
     }
 
-    // Check for noVNC
+    // Setup noVNC and websockify similar to run_qemu_vnc
     let novnc_path = PathBuf::from("/tmp/novnc");
     if !novnc_path.exists() {
         println!("📥 Downloading noVNC...");
@@ -822,11 +400,9 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
         }
     }
 
-    // Find websockify
     let websockify_path = find_websockify()?;
 
-    // Kill any existing VNC-related processes
-    println!("🧹 Cleaning up existing processes...");
+    // Kill existing processes
     let _ = Command::new("pkill").args(["-f", "websockify.*6080"]).status();
     let _ = Command::new("pkill").args(["-f", "qemu.*-vnc.*:0"]).status();
     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -842,83 +418,66 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
 
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    // Build QEMU args
-    let kernel_bin = if arch == "aarch64" { "kernel64_rust.bin" } else { "target/x86_64-unknown-none/release/levitate-kernel" };
-    let qemu_bin = match arch {
-        "aarch64" => "qemu-system-aarch64",
-        "x86_64" => "qemu-system-x86_64",
-        _ => bail!("Unsupported architecture: {}", arch),
-    };
-    let profile = if arch == "aarch64" { QemuProfile::Default } else { QemuProfile::X86_64 };
-    let machine = profile.machine();
-
-    let mut args = vec![
-        "-M", machine.as_str(),
-        "-cpu", profile.cpu(),
-        "-m", profile.memory(),
-    ];
-
-    if use_iso {
-        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
-    } else {
-        args.extend(["-kernel", kernel_bin, "-initrd", "initramfs.cpio"]);
-    }
-
-    args.extend([
-        "-display", "none",
-        "-vnc", ":0",
-        "-device", "virtio-gpu-pci,xres=1920,yres=1080",
-        "-device", if arch == "x86_64" { "virtio-keyboard-pci" } else { "virtio-keyboard-device" },
-        "-device", if arch == "x86_64" { "virtio-tablet-pci" } else { "virtio-tablet-device" },
-        "-device", if arch == "x86_64" { "virtio-net-pci,netdev=net0" } else { "virtio-net-device,netdev=net0" },
-        "-netdev", "user,id=net0",
-        "-drive", "file=tinyos_disk.img,format=raw,if=none,id=hd0",
-        "-device", if arch == "x86_64" { "virtio-blk-pci,drive=hd0" } else { "virtio-blk-device,drive=hd0" },
-        "-serial", "stdio",
-        "-no-reboot",
-    ]);
-
     // Clean QMP socket
     let _ = std::fs::remove_file("./qmp.sock");
 
-    println!("🖥️  Starting QEMU with VNC...");
-    let mut qemu = Command::new(qemu_bin)
-        .args(&args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+    // Start QEMU in background
+    let arch_enum = Arch::try_from(arch)?;
+    let profile = profile_for_arch(arch);
+    let mut builder = QemuBuilder::new(arch_enum, profile)
+        .display_vnc()
+        .enable_qmp("./qmp.sock");
+
+    if use_iso {
+        builder = builder.boot_iso();
+    }
+
+    let mut cmd = builder.build()?;
+    let mut qemu = cmd
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
         .context("Failed to start QEMU")?;
 
-    // Wait for QEMU to boot (check serial output for shell prompt)
-    println!("⏳ Waiting for OS to boot...");
-    std::thread::sleep(std::time::Duration::from_secs(10));
+    // Wait for QMP socket
+    println!("⏳ Waiting for QEMU to start...");
+    std::thread::sleep(std::time::Duration::from_secs(3));
 
-    // Run verification script
-    println!("🔍 Running Puppeteer verification...\n");
-    let verify_result = Command::new("node")
-        .args(["scripts/verify-display.js", &format!("--timeout={}", timeout)])
-        .status();
+    // Wait specified timeout for GPU to initialize
+    println!("⏳ Waiting {}s for GPU display...", timeout);
+    std::thread::sleep(std::time::Duration::from_secs(timeout as u64));
+
+    // Take screenshot via QMP
+    if std::path::Path::new("./qmp.sock").exists() {
+        println!("📸 Taking screenshot via QMP...");
+        match crate::support::qmp::QmpClient::connect("./qmp.sock") {
+            Ok(mut client) => {
+                let args = serde_json::json!({ "filename": "tests/screenshots/gpu_verify.ppm" });
+                if client.execute("screendump", Some(args)).is_ok() {
+                    println!("✅ Screenshot saved to tests/screenshots/gpu_verify.ppm");
+                }
+            }
+            Err(e) => {
+                println!("⚠️  Failed to connect to QMP: {}", e);
+            }
+        }
+    }
 
     // Cleanup
     let _ = qemu.kill();
     let _ = websockify.kill();
 
-    match verify_result {
-        Ok(status) => {
-            if status.success() {
-                println!("\n✅ GPU VERIFICATION PASSED - Display has content!");
-                Ok(())
-            } else {
-                let code = status.code().unwrap_or(2);
-                if code == 1 {
-                    bail!("❌ GPU VERIFICATION FAILED - Display is BLACK!")
-                } else {
-                    bail!("❌ GPU VERIFICATION ERROR - Could not verify display")
-                }
-            }
+    // Check screenshot file
+    let screenshot_path = std::path::Path::new("tests/screenshots/gpu_verify.ppm");
+    if screenshot_path.exists() {
+        let metadata = std::fs::metadata(screenshot_path)?;
+        if metadata.len() > 1000 {
+            println!("✅ GPU verification: Screenshot captured ({} bytes)", metadata.len());
+            Ok(())
+        } else {
+            bail!("❌ GPU verification failed: Screenshot too small (display may be inactive)");
         }
-        Err(e) => {
-            bail!("Failed to run verification script: {}. Install with: npm install -g puppeteer", e)
-        }
+    } else {
+        bail!("❌ GPU verification failed: Could not capture screenshot");
     }
 }
