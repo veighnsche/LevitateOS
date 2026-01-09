@@ -9,10 +9,30 @@ Instead of a separate `intel-gpu` driver (which is massive), we will implement a
 - We will create a `SimpleGpu` driver that implements the `gpu` trait using this pre-allocated buffer.
 - This allows graphics on any UEFI-compliant hardware immediately.
 
-### 2. Physical Memory Mapping (PMO)
-To fix the MMIO mapping blocker (TEAM_317):
-- We will ensure that the Physical Memory Offset (PMO) mapping covers *all* usable physical address space, including MMIO holes (typically `0xF0000000` and above).
-- Alternatively, we implement a `map_io_region(phys, size)` function in the HAL that creates a kernel mapping for hardware registers.
+### 2. Physical Memory & MMIO Mapping
+Currently, the `x86_64` HAL relies on `phys_to_virt(pa)` which only works if the address is within the Physical Memory Offset (PMO) range. On bare metal, hardware registers (APIC, IOAPIC, PCI ECAM) are often located at high physical addresses (e.g., `0xFEE00000`) that may not be covered by the initial 1GB PMO.
+
+- **Requirement**: Implement a `map_device_memory(phys, size)` mechanism.
+- **Implementation**:
+    - Reserve a virtual range in the kernel's higher-half (e.g., `0xFFFFFFFF40000000`).
+    - The MMU will map these pages as `DEVICE` (Non-Cacheable, Writable, No-Execute).
+    - Drivers must use this virtual pointer instead of `phys_to_virt`.
+
+### 3. ACPI Subsystem [NEW]
+Bare metal NUC support is impossible without ACPI. We need it to find the real addresses of the APIC/IOAPIC and to identify CPUs and power states.
+
+- **Component**: `crates/hal/src/x86_64/boot/acpi.rs`.
+- **Logic**:
+    - Locate the `RSDP` (Root System Description Pointer) via Limine's ACPI request.
+    - Parse **MADT** (Multiple APIC Description Table) to enumerate LAPICs and IOAPICs.
+    - Parse **FADT** (Fixed ACPI Description Table) for sleep/reboot mechanisms.
+
+### 4. Interrupt Routing Migration (PIC -> APIC/MSI)
+Current HAL uses the 8259 PIC as a temporary crutch. This must be replaced for NVMe and modern NUC hardware.
+
+- **LAPIC**: Map and initialize the Local APIC for every CPU.
+- **IOAPIC**: Map and route legacy IRQs (ISA) to the APIC.
+- **MSI/MSI-X**: Implement an API in `los_pci` to configure Message Signaled Interrupts. This allows devices like NVMe to send interrupts directly to the LAPIC without using IOAPIC pins.
 
 ### 3. NVMe Driver Architecture
 - New crate `crates/drivers/nvme`.
@@ -57,8 +77,50 @@ pub fn map_device_memory(phys: PhysAddr, size: usize) -> VirtAddr;
 - **Rule 9 (Asynchrony & Non-blocking Design)**: The `StorageDevice` trait will be designed around `async/await`. The initial implementation will "poll-block" the future, which can be upgraded to MSI-X wakers without changing the driver's public API.
 
 ## Design Alternatives
-- **Alternative**: Use VESA/VGA fallback.
 - **Rejection**: Only works on BIOS, not UEFI. UEFI GOP is the modern standard.
+
+## Detailed HAL Design
+
+### MMIO Mapping Framework
+To avoid polluting the `mmu` code with hardcoded addresses, we will implement a `DeviceMapper` that manages a reserved virtual range.
+
+```mermaid
+graph TD
+    A[Driver] -->|Request Mapping| B[DeviceMapper]
+    B -->|Allocate VirtRange| C[Virtual Address Manager]
+    B -->|Map Page| D[x86_64 MMU]
+    D -->|Write PTE| E[Page Table]
+    style B fill:#f96,stroke:#333,stroke-width:2px
+```
+
+- **Mechanism**: Use the `Recursive Page Table` or `Limine HHDM` to modify tables, but expose a safe `DeviceRegion` RAII guard.
+- **Safety**: `DeviceRegion` will unmap the virtual range on `Drop`.
+
+### ACPI Discovery Flow
+We will implement a lazy, one-time ACPI scan during HAL initialization.
+
+```mermaid
+sequenceDiagram
+    participant K as Kernel Init
+    participant H as HAL Init
+    participant L as Limine Request
+    participant A as ACPI Parser
+    
+    K->>H: hal::init()
+    H->>L: Get RSDP Pointer
+    L-->>H: RSDP Address
+    H->>A: acpi::init(rsdp)
+    A->>A: Validate Checksum
+    A->>A: Find MADT (APIC Table)
+    A-->>H: IOAPIC & LAPIC Bases
+```
+
+### Modern Interrupt Routing
+We will replace the static `IOAPIC` constant with a dynamic one discovered via ACPI.
+
+1. **Phase 2.1**: Discovery of IOAPIC base from MADT.
+2. **Phase 2.2**: LAPIC Timer calibration (using PIT as a temporary reference).
+3. **Phase 2.3**: MSI allocation logic in the PCI crate, which writes directly to LAPIC vectors.
 
 ## External Kernel Insights
 Researching **Theseus** and **Redox** kernels in `.external-kernels/` has revealed the following:

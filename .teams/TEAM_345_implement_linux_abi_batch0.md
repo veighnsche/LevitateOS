@@ -76,6 +76,16 @@ Added `pub mod fcntl` with:
 - Works correctly for LevitateOS userspace
 - Full Linux semantics deferred to avoid breaking changes
 
+## Batch 2: Link Operations ✅ DONE
+
+- `sys_readlinkat` → `(dirfd, pathname, buf, bufsiz)` ✅
+- `sys_symlinkat` → `(target, newdirfd, linkpath)` ✅
+- `sys_linkat` → `(olddirfd, oldpath, newdirfd, newpath, flags)` ✅
+- `sys_utimensat` → `(dirfd, pathname, times, flags)` ✅
+- `sys_unlinkat` → `(dirfd, pathname, flags)` ✅
+
+All updated to use `read_user_cstring()` for null-terminated paths.
+
 ## Next Steps
 
-Batch 2: Link Operations (readlinkat, symlinkat, linkat, utimensat, unlinkat)
+Batch 3: Directory Operations (mkdirat, renameat, mount, umount)

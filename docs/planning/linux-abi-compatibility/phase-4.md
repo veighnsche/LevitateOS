@@ -52,29 +52,29 @@ Execute the fix in batched changes, with tests after each batch.
 
 ---
 
-### Batch 2: Path Resolution Syscalls (5 UoW)
+### Batch 2: Path Resolution Syscalls (5 UoW) ✅ DONE
 
-#### UoW 2.1: sys_readlinkat
-- Change signature to Linux ABI
-- Update userspace wrapper
+#### UoW 2.1: sys_readlinkat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(dirfd, pathname, buf, bufsiz)`
+- ~~Update userspace wrapper~~ ✅
 
-#### UoW 2.2: sys_symlinkat
-- Change signature to Linux ABI
-- Update userspace wrapper
+#### UoW 2.2: sys_symlinkat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(target, newdirfd, linkpath)`
+- ~~Update userspace wrapper~~ ✅
 
-#### UoW 2.3: sys_linkat
-- Change signature to Linux ABI
-- Update userspace wrapper
+#### UoW 2.3: sys_linkat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(olddirfd, oldpath, newdirfd, newpath, flags)`
+- ~~Update userspace wrapper~~ ✅
 
-#### UoW 2.4: sys_utimensat
-- Change signature to Linux ABI
-- Update userspace wrapper
+#### UoW 2.4: sys_utimensat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(dirfd, pathname, times, flags)`
+- ~~Update userspace wrapper~~ ✅
 
-#### UoW 2.5: sys_unlinkat
-- Change signature to Linux ABI
-- Update userspace wrapper
+#### UoW 2.5: sys_unlinkat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(dirfd, pathname, flags)`
+- ~~Update userspace wrapper~~ ✅
 
-**Checkpoint:** All link operations work
+**Checkpoint:** All link operations work ✅
 
 ---
 

@@ -114,11 +114,11 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg2() as usize,
             frame.arg3() as u32,
         ),
+        // TEAM_345: Linux ABI - unlinkat(dirfd, pathname, flags)
         Some(SyscallNumber::Unlinkat) => fs::sys_unlinkat(
             frame.arg0() as i32,
             frame.arg1() as usize,
-            frame.arg2() as usize,
-            frame.arg3() as u32,
+            frame.arg2() as u32,
         ),
         Some(SyscallNumber::Renameat) => fs::sys_renameat(
             frame.arg0() as i32,
@@ -128,28 +128,25 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg4() as usize,
             frame.arg5() as usize,
         ),
-        // TEAM_198: Set file timestamps
+        // TEAM_345: Linux ABI - utimensat(dirfd, pathname, times, flags)
         Some(SyscallNumber::Utimensat) => fs::sys_utimensat(
             frame.arg0() as i32,
             frame.arg1() as usize,
             frame.arg2() as usize,
-            frame.arg3() as usize,
-            frame.arg4() as u32,
+            frame.arg3() as u32,
         ),
-        // TEAM_198: Create symbolic link
+        // TEAM_345: Linux ABI - symlinkat(target, newdirfd, linkpath)
         Some(SyscallNumber::Symlinkat) => fs::sys_symlinkat(
             frame.arg0() as usize,
-            frame.arg1() as usize,
-            frame.arg2() as i32,
-            frame.arg3() as usize,
-            frame.arg4() as usize,
+            frame.arg1() as i32,
+            frame.arg2() as usize,
         ),
+        // TEAM_345: Linux ABI - readlinkat(dirfd, pathname, buf, bufsiz)
         Some(SyscallNumber::Readlinkat) => fs::sys_readlinkat(
             frame.arg0() as i32,
             frame.arg1() as usize,
             frame.arg2() as usize,
             frame.arg3() as usize,
-            frame.arg4() as usize,
         ),
         // TEAM_206: Mount/Umount
         Some(SyscallNumber::Mount) => fs::sys_mount(
@@ -180,14 +177,13 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as usize,
             frame.arg2() as usize,
         ),
+        // TEAM_345: Linux ABI - linkat(olddirfd, oldpath, newdirfd, newpath, flags)
         Some(SyscallNumber::Linkat) => fs::sys_linkat(
             frame.arg0() as i32,
             frame.arg1() as usize,
-            frame.arg2() as usize,
-            frame.arg3() as i32,
-            frame.arg4() as usize,
-            frame.arg5() as usize,
-            frame.arg6() as u32,
+            frame.arg2() as i32,
+            frame.arg3() as usize,
+            frame.arg4() as u32,
         ),
         // TEAM_216: Signal Handling syscalls
         Some(SyscallNumber::Kill) => signal::sys_kill(frame.arg0() as i32, frame.arg1() as i32),

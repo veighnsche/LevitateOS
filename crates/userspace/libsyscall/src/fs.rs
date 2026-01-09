@@ -99,14 +99,18 @@ pub fn mkdirat(dfd: i32, path: &str, mode: u32) -> isize {
     ) as isize
 }
 
-/// TEAM_192: Remove file or directory.
+/// TEAM_345: Linux ABI - unlinkat(dirfd, pathname, flags)
 #[inline]
-pub fn unlinkat(dfd: i32, path: &str, flags: u32) -> isize {
-    arch::syscall4(
+pub fn unlinkat(dirfd: i32, path: &str, flags: u32) -> isize {
+    // Null-terminate path
+    let mut path_buf = [0u8; 4096];
+    let plen = path.len().min(path_buf.len() - 1);
+    path_buf[..plen].copy_from_slice(&path.as_bytes()[..plen]);
+    
+    arch::syscall3(
         __NR_unlinkat as u64,
-        dfd as u64,
-        path.as_ptr() as u64,
-        path.len() as u64,
+        dirfd as u64,
+        path_buf.as_ptr() as u64,
         flags as u64,
     ) as isize
 }
@@ -125,43 +129,63 @@ pub fn renameat(old_dfd: i32, old_path: &str, new_dfd: i32, new_path: &str) -> i
     ) as isize
 }
 
-/// TEAM_198: Create a symbolic link.
+/// TEAM_345: Linux ABI - symlinkat(target, newdirfd, linkpath)
 #[inline]
-pub fn symlinkat(target: &str, linkdirfd: i32, linkpath: &str) -> isize {
-    arch::syscall5(
+pub fn symlinkat(target: &str, newdirfd: i32, linkpath: &str) -> isize {
+    // Null-terminate target
+    let mut target_buf = [0u8; 4096];
+    let tlen = target.len().min(target_buf.len() - 1);
+    target_buf[..tlen].copy_from_slice(&target.as_bytes()[..tlen]);
+    
+    // Null-terminate linkpath
+    let mut link_buf = [0u8; 4096];
+    let llen = linkpath.len().min(link_buf.len() - 1);
+    link_buf[..llen].copy_from_slice(&linkpath.as_bytes()[..llen]);
+    
+    arch::syscall3(
         __NR_symlinkat as u64,
-        target.as_ptr() as u64,
-        target.len() as u64,
-        linkdirfd as u64,
-        linkpath.as_ptr() as u64,
-        linkpath.len() as u64,
+        target_buf.as_ptr() as u64,
+        newdirfd as u64,
+        link_buf.as_ptr() as u64,
     ) as isize
 }
 
-/// TEAM_253: Read value of a symbolic link.
+/// TEAM_345: Linux ABI - readlinkat(dirfd, pathname, buf, bufsiz)
 #[inline]
 pub fn readlinkat(dirfd: i32, path: &str, buf: &mut [u8]) -> isize {
-    arch::syscall5(
+    // Null-terminate path
+    let mut path_buf = [0u8; 4096];
+    let plen = path.len().min(path_buf.len() - 1);
+    path_buf[..plen].copy_from_slice(&path.as_bytes()[..plen]);
+    
+    arch::syscall4(
         __NR_readlinkat as u64,
         dirfd as u64,
-        path.as_ptr() as u64,
-        path.len() as u64,
+        path_buf.as_ptr() as u64,
         buf.as_mut_ptr() as u64,
         buf.len() as u64,
     ) as isize
 }
 
-/// TEAM_209: Create a hard link.
+/// TEAM_345: Linux ABI - linkat(olddirfd, oldpath, newdirfd, newpath, flags)
 #[inline]
-pub fn linkat(olddfd: i32, oldpath: &str, newdfd: i32, newpath: &str, flags: u32) -> isize {
-    arch::syscall7(
+pub fn linkat(olddirfd: i32, oldpath: &str, newdirfd: i32, newpath: &str, flags: u32) -> isize {
+    // Null-terminate oldpath
+    let mut old_buf = [0u8; 4096];
+    let olen = oldpath.len().min(old_buf.len() - 1);
+    old_buf[..olen].copy_from_slice(&oldpath.as_bytes()[..olen]);
+    
+    // Null-terminate newpath
+    let mut new_buf = [0u8; 4096];
+    let nlen = newpath.len().min(new_buf.len() - 1);
+    new_buf[..nlen].copy_from_slice(&newpath.as_bytes()[..nlen]);
+    
+    arch::syscall5(
         __NR_linkat as u64,
-        olddfd as u64,
-        oldpath.as_ptr() as u64,
-        oldpath.len() as u64,
-        newdfd as u64,
-        newpath.as_ptr() as u64,
-        newpath.len() as u64,
+        olddirfd as u64,
+        old_buf.as_ptr() as u64,
+        newdirfd as u64,
+        new_buf.as_ptr() as u64,
         flags as u64,
     ) as isize
 }
@@ -171,18 +195,22 @@ pub const UTIME_NOW: u64 = 0x3FFFFFFF;
 /// TEAM_198: UTIME_OMIT - don't change
 pub const UTIME_OMIT: u64 = 0x3FFFFFFE;
 
-/// TEAM_198: Set file access and modification times.
+/// TEAM_345: Linux ABI - utimensat(dirfd, pathname, times, flags)
 #[inline]
 pub fn utimensat(dirfd: i32, path: &str, times: Option<&[Timespec; 2]>, flags: u32) -> isize {
+    // Null-terminate path
+    let mut path_buf = [0u8; 4096];
+    let plen = path.len().min(path_buf.len() - 1);
+    path_buf[..plen].copy_from_slice(&path.as_bytes()[..plen]);
+    
     let times_ptr = match times {
         Some(t) => t.as_ptr() as u64,
         None => 0,
     };
-    arch::syscall5(
+    arch::syscall4(
         __NR_utimensat as u64,
         dirfd as u64,
-        path.as_ptr() as u64,
-        path.len() as u64,
+        path_buf.as_ptr() as u64,
         times_ptr,
         flags as u64,
     ) as isize

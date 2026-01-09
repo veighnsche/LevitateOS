@@ -1,0 +1,11 @@
+[package]
+name = "simple-gpu"
+version = "0.1.0"
+edition = "2024"
+readme = "README.md"
+description = "Generic UEFI GOP Framebuffer Driver for LevitateOS"
+
+[dependencies]
+los_traits = { path = "../../traits" }
+los_error = { path = "../../error" }
+log = "0.4"

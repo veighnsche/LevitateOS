@@ -144,20 +144,25 @@ pub fn sys_mkdirat(_dfd: i32, path: usize, path_len: usize, mode: u32) -> i64 {
     }
 }
 
-/// TEAM_192: sys_unlinkat - Remove file or directory.
-/// TEAM_194: Updated to support tmpfs at /tmp.
-pub fn sys_unlinkat(_dfd: i32, path: usize, path_len: usize, flags: u32) -> i64 {
-    /// TEAM_194: AT_REMOVEDIR flag for unlinkat
-    const AT_REMOVEDIR: u32 = 0x200;
-
+/// TEAM_345: sys_unlinkat - Linux ABI compatible.
+/// Signature: unlinkat(dirfd, pathname, flags)
+pub fn sys_unlinkat(dirfd: i32, pathname: usize, flags: u32) -> i64 {
     let task = crate::task::current_task();
-    let mut path_buf = [0u8; 256];
-    let path_str = match crate::syscall::copy_user_string(task.ttbr0, path, path_len, &mut path_buf) {
+    
+    // TEAM_345: Read null-terminated pathname (Linux ABI)
+    let mut path_buf = [0u8; 4096];
+    let path_str = match crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
+    
+    // TEAM_345: Handle dirfd
+    if dirfd != crate::syscall::fcntl::AT_FDCWD && !path_str.starts_with('/') {
+        log::warn!("[SYSCALL] unlinkat: dirfd {} not yet supported", dirfd);
+        return errno::EBADF;
+    }
 
-    let res = if (flags & AT_REMOVEDIR) != 0 {
+    let res = if (flags & crate::syscall::fcntl::AT_REMOVEDIR) != 0 {
         vfs_rmdir(path_str)
     } else {
         vfs_unlink(path_str)
