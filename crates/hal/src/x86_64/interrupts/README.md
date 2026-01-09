@@ -246,26 +246,25 @@ out 0xA0, 0x20
 out 0x20, 0x20
 ```
 
-## Known Issues (TEAM_316)
+## Known Issues (TEAM_317)
 
-### APIC Access Crashes
+### HHDM Doesn't Map MMIO Regions
 
-APIC at `0xFEE00000` is outside 1GB PMO range:
+Limine's HHDM only maps RAM, not MMIO regions like APIC/IOAPIC:
 
 ```
-phys_to_virt(0xFEE00000) = 0xFFFF8000FEE00000
-                          ↑ Not mapped!
+APIC at 0xFEE00000   → phys_to_virt() = 0xFFFF8000FEE00000 → NOT MAPPED
+IOAPIC at 0xFEC00000 → phys_to_virt() = 0xFFFF8000FEC00000 → NOT MAPPED
 ```
 
-**Current Workaround**: Using legacy PIC EOI in `irq_dispatch()`:
+**Current Workaround**: 
+- Skip APIC/IOAPIC initialization
+- Use legacy PIC mode with PIT timer
+- Send EOI to PIC (port 0x20) instead of APIC
 
 ```rust
-// Send EOI to master PIC
+// Legacy PIC EOI in irq_dispatch()
 asm!("mov al, 0x20", "out 0x20, al");
 ```
 
-### IOAPIC Init Skipped
-
-Same issue - `0xFEC00000` is outside PMO range.
-
-**Result**: Using PIT in legacy mode, not routing through IOAPIC.
+**Proper Fix (TODO)**: Map MMIO regions explicitly before enabling APIC.

@@ -1,12 +1,12 @@
 limine: Loading kernel `boot:///boot/levitate-kernel`...
 limine: Loading module `boot:///boot/initramfs.cpio`...
-LH123456789CXLR[BOOT] Stage 1: Early HAL (SEC)
-Heap initialized.
+LH123456789CXLRikdHeap initialized.
 [BOOT] Protocol: Limine
-[BOOT] Memory: 21 regions, 476 MB usable
+[BOOT] Memory: 21 regions, 467 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
 [MEM] Buddy Allocator initialized with unified BootInfo
-[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff80010048
+[CPU] x86_64 PCR initialized at 0xffffffff80054a00
+[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff800100a8
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
 [BOOT] Stage 3: Boot Console (DXE)
@@ -20,10 +20,12 @@ GPU initialized successfully.
 [TERM] GPU resolution: 1280x800
 [TERM] Terminal::new(1280x800) -> 128x36 chars (font 10x20, spacing 2)
 Terminal initialized.
+Core drivers initialized.
+Timer initialized.
 [BOOT] Stage 4: Discovery & FS (DXE/BDS)
 Skipping VirtIO MMIO scan (x86_64 uses PCI)...
 Detecting Initramfs...
-Initramfs found at 0xffff80001dd2e000 - 0xffff80001dd5fc00 (203776 bytes)
+Initramfs found at 0xffff80001d418000 - 0xffff80001d4d6600 (779776 bytes)
 Files in initramfs:
  - .
  - hello.txt
@@ -56,7 +58,7 @@ Files in initramfs:
  - touch
  - tty_test
 [BOOT] spawning init task...
-[SPAWN] Parsing ELF header (12672 bytes)...
+[SPAWN] Parsing ELF header (12616 bytes)...
 ELF Header e_ident verified
 [SPAWN] ELF parsed.
 [SPAWN] Creating user page table...
@@ -66,14 +68,15 @@ ELF Header e_ident verified
 [SPAWN] Loading segments...
 [ELF] Copying segment: src[0]=53 to VA 10000
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=25 to VA 10dc8
+[ELF] Copying segment: src[0]=0 to VA 10db8
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=bd to VA 10fc0
+[ELF] Copying segment: src[0]=b6 to VA 10fe0
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=0 to VA 11018
+[ELF] Copying segment: src[0]=65 to VA 11010
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [SPAWN] Setting up stack...
 [SPAWN] Setting up stack arguments...
+[TASK] UserTask::new: PID=1 Entry=0x10000
 [SPAWN] Success: PID=1 entry=0x10000 sp=0x7ffffffeff68
 [BOOT] Init process scheduled.
 Mounting filesystems...
@@ -81,8 +84,619 @@ ERROR: Failed to mount FAT32: E0501: Failed to open volume
 [BOOT] WARNING: Filesystem mount failed: E0501: Failed to open volume
   (Check tinyos_disk.img format/presence)
 [BOOT] Mounted tmpfs at /tmp
-[GPU_TEST] Flush count: 63
+[GPU_TEST] Flush count: 66
 [GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
 
 [SUCCESS] LevitateOS System Ready.
 --------------------------------------
+[TASK] Entering user task PID=1 at 0x10000
+[SYSCALL] set_return: rax <- 0x1
+[INIT] PID [SYSCALL] set_return: rax <- 0xb
+1[SYSCALL] set_return: rax <- 0x1
+ starting...
+[SYSCALL] set_return: rax <- 0xd
+[INIT] Spawning shell...
+[SYSCALL] set_return: rax <- 0x19
+[SYSCALL] spawn('shell')
+[SPAWN] Parsing ELF header (17848 bytes)...
+ELF Header e_ident verified
+[SPAWN] ELF parsed.
+[SPAWN] Creating user page table...
+[MMU] Creating user page table...
+[MMU] Allocated L0 table at phys [MASKED]
+[MMU] Zeroing L0 table at va [MASKED]
+[SPAWN] Loading segments...
+[ELF] Copying segment: src[0]=48 to VA 10000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=c0 to VA 11bd0
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=11 to VA 12240
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=dd to VA 12280
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[SPAWN] Setting up stack...
+[SPAWN] Setting up stack arguments...
+[TASK] UserTask::new: PID=2 Entry=0x10000
+[SPAWN] Success: PID=2 entry=0x10000 sp=0x7ffffffeff68
+[SYSCALL] set_return: rax <- 0x2
+[INIT] Shell spawned as PID [SYSCALL] set_return: rax <- 0x1c
+2[SYSCALL] set_return: rax <- 0x1
+
+[SYSCALL] set_return: rax <- 0x1
+[TASK] Entering user task PID=2 at 0x10000
+
+[SYSCALL] set_return: rax <- 0x1
+LevitateOS Shell (lsh) v0.1
+[SYSCALL] set_return: rax <- 0x1c
+Type 'help' for commands.
+[SYSCALL] set_return: rax <- 0x1a
+
+[SYSCALL] set_return: rax <- 0x1
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x2
+[SYSCALL] set_return: rax <- 0x0
+# [SYSCALL] set_return: rax <- 0x2
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0
+[SYSCALL] set_return: rax <- 0x0

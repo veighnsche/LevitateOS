@@ -288,9 +288,15 @@ pub fn run_qemu_gdb(profile: QemuProfile, wait: bool, iso: bool, arch: &str) -> 
 pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     println!("🖥️  Starting QEMU with VNC for browser-based display verification...\n");
 
+    // TEAM_317: x86_64 uses ISO (Limine) since we removed Multiboot support
+    let use_iso = arch == "x86_64";
+    
     image::create_disk_image_if_missing()?;
-    // Build kernel first (implies userspace build + install)
-    build::build_all(arch)?;
+    if use_iso {
+        build::build_iso(arch)?;
+    } else {
+        build::build_all(arch)?;
+    }
 
     // Check for noVNC
     let novnc_path = PathBuf::from("/tmp/novnc");
@@ -397,8 +403,17 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
         profile.cpu(),
         "-m",
         profile.memory(),
-        "-kernel",
-        kernel_bin,
+    ];
+
+    // TEAM_317: x86_64 uses ISO boot (Limine)
+    if use_iso {
+        args.extend(["-cdrom", "levitate.iso", "-boot", "d"]);
+    } else {
+        args.extend(["-kernel", kernel_bin, "-initrd", "initramfs.cpio"]);
+    }
+
+    // TEAM_318: Use PCI device types for x86_64, virtio-device for aarch64
+    args.extend([
         "-display",
         "none",
         "-vnc",
@@ -406,25 +421,23 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
         "-device",
         "virtio-gpu-pci,xres=1920,yres=1080", // TEAM_115: Larger resolution for VNC
         "-device",
-        "virtio-keyboard-device",
+        if arch == "x86_64" { "virtio-keyboard-pci" } else { "virtio-keyboard-device" },
         "-device",
-        "virtio-tablet-device",
+        if arch == "x86_64" { "virtio-tablet-pci" } else { "virtio-tablet-device" },
         "-device",
-        "virtio-net-device,netdev=net0",
+        if arch == "x86_64" { "virtio-net-pci,netdev=net0" } else { "virtio-net-device,netdev=net0" },
         "-netdev",
         "user,id=net0",
         "-drive",
         "file=tinyos_disk.img,format=raw,if=none,id=hd0",
         "-device",
-        "virtio-blk-device,drive=hd0",
-        "-initrd",
-        "initramfs.cpio",
+        if arch == "x86_64" { "virtio-blk-pci,drive=hd0" } else { "virtio-blk-device,drive=hd0" },
         "-serial",
         "mon:stdio",
         "-qmp",
         "unix:./qmp.sock,server,nowait",
         "-no-reboot",
-    ];
+    ]);
 
     if let Some(smp) = profile.smp() {
         args.extend(["-smp", smp]);
@@ -488,10 +501,17 @@ fn find_websockify() -> Result<String> {
 pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("🧪 Running LevitateOS Internal Tests for {}...\n", arch);
 
+    // TEAM_317: x86_64 uses ISO (Limine) since we removed Multiboot support
+    let use_iso = arch == "x86_64";
+
     // Build everything including test runner
     build::build_userspace(arch)?;
     build::create_test_initramfs(arch)?;
-    build::build_kernel_verbose(arch)?;
+    if use_iso {
+        build::build_iso(arch)?;
+    } else {
+        build::build_kernel_verbose(arch)?;
+    }
     image::create_disk_image_if_missing()?;
 
     let kernel_bin = if arch == "aarch64" {
@@ -526,8 +546,26 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
         profile.cpu().to_string(),
         "-m".to_string(),
         profile.memory().to_string(),
-        "-kernel".to_string(),
-        kernel_bin.to_string(),
+    ];
+
+    // TEAM_317: x86_64 uses ISO boot (Limine)
+    if use_iso {
+        args.extend([
+            "-cdrom".to_string(),
+            "levitate.iso".to_string(),
+            "-boot".to_string(),
+            "d".to_string(),
+        ]);
+    } else {
+        args.extend([
+            "-kernel".to_string(),
+            kernel_bin.to_string(),
+            "-initrd".to_string(),
+            "initramfs_test.cpio".to_string(),
+        ]);
+    }
+
+    args.extend([
         "-display".to_string(),
         "none".to_string(),
         "-serial".to_string(),
@@ -566,10 +604,8 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
             "virtio-blk-device,drive=hd0"
         }
         .to_string(),
-        "-initrd".to_string(),
-        "initramfs_test.cpio".to_string(),
         "-no-reboot".to_string(),
-    ];
+    ]);
 
     // Run QEMU with timeout
     let output = Command::new("timeout")

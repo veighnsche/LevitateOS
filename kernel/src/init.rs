@@ -256,6 +256,10 @@ pub fn run() -> ! {
             // TEAM_316: Skip IOAPIC routing - uses phys_to_virt() which fails
             // PIT is already initialized in HAL, just ensure it's running
             los_hal::pit::Pit::init(100);
+            
+            // TEAM_318: Register timer handler for GPU flush on x86_64
+            // Uses existing apic::register_handler() which doesn't need MMIO access
+            los_hal::x86_64::interrupts::apic::register_handler(32, &TIMER_HANDLER);
         }
 
         crate::verbose!("Core drivers initialized.");

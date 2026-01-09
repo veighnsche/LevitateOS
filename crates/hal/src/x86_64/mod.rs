@@ -70,14 +70,13 @@ pub fn init() {
     idt::init();
     exceptions::init();
 
-    // 3. APIC/IOAPIC - SKIP for now
-    // TEAM_317: Limine HHDM only maps RAM, not MMIO regions like APIC (0xFEE00000).
-    // phys_to_virt(0xFEE00000) returns unmapped address, causing page fault.
-    // TODO: Map APIC region explicitly before enabling APIC mode.
-    // For now, use legacy PIC mode (PIT timer on IRQ0).
+    // 3. Initialize legacy 8259 PIC
+    // TEAM_319: APIC MMIO (0xFEE00000) is outside HHDM range, use legacy PIC instead.
+    // This remaps IRQ0-7 to vectors 32-39 and unmasks IRQ0 (timer).
     unsafe {
         core::arch::asm!("mov al, 'f'", "out dx, al", out("ax") _, out("dx") _);
     }
+    interrupts::init_pic();
 
     // 4. Initialize PIT timer (legacy mode, works without APIC)
     unsafe {

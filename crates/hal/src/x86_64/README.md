@@ -208,17 +208,22 @@ flowchart TB
 | `APIC_BASE` | `0xFEE00000` | Local APIC address |
 | `IOAPIC_BASE` | `0xFEC00000` | I/O APIC address |
 
-## Known Issues (TEAM_316)
+## Known Issues
 
-1. **PMO Limited to 1GB** - The early page tables only map the first 1GB via PMO.
-   APIC/IOAPIC addresses (~4GB) are outside this range, causing `phys_to_virt()` to
-   return unmapped addresses.
+### TEAM_317: HHDM Doesn't Map MMIO
 
-2. **APIC Init Skipped** - Currently using legacy PIC mode because APIC access
-   via `phys_to_virt()` crashes.
+**Problem:** Limine's HHDM (Higher Half Direct Map) only maps RAM, not MMIO regions.
 
-3. **Crash at 0x800200188** - Unresolved crash during TaskControlBlock creation.
-   Needs binary-level analysis.
+```
+HHDM maps:     Physical RAM → 0xFFFF800000000000 + phys_addr
+HHDM does NOT: APIC (0xFEE00000), IOAPIC (0xFEC00000), PCI MMIO
+```
+
+**Symptom:** Page fault at `0xFFFF8000FEE000xx` when accessing APIC via `phys_to_virt()`.
+
+**Current Workaround:** Skip APIC/IOAPIC init, use legacy PIC mode with PIT timer.
+
+**Proper Fix (TODO):** Map MMIO regions explicitly before enabling APIC mode.
 
 ## Files
 

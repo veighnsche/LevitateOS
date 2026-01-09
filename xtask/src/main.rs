@@ -139,12 +139,14 @@ fn main() -> Result<()> {
                 } else {
                     run::QemuProfile::Default
                 };
-                if iso {
+                // TEAM_317: x86_64 always uses ISO (Limine) since we removed Multiboot support
+                let use_iso = iso || arch == "x86_64";
+                if use_iso {
                     build::build_iso(arch)?;
                 } else {
                     build::build_all(arch)?;
                 }
-                run::run_qemu(profile, false, iso, arch)?;
+                run::run_qemu(profile, false, use_iso, arch)?;
             }
             run::RunCommands::Pixel6 => {
                 if arch != "aarch64" {
@@ -163,15 +165,19 @@ fn main() -> Result<()> {
                 } else {
                     run::QemuProfile::Default
                 };
-                if iso {
+                // TEAM_317: x86_64 always uses ISO (Limine)
+                let use_iso = iso || arch == "x86_64";
+                if use_iso {
                     build::build_iso(arch)?;
                 } else {
                     build::build_all(arch)?;
                 }
-                run::run_qemu_gdb(profile, wait, iso, arch)?;
+                run::run_qemu_gdb(profile, wait, use_iso, arch)?;
             }
             run::RunCommands::Term { iso } => {
-                run::run_qemu_term(arch, iso)?;
+                // TEAM_317: x86_64 always uses ISO (Limine)
+                let use_iso = iso || arch == "x86_64";
+                run::run_qemu_term(arch, use_iso)?;
             }
             run::RunCommands::Test => {
                 run::run_qemu_test(arch)?;
