@@ -198,7 +198,9 @@ fn main() -> Result<()> {
             "alpine" => tests::screenshot::run(Some("alpine"))?,
             "levitate" | "display" => tests::screenshot::run(Some("levitate"))?,
             "userspace" => tests::screenshot::run(Some("userspace"))?,
-            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', 'screenshot:userspace', or 'all'", other),
+            // TEAM_358: Eyra std integration test
+            "eyra" => tests::eyra::run(arch)?,
+            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', 'eyra', or 'all'", other),
         },
         // TEAM_326: Refactored command handlers
         Commands::Run(args) => {

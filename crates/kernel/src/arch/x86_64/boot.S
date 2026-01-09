@@ -143,9 +143,17 @@ _start:
     pop edi                             /* Restore magic */
     pop esi                             /* Restore info ptr */
 
-    /* Enable PAE (Physical Address Extension) in CR4 */
+    /* TEAM_358: Enable SSE/FPU in CR0 */
+    /* Clear CR0.EM (bit 2) - no FPU emulation */
+    /* Set CR0.MP (bit 1) - monitor coprocessor */
+    mov eax, cr0
+    and eax, 0xFFFFFFFB                 /* Clear bit 2 (EM) */
+    or eax, 0x02                        /* Set bit 1 (MP) */
+    mov cr0, eax
+
+    /* Enable PAE and SSE in CR4 */
     mov eax, cr4
-    or eax, 0x20                        /* Bit 5: PAE */
+    or eax, 0x620                       /* Bit 5: PAE, Bit 9: OSFXSR, Bit 10: OSXMMEXCPT */
     mov cr4, eax
 
     /* Set PML4 address in CR3 */
@@ -220,6 +228,20 @@ _start64:
     mov fs, ax
     mov gs, ax
     mov ss, ax
+
+    /* TEAM_358: Enable SSE/FPU for Limine path */
+    /* CR0: Clear EM (bit 2), set MP (bit 1), clear TS (bit 3) */
+    mov rax, cr0
+    and rax, ~(1 << 2)                  /* Clear EM */
+    and rax, ~(1 << 3)                  /* Clear TS */
+    or rax, (1 << 1)                    /* Set MP */
+    mov cr0, rax
+
+    /* CR4: Set OSFXSR (bit 9) and OSXMMEXCPT (bit 10) */
+    mov rax, cr4
+    or rax, (1 << 9)                    /* OSFXSR */
+    or rax, (1 << 10)                   /* OSXMMEXCPT */
+    mov cr4, rax
 
     /* 4. Set our own stack (virtual address) */
     movabs rsp, offset stack_top

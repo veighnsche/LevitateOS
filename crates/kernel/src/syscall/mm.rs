@@ -485,3 +485,51 @@ pub fn sys_madvise(addr: usize, len: usize, advice: i32) -> i64 {
     );
     0
 }
+
+/// TEAM_360: sys_pkey_alloc - Allocate a memory protection key.
+///
+/// Memory protection keys (Intel MPK) are not supported.
+/// This syscall returns -ENOSYS to indicate the feature is unavailable.
+///
+/// # Arguments
+/// * `flags` - Must be 0
+/// * `access_rights` - PKEY_DISABLE_ACCESS or PKEY_DISABLE_WRITE
+///
+/// # Returns
+/// -ENOSYS (syscall not implemented)
+#[allow(unused_variables)]
+pub fn sys_pkey_alloc(flags: u32, access_rights: u32) -> i64 {
+    log::trace!(
+        "[SYSCALL] pkey_alloc(flags={}, access_rights={}) -> ENOSYS",
+        flags,
+        access_rights
+    );
+    // TEAM_360: Memory protection keys not supported
+    -38 // ENOSYS
+}
+
+/// TEAM_360: sys_pkey_mprotect - Set memory protection with protection key.
+///
+/// Memory protection keys (Intel MPK) are not supported.
+/// This syscall returns -ENOSYS to indicate the feature is unavailable.
+///
+/// # Arguments
+/// * `addr` - Start address of memory region
+/// * `len` - Length of memory region
+/// * `prot` - Protection flags
+/// * `pkey` - Protection key
+///
+/// # Returns
+/// -ENOSYS (syscall not implemented)
+#[allow(unused_variables)]
+pub fn sys_pkey_mprotect(addr: usize, len: usize, prot: u32, pkey: i32) -> i64 {
+    log::trace!(
+        "[SYSCALL] pkey_mprotect(addr=0x{:x}, len=0x{:x}, prot={}, pkey={}) -> ENOSYS",
+        addr,
+        len,
+        prot,
+        pkey
+    );
+    // TEAM_360: Memory protection keys not supported
+    -38 // ENOSYS
+}

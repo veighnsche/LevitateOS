@@ -101,6 +101,19 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
             count += 1;
         }
     }
+    
+    // TEAM_354: Add eyra-hello if it exists (static-pie test binary)
+    let eyra_target = match arch {
+        "aarch64" => "aarch64-unknown-linux-gnu",
+        "x86_64" => "x86_64-unknown-linux-gnu",
+        _ => "",
+    };
+    let eyra_src = PathBuf::from(format!("userspace/eyra-hello/target/{}/release/eyra-hello", eyra_target));
+    if eyra_src.exists() {
+        std::fs::copy(&eyra_src, root.join("eyra-hello"))?;
+        count += 1;
+    }
+    
     println!("[DONE] ({} added)", count);
 
     // 3. Create CPIO archive

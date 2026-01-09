@@ -107,6 +107,16 @@ impl Pipe {
         })
     }
 
+    /// TEAM_360: Check if pipe has data available for reading.
+    pub fn has_data(&self) -> bool {
+        !self.buffer.lock().is_empty()
+    }
+
+    /// TEAM_360: Check if pipe has space available for writing.
+    pub fn has_space(&self) -> bool {
+        !self.buffer.lock().is_full()
+    }
+
     /// Read from pipe. Returns bytes read, or 0 if EOF (write end closed).
     ///
     /// For MVP, this is non-blocking: returns 0 immediately if buffer empty

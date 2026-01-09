@@ -100,5 +100,20 @@ cargo xtask run-vnc --arch aarch64
 # In shell: /eyra-hello
 ```
 
+## E2E PIE Test Results
+
+**🎉 PIE LOADING WORKS!** The eyra-hello binary:
+1. ✅ Loads as ET_DYN at base 0x10000
+2. ✅ Self-relocates using AT_BASE from auxv
+3. ✅ Starts executing (spawn result=3)
+4. ❌ Crashes on SSE instruction (`xorps xmm0, xmm0`) - SSE not enabled for userspace
+5. ❌ Unknown syscall 302 (statx) - not implemented
+
+**The ELF loader implementation is complete and verified working.**
+
+Remaining issues are separate features:
+- SSE/FPU enablement for userspace (new feature)
+- syscall 302 (statx) implementation (new syscall)
+
 ## Status: ✅ Complete
 

@@ -102,7 +102,14 @@ pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
 }
 
 /// TEAM_170: sys_clock_gettime - Get current monotonic time.
-pub fn sys_clock_gettime(timespec_buf: usize) -> i64 {
+/// TEAM_360: Fixed to accept clockid as first argument (Linux ABI).
+///
+/// # Arguments
+/// * `clockid` - Clock to query (CLOCK_REALTIME=0, CLOCK_MONOTONIC=1, etc.)
+/// * `timespec_buf` - User pointer to store result
+pub fn sys_clock_gettime(clockid: i32, timespec_buf: usize) -> i64 {
+    // TEAM_360: We ignore clockid and always return monotonic time
+    let _ = clockid;
     let task = crate::task::current_task();
     let ts_size = core::mem::size_of::<Timespec>();
     if mm_user::validate_user_buffer(task.ttbr0, timespec_buf, ts_size, true).is_err() {

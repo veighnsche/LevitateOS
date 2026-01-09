@@ -86,6 +86,14 @@ pub enum SyscallNumber {
     Getrandom = 318,
     ArchPrctl = 158,
     Faccessat = 269,
+    // TEAM_358: Extended file stat
+    Statx = 332,
+    // TEAM_360: Eyra syscalls
+    Ppoll = 271,
+    Tkill = 200,
+    PkeyAlloc = 330,
+    PkeyMprotect = 302,
+    Sigaltstack = 131,
 
     // === Custom LevitateOS syscalls ===
     Spawn = 1000,
@@ -153,6 +161,13 @@ impl SyscallNumber {
             318 => Some(Self::Getrandom),
             158 => Some(Self::ArchPrctl),
             269 => Some(Self::Faccessat),
+            332 => Some(Self::Statx),
+            // TEAM_360: Eyra syscalls
+            271 => Some(Self::Ppoll),
+            200 => Some(Self::Tkill),
+            330 => Some(Self::PkeyAlloc),
+            302 => Some(Self::PkeyMprotect),
+            131 => Some(Self::Sigaltstack),
             // Custom LevitateOS
             1000 => Some(Self::Spawn),
             1001 => Some(Self::SpawnArgs),

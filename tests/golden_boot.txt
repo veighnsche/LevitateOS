@@ -89,7 +89,7 @@ ELF Header e_ident verified
 [SPAWN] Setting up stack...
 [SPAWN] Setting up stack arguments...
 [TASK] UserTask::new: PID=1 Entry=0x10000
-[SPAWN] Success: PID=1 entry=0x10000 sp=0x7ffffffeff68
+[SPAWN] Success: PID=1 entry=0x10000 sp=0x7ffffffeff48
 [BOOT] Init process scheduled.
 Mounting filesystems...
 FAT32 mounted. Root contains 0 entries.
@@ -117,7 +117,7 @@ ELF Header e_ident verified
 [SPAWN] Setting up stack...
 [SPAWN] Setting up stack arguments...
 [TASK] UserTask::new: PID=2 Entry=0x10000
-[SPAWN] Success: PID=2 entry=0x10000 sp=0x7ffffffeff68
+[SPAWN] Success: PID=2 entry=0x10000 sp=0x7ffffffeff48
 [INIT] Shell spawned as PID 2
 [TASK] Entering user task PID=2 at 0x10000
 

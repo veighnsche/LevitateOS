@@ -198,6 +198,8 @@ pub const AT_PHDR: usize = 3;
 pub const AT_PHENT: usize = 4;
 pub const AT_PHNUM: usize = 5;
 pub const AT_PAGESZ: usize = 6;
+pub const AT_BASE: usize = 7;   // TEAM_354: Base address for PIE
+pub const AT_ENTRY: usize = 9;  // TEAM_354: Entry point
 pub const AT_HWCAP: usize = 16;
 pub const AT_RANDOM: usize = 25;
 

@@ -112,6 +112,82 @@ pub fn sys_sigreturn(frame: &mut SyscallFrame) -> i64 {
     frame.regs[0] as i64
 }
 
+/// TEAM_360: sys_sigaltstack - Set/get signal stack.
+///
+/// This is a stub that returns success without actually managing
+/// an alternate signal stack. Most programs can function without it.
+///
+/// # Arguments
+/// * `ss` - User pointer to new signal stack (or NULL)
+/// * `old_ss` - User pointer to store old signal stack (or NULL)
+///
+/// # Returns
+/// 0 on success
+#[allow(unused_variables)]
+pub fn sys_sigaltstack(ss: usize, old_ss: usize) -> i64 {
+    log::trace!("[SYSCALL] sigaltstack(ss=0x{:x}, old_ss=0x{:x}) -> 0", ss, old_ss);
+    // TEAM_360: Stub - alternate signal stack not implemented
+    // Return success so programs that call this can continue
+    0
+}
+
+/// TEAM_360: Send a signal to a specific thread.
+///
+/// Unlike kill() which targets a process, tkill() targets a specific thread
+/// identified by its thread ID (TID).
+///
+/// # Arguments
+/// * `tid` - Thread ID to signal
+/// * `sig` - Signal number (0 = just check if thread exists)
+///
+/// # Returns
+/// 0 on success, -EINVAL for invalid args, -ESRCH if thread not found
+pub fn sys_tkill(tid: i32, sig: i32) -> i64 {
+    // Validate signal number
+    if sig < 0 || sig >= 64 {
+        return errno::EINVAL;
+    }
+
+    // tid must be positive
+    if tid <= 0 {
+        return errno::EINVAL;
+    }
+
+    let target_tid = tid as usize;
+
+    // Look up the thread by TID
+    let table = crate::task::process_table::PROCESS_TABLE.lock();
+
+    // Find the task with matching TID
+    for (_pid, entry) in table.iter() {
+        if let Some(task) = &entry.task {
+            if task.id.0 == target_tid {
+                // Found the target thread
+                if sig == 0 {
+                    // sig=0 means just check existence
+                    return 0;
+                }
+
+                // Deliver the signal
+                task.pending_signals.fetch_or(1 << sig, Ordering::Release);
+
+                // Wake up if blocked
+                if task.get_state() == TaskState::Blocked {
+                    task.set_state(TaskState::Ready);
+                    scheduler::SCHEDULER.add_task(task.clone());
+                }
+
+                log::trace!("[SYSCALL] tkill(tid={}, sig={}) -> 0", tid, sig);
+                return 0;
+            }
+        }
+    }
+
+    // Thread not found
+    log::trace!("[SYSCALL] tkill(tid={}, sig={}) -> ESRCH", tid, sig);
+    errno::ESRCH
+}
+
 /// TEAM_216: Examine and change blocked signals.
 pub fn sys_sigprocmask(how: i32, set_addr: usize, oldset_addr: usize) -> i64 {
     let task = current_task();

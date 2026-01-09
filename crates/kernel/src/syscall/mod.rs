@@ -30,6 +30,7 @@ pub mod fcntl {
 /// TEAM_342: Consolidated errno constants - single source of truth.
 pub mod errno {
     pub const ENOENT: i64 = -2;
+    pub const ESRCH: i64 = -3;       // TEAM_360: No such process/thread
     pub const EIO: i64 = -5;
     pub const EBADF: i64 = -9;
     pub const ENOMEM: i64 = -12;
@@ -89,7 +90,10 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         Some(SyscallNumber::Nanosleep) => {
             time::sys_nanosleep(frame.arg0() as u64, frame.arg1() as u64)
         }
-        Some(SyscallNumber::ClockGettime) => time::sys_clock_gettime(frame.arg0() as usize),
+        Some(SyscallNumber::ClockGettime) => time::sys_clock_gettime(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+        ),
         // TEAM_176: Directory listing syscall
         Some(SyscallNumber::Getdents) => fs::sys_getdents(
             frame.arg0() as usize,
@@ -271,6 +275,39 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as usize,
             frame.arg2() as i32,
             frame.arg3() as i32,
+        ),
+        // TEAM_358: Extended file stat
+        Some(SyscallNumber::Statx) => fs::sys_statx(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as i32,
+            frame.arg3() as u32,
+            frame.arg4() as usize,
+        ),
+        // TEAM_360: Eyra syscalls
+        Some(SyscallNumber::Ppoll) => sync::sys_ppoll(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as usize,
+        ),
+        Some(SyscallNumber::Tkill) => signal::sys_tkill(
+            frame.arg0() as i32,
+            frame.arg1() as i32,
+        ),
+        Some(SyscallNumber::PkeyAlloc) => mm::sys_pkey_alloc(
+            frame.arg0() as u32,
+            frame.arg1() as u32,
+        ),
+        Some(SyscallNumber::PkeyMprotect) => mm::sys_pkey_mprotect(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as u32,
+            frame.arg3() as i32,
+        ),
+        Some(SyscallNumber::Sigaltstack) => signal::sys_sigaltstack(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
         ),
         None => {
             log::warn!("[SYSCALL] Unknown syscall number: {}", nr);

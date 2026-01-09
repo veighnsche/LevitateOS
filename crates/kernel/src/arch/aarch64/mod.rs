@@ -72,6 +72,14 @@ pub enum SyscallNumber {
     Madvise = 233,
     Getrandom = 278,
     Faccessat = 48,
+    // TEAM_358: Extended file stat
+    Statx = 291,
+    // TEAM_360: Eyra syscalls
+    Ppoll = 73,
+    Tkill = 130,
+    PkeyAlloc = 289,
+    PkeyMprotect = 288,
+    Sigaltstack = 132,
 
     // === Custom LevitateOS syscalls (temporary, until clone/execve work) ===
     /// TEAM: Spawn process (custom, will be replaced by clone+execve)
@@ -148,6 +156,13 @@ impl SyscallNumber {
             233 => Some(Self::Madvise),
             278 => Some(Self::Getrandom),
             48 => Some(Self::Faccessat),
+            291 => Some(Self::Statx),
+            // TEAM_360: Eyra syscalls
+            73 => Some(Self::Ppoll),
+            130 => Some(Self::Tkill),
+            289 => Some(Self::PkeyAlloc),
+            288 => Some(Self::PkeyMprotect),
+            132 => Some(Self::Sigaltstack),
             // Custom LevitateOS
             1000 => Some(Self::Spawn),
             1001 => Some(Self::SpawnArgs),

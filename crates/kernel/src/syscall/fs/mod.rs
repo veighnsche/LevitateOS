@@ -7,6 +7,7 @@ mod mount;
 mod open;
 mod read;
 mod stat;
+mod statx;
 mod write;
 
 // Re-export all syscall functions
@@ -17,4 +18,5 @@ pub use mount::{sys_mount, sys_umount};
 pub use open::{sys_close, sys_faccessat, sys_openat};
 pub use read::{sys_read, sys_readv};
 pub use stat::sys_fstat;
+pub use statx::sys_statx;
 pub use write::{sys_write, sys_writev};

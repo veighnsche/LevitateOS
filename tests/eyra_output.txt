@@ -5,7 +5,7 @@ LH123456789CXLRikdHeap initialized.
 [BOOT] Memory: 19 regions, 466 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
 [MEM] Buddy Allocator initialized with unified BootInfo
-[CPU] x86_64 PCR initialized at 0xffffffff8005da00
+[CPU] x86_64 PCR initialized at 0xffffffff8005ba00
 [SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff800100b0
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
@@ -35,7 +35,7 @@ Timer initialized.
 [PCI] PciTransport created successfully
 [INPUT] VirtIO Input initialized via PCI.
 Detecting Initramfs...
-Initramfs found at 0xffff80001d371000 - 0xffff80001d483600 (1123840 bytes)
+Initramfs found at 0xffff80001d384000 - 0xffff80001d496600 (1123840 bytes)
 Files in initramfs:
  - .
  - hello.txt

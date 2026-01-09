@@ -103,6 +103,15 @@ pub fn spawn_from_elf_with_args(
         a_type: crate::memory::user::AT_PHNUM,
         a_val: elf.program_headers_count(),
     });
+    // TEAM_354: Add AT_BASE and AT_ENTRY for PIE self-relocation
+    auxv.push(crate::memory::user::AuxEntry {
+        a_type: crate::memory::user::AT_BASE,
+        a_val: elf.load_base(),
+    });
+    auxv.push(crate::memory::user::AuxEntry {
+        a_type: crate::memory::user::AT_ENTRY,
+        a_val: entry_point,
+    });
 
     let user_sp = mm_user::setup_stack_args(ttbr0_phys, stack_top, args, envs, &auxv)
         .map_err(SpawnError::Stack)?;

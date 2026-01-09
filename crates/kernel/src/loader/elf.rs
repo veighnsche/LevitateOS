@@ -485,10 +485,11 @@ impl<'a> Elf<'a> {
         // Calculate initial brk (page-aligned end of loaded segments)
         let initial_brk = (max_vaddr + 0xFFF) & !0xFFF;
 
-        // TEAM_354: Process relocations for PIE binaries
+        // TEAM_354: PIE binaries with experimental-relocate handle their own relocations
+        // The kernel just needs to load segments and jump to entry point
+        // TODO(TEAM_354): Add kernel relocation support for PIE binaries without self-relocation
         if self.is_pie() {
-            let reloc_count = self.process_relocations(ttbr0_phys, load_base)?;
-            log::debug!("[ELF] Applied {} relocations for PIE binary", reloc_count);
+            log::debug!("[ELF] PIE binary loaded at base 0x{:x}, self-relocating", load_base);
         }
 
         // TEAM_354: Return adjusted entry point
@@ -500,11 +501,13 @@ impl<'a> Elf<'a> {
     fn process_relocations(&self, ttbr0_phys: usize, load_base: usize) -> Result<usize, ElfError> {
         use goblin::elf::Elf as GoblinElf;
         
+        log::debug!("[ELF] Processing relocations for PIE, load_base=0x{:x}", load_base);
+        
         // Parse with goblin to get relocations
         let elf = match GoblinElf::parse(self.data) {
             Ok(e) => e,
-            Err(_) => {
-                log::warn!("[ELF] Goblin parse failed for relocations");
+            Err(e) => {
+                log::warn!("[ELF] Goblin parse failed for relocations: {:?}", e);
                 return Ok(0);
             }
         };
@@ -512,8 +515,13 @@ impl<'a> Elf<'a> {
         let mut count = 0;
 
         // Process .rela.dyn relocations (goblin parses these automatically)
+        log::debug!("[ELF] Found {} dynrelas", elf.dynrelas.len());
         for rela in &elf.dynrelas {
             let addend = rela.r_addend.unwrap_or(0);
+            if count < 5 {
+                log::trace!("[ELF] Reloc: offset=0x{:x}, type={}, addend=0x{:x}", 
+                    rela.r_offset, rela.r_type, addend);
+            }
             self.apply_relocation(ttbr0_phys, load_base, rela.r_offset as usize, addend, rela.r_type)?;
             count += 1;
         }

@@ -1,9 +1,11 @@
 //! Test modules for LevitateOS
 //!
 //! TEAM_327: Reorganized test structure.
+//! TEAM_358: Added Eyra std integration test.
 
 pub mod backspace;
 pub mod common;
+pub mod eyra;
 pub mod screenshot;
 
 // Legacy modules (to be consolidated)

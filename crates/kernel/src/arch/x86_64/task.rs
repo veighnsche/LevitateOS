@@ -9,7 +9,26 @@
 
 use core::arch::global_asm;
 
-#[repr(C)]
+/// TEAM_358: FPU/SSE state buffer for FXSAVE/FXRSTOR (512 bytes, 16-byte aligned)
+#[repr(C, align(16))]
+#[derive(Clone, Copy)]
+pub struct FpuState {
+    pub data: [u8; 512],
+}
+
+impl Default for FpuState {
+    fn default() -> Self {
+        Self { data: [0u8; 512] }
+    }
+}
+
+impl core::fmt::Debug for FpuState {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("FpuState").finish_non_exhaustive()
+    }
+}
+
+#[repr(C, align(16))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Context {
     // x86_64 context fields (named for AArch64 compatibility where possible)
@@ -26,6 +45,8 @@ pub struct Context {
     pub fs_base: u64,    // 80: User TLS (FS base)
     pub user_gs: u64,    // 88: User TLS (GS base - shadow during kernel execution)
     pub spare: [u64; 2], // 96, 104: Padding for 16-byte alignment (total 112 bytes)
+    // TEAM_358: FPU/SSE state (offset 112, 512 bytes)
+    pub fpu_state: FpuState,
 }
 
 impl Context {
@@ -87,6 +108,7 @@ pub unsafe extern "C" fn task_entry_trampoline() {
 }
 
 // TEAM_277: Context switch stub
+// TEAM_358: Added FPU state save/restore with fxsave64/fxrstor64
 // Saves callee-saved registers to old context, restores from new context
 global_asm!(
     ".global cpu_switch_to",
@@ -110,6 +132,8 @@ global_asm!(
     "shl rdx, 32",
     "or rax, rdx",
     "mov [rdi + 88], rax", // user_gs
+    // TEAM_358: Save FPU/SSE state (offset 112)
+    "fxsave64 [rdi + 112]",
     // Restore callee-saved registers from new context (rsi points to new Context)
     "mov rbx, [rsi + 0]",
     "mov r12, [rsi + 8]",
@@ -139,6 +163,8 @@ global_asm!(
     "mov rdx, rax",
     "shr rdx, 32",
     "wrmsr",
+    // TEAM_358: Restore FPU/SSE state (offset 112)
+    "fxrstor64 [rsi + 112]",
     "mov rax, [rsi + 64]", // rip = new return address
     "jmp rax",             // Jump to new task
     "1:",                  // Return point for context switch back
