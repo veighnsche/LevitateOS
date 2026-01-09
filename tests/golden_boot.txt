@@ -43,7 +43,7 @@ VirtIO Net: MAC=52:54:00:12:34:56
 [INPUT] VirtIO Input IRQ 79 enabled
 BOOT_REGS: x0=48400000 x1=0 x2=0 x3=0
 Detecting Initramfs...
-Initramfs found at 0x48000000 - 0x48296800 (2713600 bytes)
+Initramfs found at 0x48000000 - 0x48296c00 (2714624 bytes)
 Files in initramfs:
  - .
  - hello.txt

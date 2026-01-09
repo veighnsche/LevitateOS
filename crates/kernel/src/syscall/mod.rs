@@ -108,11 +108,11 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             process::sys_waitpid(frame.arg0() as i32, frame.arg1() as usize)
         }
         Some(SyscallNumber::Getcwd) => fs::sys_getcwd(frame.arg0() as usize, frame.arg1() as usize),
+        // TEAM_345: Linux ABI - mkdirat(dirfd, pathname, mode)
         Some(SyscallNumber::Mkdirat) => fs::sys_mkdirat(
             frame.arg0() as i32,
             frame.arg1() as usize,
-            frame.arg2() as usize,
-            frame.arg3() as u32,
+            frame.arg2() as u32,
         ),
         // TEAM_345: Linux ABI - unlinkat(dirfd, pathname, flags)
         Some(SyscallNumber::Unlinkat) => fs::sys_unlinkat(
@@ -120,13 +120,12 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as usize,
             frame.arg2() as u32,
         ),
+        // TEAM_345: Linux ABI - renameat(olddirfd, oldpath, newdirfd, newpath)
         Some(SyscallNumber::Renameat) => fs::sys_renameat(
             frame.arg0() as i32,
             frame.arg1() as usize,
-            frame.arg2() as usize,
-            frame.arg3() as i32,
-            frame.arg4() as usize,
-            frame.arg5() as usize,
+            frame.arg2() as i32,
+            frame.arg3() as usize,
         ),
         // TEAM_345: Linux ABI - utimensat(dirfd, pathname, times, flags)
         Some(SyscallNumber::Utimensat) => fs::sys_utimensat(

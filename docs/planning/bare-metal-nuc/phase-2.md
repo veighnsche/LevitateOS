@@ -36,9 +36,9 @@ Current HAL uses the 8259 PIC as a temporary crutch. This must be replaced for N
 
 ### 3. NVMe Driver Architecture
 - New crate `crates/drivers/nvme`.
-- Implements `storage-device` trait.
-- Uses `PciTransport` to talk to the NVMe controller.
-- **Async Design**: Since NVMe is queue-based, we'll design it around a non-blocking completion queue model.
+- **Detailed Design**: See [nvme-detailed-design.md](file:///home/vince/Projects/LevitateOS/docs/planning/bare-metal-nuc/nvme-detailed-design.md).
+- **Inspiration**: Emulate Theseus's `mlx5` queue model (Submission/Completion pairs).
+- **Interrupts**: Polling first, then MSI-X.
 
 ### 4. XHCI/USB Stack
 - This is the largest task. We will start with a minimal XHCI driver that only supports HID (Keyboard/Mouse) for the NUC.

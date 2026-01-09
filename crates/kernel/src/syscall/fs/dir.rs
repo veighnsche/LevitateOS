@@ -125,15 +125,23 @@ pub fn sys_getcwd(buf: usize, size: usize) -> i64 {
     (path_len + 1) as i64
 }
 
-/// TEAM_192: sys_mkdirat - Create directory.
-/// TEAM_194: Updated to support tmpfs at /tmp.
-pub fn sys_mkdirat(_dfd: i32, path: usize, path_len: usize, mode: u32) -> i64 {
+/// TEAM_345: sys_mkdirat - Linux ABI compatible.
+/// Signature: mkdirat(dirfd, pathname, mode)
+pub fn sys_mkdirat(dirfd: i32, pathname: usize, mode: u32) -> i64 {
     let task = crate::task::current_task();
-    let mut path_buf = [0u8; 256];
-    let path_str = match crate::syscall::copy_user_string(task.ttbr0, path, path_len, &mut path_buf) {
+    
+    // TEAM_345: Read null-terminated pathname (Linux ABI)
+    let mut path_buf = [0u8; 4096];
+    let path_str = match crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
+    
+    // TEAM_345: Handle dirfd
+    if dirfd != crate::syscall::fcntl::AT_FDCWD && !path_str.starts_with('/') {
+        log::warn!("[SYSCALL] mkdirat: dirfd {} not yet supported", dirfd);
+        return errno::EBADF;
+    }
 
     match vfs_mkdir(path_str, mode) {
         Ok(()) => 0,
@@ -177,31 +185,36 @@ pub fn sys_unlinkat(dirfd: i32, pathname: usize, flags: u32) -> i64 {
     }
 }
 
-/// TEAM_192: sys_renameat - Rename or move file or directory.
-/// TEAM_194: Updated to support tmpfs at /tmp.
+/// TEAM_345: sys_renameat - Linux ABI compatible.
+/// Signature: renameat(olddirfd, oldpath, newdirfd, newpath)
 pub fn sys_renameat(
-    _old_dfd: i32,
-    old_path: usize,
-    old_path_len: usize,
-    _new_dfd: i32,
-    new_path: usize,
-    new_path_len: usize,
+    olddirfd: i32,
+    oldpath: usize,
+    newdirfd: i32,
+    newpath: usize,
 ) -> i64 {
     let task = crate::task::current_task();
 
-    // Resolve old path
-    let mut old_path_buf = [0u8; 256];
-    let old_path_str = match crate::syscall::copy_user_string(task.ttbr0, old_path, old_path_len, &mut old_path_buf) {
+    // TEAM_345: Read null-terminated oldpath
+    let mut old_path_buf = [0u8; 4096];
+    let old_path_str = match crate::syscall::read_user_cstring(task.ttbr0, oldpath, &mut old_path_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
 
-    // Resolve new path
-    let mut new_path_buf = [0u8; 256];
-    let new_path_str = match crate::syscall::copy_user_string(task.ttbr0, new_path, new_path_len, &mut new_path_buf) {
+    // TEAM_345: Read null-terminated newpath
+    let mut new_path_buf = [0u8; 4096];
+    let new_path_str = match crate::syscall::read_user_cstring(task.ttbr0, newpath, &mut new_path_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
+    
+    // TEAM_345: Handle dirfd
+    if (olddirfd != crate::syscall::fcntl::AT_FDCWD && !old_path_str.starts_with('/'))
+        || (newdirfd != crate::syscall::fcntl::AT_FDCWD && !new_path_str.starts_with('/')) {
+        log::warn!("[SYSCALL] renameat: dirfd not yet supported");
+        return errno::EBADF;
+    }
 
     match vfs_rename(old_path_str, new_path_str) {
         Ok(()) => 0,

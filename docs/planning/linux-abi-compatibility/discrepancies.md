@@ -45,6 +45,7 @@
 | Constant | Value | Needed For | Status |
 |----------|-------|------------|--------|
 | `AT_FDCWD` | -100 | dirfd parameter | ✅ Added (TEAM_345) |
+| `__NR_pause` | arch-specific | pause syscall | ✅ Fixed (TEAM_345) |
 | `ENAMETOOLONG` | 36 | Path too long error | ✅ Added (TEAM_342) |
 | `ERANGE` | 34 | getcwd buffer too small | ✅ Added (TEAM_342) |
 | `EXDEV` | 18 | Cross-device link | ✅ Added (TEAM_342) |

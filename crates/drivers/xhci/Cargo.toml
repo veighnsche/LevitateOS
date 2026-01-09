@@ -6,6 +6,6 @@ readme = "README.md"
 description = "xHCI USB Controller Driver for LevitateOS"
 
 [dependencies]
-los_traits = { path = "../../traits" }
+input-device = { path = "../../traits/input-device" }
 los_error = { path = "../../error" }
 log = "0.4"

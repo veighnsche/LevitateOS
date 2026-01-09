@@ -6,7 +6,7 @@ readme = "README.md"
 description = "NVMe Storage Driver for LevitateOS"
 
 [dependencies]
-los_traits = { path = "../../traits" }
+storage-device = { path = "../../traits/storage-device" }
 los_error = { path = "../../error" }
 log = "0.4"
 zerocopy = { version = "0.7", features = ["derive"] }

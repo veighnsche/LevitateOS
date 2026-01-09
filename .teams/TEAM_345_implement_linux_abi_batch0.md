@@ -84,8 +84,26 @@ Added `pub mod fcntl` with:
 - `sys_utimensat` → `(dirfd, pathname, times, flags)` ✅
 - `sys_unlinkat` → `(dirfd, pathname, flags)` ✅
 
-All updated to use `read_user_cstring()` for null-terminated paths.
+## Batch 3: Directory Operations ✅ DONE
 
-## Next Steps
+- `sys_mkdirat` → `(dirfd, pathname, mode)` ✅
+- `sys_renameat` → `(olddirfd, oldpath, newdirfd, newpath)` ✅
+- `sys_mount`/`sys_umount` ✅ Already correct (use read_user_string)
 
-Batch 3: Directory Operations (mkdirat, renameat, mount, umount)
+## Batch 4: Quick Fixes ✅ DONE
+
+- `__NR_pause` ✅ Fixed architecture-specific handling
+  - x86_64: Uses `linux_raw_sys::general::__NR_pause`
+  - aarch64: Uses constant 236 (kernel SyscallNumber::Pause)
+
+## Also Fixed
+
+- `los-hal` → `los_hal` package name in simple-gpu Cargo.toml
+
+## Final Status
+
+- [x] All kernel syscalls updated to Linux ABI
+- [x] All userspace wrappers updated with null-terminated strings
+- [x] Build passes (aarch64)
+- [x] All 39 regression tests pass
+- [x] Plan files updated

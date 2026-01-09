@@ -87,14 +87,18 @@ pub fn getcwd(buf: &mut [u8]) -> isize {
     ) as isize
 }
 
-/// TEAM_192: Create directory.
+/// TEAM_345: Linux ABI - mkdirat(dirfd, pathname, mode)
 #[inline]
-pub fn mkdirat(dfd: i32, path: &str, mode: u32) -> isize {
-    arch::syscall4(
+pub fn mkdirat(dirfd: i32, path: &str, mode: u32) -> isize {
+    // Null-terminate path
+    let mut path_buf = [0u8; 4096];
+    let plen = path.len().min(path_buf.len() - 1);
+    path_buf[..plen].copy_from_slice(&path.as_bytes()[..plen]);
+    
+    arch::syscall3(
         __NR_mkdirat as u64,
-        dfd as u64,
-        path.as_ptr() as u64,
-        path.len() as u64,
+        dirfd as u64,
+        path_buf.as_ptr() as u64,
         mode as u64,
     ) as isize
 }
@@ -115,17 +119,25 @@ pub fn unlinkat(dirfd: i32, path: &str, flags: u32) -> isize {
     ) as isize
 }
 
-/// TEAM_192: Rename/move file or directory.
+/// TEAM_345: Linux ABI - renameat(olddirfd, oldpath, newdirfd, newpath)
 #[inline]
-pub fn renameat(old_dfd: i32, old_path: &str, new_dfd: i32, new_path: &str) -> isize {
-    arch::syscall6(
+pub fn renameat(olddirfd: i32, oldpath: &str, newdirfd: i32, newpath: &str) -> isize {
+    // Null-terminate oldpath
+    let mut old_buf = [0u8; 4096];
+    let olen = oldpath.len().min(old_buf.len() - 1);
+    old_buf[..olen].copy_from_slice(&oldpath.as_bytes()[..olen]);
+    
+    // Null-terminate newpath
+    let mut new_buf = [0u8; 4096];
+    let nlen = newpath.len().min(new_buf.len() - 1);
+    new_buf[..nlen].copy_from_slice(&newpath.as_bytes()[..nlen]);
+    
+    arch::syscall4(
         __NR_renameat as u64,
-        old_dfd as u64,
-        old_path.as_ptr() as u64,
-        old_path.len() as u64,
-        new_dfd as u64,
-        new_path.as_ptr() as u64,
-        new_path.len() as u64,
+        olddirfd as u64,
+        old_buf.as_ptr() as u64,
+        newdirfd as u64,
+        new_buf.as_ptr() as u64,
     ) as isize
 }
 

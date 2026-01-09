@@ -78,27 +78,30 @@ Execute the fix in batched changes, with tests after each batch.
 
 ---
 
-### Batch 3: Directory Syscalls (3 UoW)
+### Batch 3: Directory Syscalls (3 UoW) ✅ DONE
 
-#### UoW 3.1: sys_mkdirat
-- Change signature to Linux ABI
-- Update userspace wrapper
+#### UoW 3.1: sys_mkdirat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(dirfd, pathname, mode)`
+- ~~Update userspace wrapper~~ ✅
 
-#### UoW 3.2: sys_renameat
-- Change signature to Linux ABI (most complex - 4 path args)
-- Update userspace wrapper
+#### UoW 3.2: sys_renameat ✅ DONE (TEAM_345)
+- ~~Change signature to Linux ABI~~ ✅ `(olddirfd, oldpath, newdirfd, newpath)`
+- ~~Update userspace wrapper~~ ✅
 
-#### UoW 3.3: sys_mount / sys_umount
-- Change signatures to Linux ABI
-- Update userspace wrappers
+#### UoW 3.3: sys_mount/sys_umount ✅ Verified (TEAM_345)
+- Already use null-terminated strings via `read_user_string`
+- No changes needed
 
-**Checkpoint:** Directory operations work
+**Checkpoint:** Directory operations work ✅
 
 ---
 
-### Batch 4: Quick Fixes (3 UoW)
+### Batch 4: Quick Fixes (3 UoW) ✅ DONE
 
-#### UoW 4.1: Fix __NR_pause for aarch64
+#### UoW 4.1: Fix __NR_pause for aarch64 ✅ DONE (TEAM_345)
+- ~~Remove hardcoded value~~ ✅
+- ~~Use architecture-conditional logic~~ ✅
+- ~~Add ppoll-based implementation for aarch64~~ ✅
 - Remove hardcoded value
 - Use architecture-conditional logic
 - Add ppoll-based implementation for aarch64
