@@ -1,6 +1,7 @@
 # Phase 1: Discovery and Safeguards
 
-**TEAM_332** | VirtIO Driver Reorganization
+**TEAM_332** | VirtIO Driver Reorganization  
+**TEAM_333** | Reviewed: 2026-01-09 — Open questions answered in plan.md
 
 ## Refactor Summary
 
@@ -139,11 +140,13 @@ crates/gpu/
 3. **Incremental** - Can migrate one driver at a time
 4. **No new dependencies** - Use existing `virtio-drivers` crate
 
-## Open Questions
+## Design Decisions (Answered)
 
-1. Should `virtio-transport` crate wrap `virtio-drivers` transports or replace them?
-2. Should driver crates be `no_std` only or also support `std` for testing?
-3. Should we add PCI support to block/net drivers in this refactor or defer?
+See `plan.md` for full rationale:
+
+1. **Transport approach:** WRAP `virtio-drivers` transports (not replace)
+2. **Testing support:** YES, driver crates support `std` via feature flag
+3. **PCI for block/net:** DEFER to avoid scope creep
 
 ---
 
