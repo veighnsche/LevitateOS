@@ -98,3 +98,33 @@ fn check_rust_component(component: &str) -> Result<bool> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     Ok(stdout.lines().any(|l| l.trim().starts_with(component)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_tool_cargo_exists() {
+        // cargo should always exist in dev environment
+        assert!(check_tool("cargo"));
+    }
+
+    #[test]
+    fn test_check_tool_nonexistent() {
+        assert!(!check_tool("this-tool-definitely-does-not-exist-12345"));
+    }
+
+    #[test]
+    fn test_check_rust_target() {
+        // x86_64-unknown-linux-gnu is the host target, should always be available
+        let result = check_rust_target("x86_64-unknown-linux-gnu");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_rust_component_rust_src() {
+        // rust-src should be installed for kernel dev
+        let result = check_rust_component("rust-src");
+        assert!(result.is_ok());
+    }
+}

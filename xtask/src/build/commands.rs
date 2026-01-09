@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use clap::Subcommand;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use crate::image;
+use crate::disk;
 
 #[derive(Subcommand)]
 pub enum BuildCommands {
@@ -27,7 +27,7 @@ pub fn build_all(arch: &str) -> Result<()> {
     build_userspace(arch)?;
     create_initramfs(arch)?;
     // TEAM_121: Ensure disk image is populated
-    image::install_userspace_to_disk(arch)?;
+    disk::install_userspace_to_disk(arch)?;
 
     build_kernel_with_features(&[], arch)
 }
@@ -279,7 +279,7 @@ fn build_iso_with_features(features: &[&str], arch: &str) -> Result<()> {
     // 1. Ensure all components are built
     build_userspace(arch)?;
     create_initramfs(arch)?;
-    crate::image::install_userspace_to_disk(arch)?;
+    crate::disk::install_userspace_to_disk(arch)?;
     build_kernel_with_features(features, arch)?;
 
     let iso_root = PathBuf::from("iso_root");
