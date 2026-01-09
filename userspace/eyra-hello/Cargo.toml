@@ -1,0 +1,26 @@
+[package]
+name = "eyra-hello"
+version = "0.1.0"
+edition = "2021"
+description = "Test binary for Eyra std support on LevitateOS"
+
+# TEAM_351: Exclude from parent workspace - this crate uses different toolchain
+[workspace]
+
+# TEAM_351: Eyra replaces std with pure-Rust Linux syscall implementation
+# Using nightly-2025-04-28 as specified by Eyra's rust-toolchain.toml
+[dependencies]
+eyra = "0.22"
+
+# Rename eyra to std so it acts as the standard library
+[patch.crates-io]
+
+[profile.release]
+lto = true
+panic = "abort"
+opt-level = "s"
+strip = true
+
+# TEAM_351: For minimal binary size, use immediate-abort (nightly)
+[unstable]
+build-std-features = ["panic_immediate_abort"]

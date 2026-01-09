@@ -23,6 +23,9 @@ pub const ELFDATA2LSB: u8 = 1;
 /// ELF Type: Executable
 pub const ET_EXEC: u16 = 2;
 
+/// TEAM_354: ELF Type: Shared object / PIE
+pub const ET_DYN: u16 = 3;
+
 /// ELF Machine: AArch64
 pub const EM_AARCH64: u16 = 183;
 
@@ -161,8 +164,8 @@ impl Elf64Header {
             return Err(ElfError::NotLittleEndian);
         }
 
-        // Validate type (executable)
-        if header.e_type != ET_EXEC {
+        // TEAM_354: Validate type (executable or PIE)
+        if header.e_type != ET_EXEC && header.e_type != ET_DYN {
             return Err(ElfError::NotExecutable);
         }
 
@@ -278,10 +281,20 @@ impl<'a> Elf<'a> {
         self.header.e_phnum as usize
     }
 
-    /// TEAM_217: Get the base address where the ELF is loaded.
-    /// For statically linked ET_EXEC binaries, this is 0 (relative to VAs in headers).
+    /// TEAM_354: Check if this is a position-independent executable (PIE)
+    pub fn is_pie(&self) -> bool {
+        self.header.e_type == ET_DYN
+    }
+
+    /// TEAM_354: Get the base address where the ELF is loaded.
+    /// - ET_EXEC: 0 (addresses are absolute)
+    /// - ET_DYN: 0x10000 (fixed base for PIE, above null page)
     pub fn load_base(&self) -> usize {
-        0
+        if self.is_pie() {
+            0x10000  // 64KB, above null page
+        } else {
+            0  // ET_EXEC uses absolute addresses
+        }
     }
 
     /// Iterate over program headers.
@@ -316,6 +329,8 @@ impl<'a> Elf<'a> {
     /// Tuple of (entry_point, initial_brk) on success.
     pub fn load(&self, ttbr0_phys: usize) -> Result<(usize, usize), ElfError> {
         let mut max_vaddr = 0;
+        // TEAM_354: Get load base for PIE support
+        let load_base = self.load_base();
 
         // TEAM_297 BREADCRUMB: DEAD_END - Missing GOT/PLT Relocations.
         // Userspace binaries are statically linked (ET_EXEC).
@@ -326,7 +341,8 @@ impl<'a> Elf<'a> {
                 continue;
             }
 
-            let vaddr = phdr.vaddr();
+            // TEAM_354: Apply load_base offset to vaddr for PIE binaries
+            let vaddr = load_base + phdr.vaddr();
             let memsz = phdr.memsz();
             let filesz = phdr.filesz();
             let offset = phdr.offset();
@@ -469,7 +485,90 @@ impl<'a> Elf<'a> {
         // Calculate initial brk (page-aligned end of loaded segments)
         let initial_brk = (max_vaddr + 0xFFF) & !0xFFF;
 
-        Ok((self.entry_point(), initial_brk))
+        // TEAM_354: Process relocations for PIE binaries
+        if self.is_pie() {
+            let reloc_count = self.process_relocations(ttbr0_phys, load_base)?;
+            log::debug!("[ELF] Applied {} relocations for PIE binary", reloc_count);
+        }
+
+        // TEAM_354: Return adjusted entry point
+        let entry_point = load_base + self.header.e_entry as usize;
+        Ok((entry_point, initial_brk))
+    }
+
+    /// TEAM_354: Process relocations for PIE binaries using goblin
+    fn process_relocations(&self, ttbr0_phys: usize, load_base: usize) -> Result<usize, ElfError> {
+        use goblin::elf::Elf as GoblinElf;
+        
+        // Parse with goblin to get relocations
+        let elf = match GoblinElf::parse(self.data) {
+            Ok(e) => e,
+            Err(_) => {
+                log::warn!("[ELF] Goblin parse failed for relocations");
+                return Ok(0);
+            }
+        };
+
+        let mut count = 0;
+
+        // Process .rela.dyn relocations (goblin parses these automatically)
+        for rela in &elf.dynrelas {
+            let addend = rela.r_addend.unwrap_or(0);
+            self.apply_relocation(ttbr0_phys, load_base, rela.r_offset as usize, addend, rela.r_type)?;
+            count += 1;
+        }
+
+        Ok(count)
+    }
+
+    /// TEAM_354: Apply a single relocation
+    fn apply_relocation(
+        &self,
+        ttbr0_phys: usize,
+        load_base: usize,
+        r_offset: usize,
+        r_addend: i64,
+        r_type: u32,
+    ) -> Result<(), ElfError> {
+        // Architecture-specific relocation constants
+        #[cfg(target_arch = "aarch64")]
+        const R_RELATIVE: u32 = 1027; // R_AARCH64_RELATIVE
+
+        #[cfg(target_arch = "x86_64")]
+        const R_RELATIVE: u32 = 8; // R_X86_64_RELATIVE
+
+        match r_type {
+            R_RELATIVE => {
+                // R_*_RELATIVE: *target = load_base + addend
+                let target_va = load_base + r_offset;
+                let value = (load_base as i64 + r_addend) as u64;
+                self.write_user_u64(ttbr0_phys, target_va, value)?;
+            }
+            other => {
+                log::trace!("[ELF] Skipping unsupported reloc type {}", other);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// TEAM_354: Write a u64 to user address space
+    fn write_user_u64(&self, ttbr0_phys: usize, va: usize, value: u64) -> Result<(), ElfError> {
+        let l0_va = mmu::phys_to_virt(ttbr0_phys);
+        let l0 = unsafe { &mut *(l0_va as *mut mmu::PageTable) };
+
+        let page_va = va & !0xFFF;
+        let page_offset = va & 0xFFF;
+
+        match mmu::walk_to_entry(l0, page_va, 3, false) {
+            Ok(walk) => {
+                let phys = walk.table.entry(walk.index).address() + page_offset;
+                let ptr = mmu::phys_to_virt(phys) as *mut u64;
+                unsafe { ptr.write_unaligned(value); }
+                Ok(())
+            }
+            Err(_) => Err(ElfError::MappingFailed),
+        }
     }
 }
 

@@ -60,6 +60,47 @@ pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> i64 {
     0
 }
 
+/// TEAM_350: sys_clock_getres - Get clock resolution.
+///
+/// Returns the resolution (precision) of the specified clock.
+/// For CLOCK_MONOTONIC and CLOCK_REALTIME, we report 1 nanosecond.
+pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
+    // clockid: 0 = CLOCK_REALTIME, 1 = CLOCK_MONOTONIC
+    if clockid != 0 && clockid != 1 {
+        return errno::EINVAL;
+    }
+
+    // If res_buf is NULL, just return success (allowed by POSIX)
+    if res_buf == 0 {
+        return 0;
+    }
+
+    let task = crate::task::current_task();
+    let ts_size = core::mem::size_of::<Timespec>();
+    if mm_user::validate_user_buffer(task.ttbr0, res_buf, ts_size, true).is_err() {
+        return errno::EFAULT;
+    }
+
+    // TEAM_350: Report 1 nanosecond resolution
+    let ts = Timespec {
+        tv_sec: 0,
+        tv_nsec: 1,
+    };
+
+    let ts_bytes =
+        unsafe { core::slice::from_raw_parts(&ts as *const Timespec as *const u8, ts_size) };
+
+    for (i, &byte) in ts_bytes.iter().enumerate() {
+        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, res_buf + i) {
+            unsafe { *ptr = byte };
+        } else {
+            return errno::EFAULT;
+        }
+    }
+
+    0
+}
+
 /// TEAM_170: sys_clock_gettime - Get current monotonic time.
 pub fn sys_clock_gettime(timespec_buf: usize) -> i64 {
     let task = crate::task::current_task();

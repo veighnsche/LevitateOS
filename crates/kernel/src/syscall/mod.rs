@@ -239,6 +239,39 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as u64,
             frame.arg2() as usize,
         ),
+        // TEAM_350: Eyra prerequisites
+        Some(SyscallNumber::Gettid) => process::sys_gettid(),
+        Some(SyscallNumber::ExitGroup) => process::sys_exit_group(frame.arg0() as i32),
+        Some(SyscallNumber::Getuid) => process::sys_getuid(),
+        Some(SyscallNumber::Geteuid) => process::sys_geteuid(),
+        Some(SyscallNumber::Getgid) => process::sys_getgid(),
+        Some(SyscallNumber::Getegid) => process::sys_getegid(),
+        Some(SyscallNumber::ClockGetres) => time::sys_clock_getres(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+        ),
+        Some(SyscallNumber::Madvise) => mm::sys_madvise(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as i32,
+        ),
+        Some(SyscallNumber::Getrandom) => sys::sys_getrandom(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as u32,
+        ),
+        // TEAM_350: x86_64-only arch_prctl (aarch64 uses TPIDR_EL0 directly)
+        #[cfg(target_arch = "x86_64")]
+        Some(SyscallNumber::ArchPrctl) => process::sys_arch_prctl(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+        ),
+        Some(SyscallNumber::Faccessat) => fs::sys_faccessat(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as i32,
+            frame.arg3() as i32,
+        ),
         None => {
             log::warn!("[SYSCALL] Unknown syscall number: {}", nr);
             errno::ENOSYS

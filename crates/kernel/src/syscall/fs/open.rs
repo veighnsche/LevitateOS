@@ -84,3 +84,68 @@ pub fn sys_close(fd: usize) -> i64 {
 
     if fd_table.close(fd) { 0 } else { errno::EBADF }
 }
+
+// ============================================================================
+// TEAM_350: faccessat - Check file accessibility
+// ============================================================================
+
+/// TEAM_350: Access mode flags for faccessat
+pub mod access_mode {
+    pub const F_OK: i32 = 0; // Test for existence
+    pub const X_OK: i32 = 1; // Test for execute permission
+    pub const W_OK: i32 = 2; // Test for write permission
+    pub const R_OK: i32 = 4; // Test for read permission
+}
+
+/// TEAM_350: sys_faccessat - Check file accessibility.
+///
+/// Checks whether the calling process can access the file pathname.
+/// For LevitateOS (single-user, root), we only check file existence.
+///
+/// # Arguments
+/// * `dirfd` - Directory file descriptor (AT_FDCWD for cwd)
+/// * `pathname` - Path to check
+/// * `mode` - Access mode (F_OK, R_OK, W_OK, X_OK)
+/// * `flags` - Flags (AT_SYMLINK_NOFOLLOW, etc.)
+///
+/// # Returns
+/// 0 if access is permitted, negative errno otherwise.
+#[allow(unused_variables)]
+pub fn sys_faccessat(dirfd: i32, pathname: usize, mode: i32, flags: i32) -> i64 {
+    use crate::fs::vfs::dispatch::vfs_access;
+
+    let task = crate::task::current_task();
+
+    // Read null-terminated pathname
+    let mut path_buf = [0u8; 4096];
+    let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
+        Ok(s) => s,
+        Err(e) => return e,
+    };
+
+    log::trace!(
+        "[SYSCALL] faccessat(dirfd={}, path='{}', mode=0x{:x}, flags=0x{:x})",
+        dirfd,
+        path_str,
+        mode,
+        flags
+    );
+
+    // Handle dirfd (AT_FDCWD means use cwd)
+    if dirfd != fcntl::AT_FDCWD && !path_str.starts_with('/') {
+        log::warn!(
+            "[SYSCALL] faccessat: dirfd {} not yet supported for relative paths",
+            dirfd
+        );
+        return errno::EBADF;
+    }
+
+    // TEAM_350: For single-user OS, we only check existence
+    // R_OK, W_OK, X_OK always succeed if file exists (we're root)
+    match vfs_access(path_str, mode as u32) {
+        Ok(_) => 0, // File exists, access granted
+        Err(crate::fs::vfs::error::VfsError::NotFound) => errno::ENOENT,
+        Err(crate::fs::vfs::error::VfsError::NotADirectory) => errno::ENOTDIR,
+        Err(_) => errno::EACCES,
+    }
+}

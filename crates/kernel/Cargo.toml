@@ -38,6 +38,8 @@ volatile.workspace = true
 bytemuck.workspace = true
 acpi.workspace = true
 aml.workspace = true
+# TEAM_354: ELF dynamic loader - goblin for PIE/relocation support
+goblin = { version = "0.8", default-features = false, features = ["elf64", "elf32", "alloc", "endian_fd"] }
 
 [build-dependencies]
 cc = "1.0"

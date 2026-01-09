@@ -2,10 +2,6 @@
 trigger: always_on
 ---
 
----
-trigger: always_on
----
-
 Rust Kernel Development SOP
 
 Note: This SOP is a living document specifically tailored for Rust-based kernel development. As the kernel evolves, new patterns, subsystems, and constraints should be integrated here to maintain architectural consistency.

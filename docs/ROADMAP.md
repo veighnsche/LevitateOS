@@ -1,6 +1,6 @@
 # LevitateOS Roadmap
 
-**Last Updated:** 2026-01-07 (TEAM_244)
+**Last Updated:** 2026-01-09 (TEAM_348)
 
 This document outlines the planned development phases for LevitateOS. Each completed item includes the responsible team for traceability.
 
@@ -12,8 +12,45 @@ To maximize technical ROI and enable the Rust `std` ecosystem, LevitateOS priori
 
 **Core Decisions (TEAM_217):**
 1. **Userland Support**: Implement the Linux Syscall interface to allow standard Rust applications to run with minimal modifications.
-2. **Storage Strategy**: Delay physical Ext4/NVMe driver development. Use VFS and `tmpfs` as the primary test bench to stabilize the syscall layer.
-3. **Application Target**: Sprint toward running a static Rust binary using `std` (e.g., `uutils` utilities).
+2. **Standard Library**: Target the Rust `std` library graduation (Phase 17) as the primary project goal.
+3. **Application Target**: Sprint toward running a static Rust binary using `std` (e.g., `uutils-levbox`).
+
+---
+
+## 🆕 Recently Completed (2026-01)
+
+### Linux ABI Compatibility (TEAM_339-345)
+All filesystem syscalls now use **Linux ABI signatures**:
+- `openat(dirfd, pathname, flags, mode)` with `AT_FDCWD` support
+- `mkdirat`, `unlinkat`, `renameat`, `symlinkat`, `linkat`, `readlinkat`, `utimensat`
+- `read_user_cstring()` helper for null-terminated C strings
+- fcntl constants (`AT_FDCWD`, `AT_SYMLINK_NOFOLLOW`, etc.)
+
+### std Support Infrastructure (TEAM_217-239)
+| Feature | Team | Status |
+|---------|------|--------|
+| Auxv (argc, argv, envp, auxiliary vector) | TEAM_217 | ✅ |
+| mmap/munmap/mprotect | TEAM_228/238/239 | ✅ |
+| clone (thread-style) + TLS | TEAM_230 | ✅ |
+| set_tid_address, futex | TEAM_208/228 | ✅ |
+| writev/readv | TEAM_217 | ✅ |
+| pipe2, dup, dup3 | TEAM_233 | ✅ |
+| Signals (kill, sigaction, sigprocmask, sigreturn) | - | ✅ |
+| ioctl (TTY operations) | TEAM_244 | ✅ |
+
+### x86_64 Architecture (TEAM_250-330)
+- Limine bootloader integration
+- x86_64 MMU, GDT, IDT implementation
+- Dual-architecture build system (`cargo xtask build --arch x86_64`)
+
+### VirtIO Driver Refactor (TEAM_332-336)
+- Extracted to standalone crates (`virtio-gpu`, `virtio-blk`, `virtio-input`)
+- Unified GPU abstraction layer
+
+### ABI Consolidation (TEAM_311)
+- Created `crates/abi` with `SyscallNumber` enum
+- Kernel imports syscall numbers from `los_abi`
+- Tests verify values match `linux-raw-sys`
 
 ---
 
@@ -171,12 +208,12 @@ To maximize technical ROI and enable the Rust `std` ecosystem, LevitateOS priori
 
 The goal of Part II is to build a rich, POSIX-like userspace environment on top of the Phase 8 foundations, ultimately enabling **[uutils-levbox](https://github.com/uutils/levbox)** — the Rust reimplementation of GNU levbox.
 
-### 🎯 Target: uutils-levbox Compatibility
+### 🎯 Target: Linux Binary Compatibility & Rust std
 
 > [!IMPORTANT]
-> **End Goal**: Run unmodified `uutils-levbox` binaries on LevitateOS.
+> **End Goal**: Run unmodified Linux binaries on LevitateOS.
 > 
-> **Strategy**: Build our own "Busybox-style" levbox first (Phase 11) to validate the syscall layer, then port Rust `std` to enable uutils.
+> **Strategy**: Build our own "Busybox-style" levbox first (Phase 11) to validate the syscall layer, then port Rust `std` to enable uutils and other high-level applications.
 
 #### Dependency Chain
 
@@ -210,27 +247,27 @@ The goal of Part II is to build a rich, POSIX-like userspace environment on top 
 | Syscall Category | Required For | Current Status | Phase |
 |------------------|--------------|----------------|-------|
 | **Memory** | | | |
-| `mmap` / `munmap` | Allocator, file mapping | 🔴 Not implemented | 14+ |
-| `mprotect` | Stack guard pages | 🔴 Not implemented | 14+ |
+| `mmap` / `munmap` | Allocator, file mapping | 🟢 Implemented (TEAM_228/238) | 14 |
+| `mprotect` | Stack guard pages | 🟢 Implemented (TEAM_239) | 14 |
 | `brk` | Heap allocation | 🟢 Implemented | 10 |
 | **Threading** | | | |
-| `clone` | Thread creation | 🔴 Not implemented | 14+ |
+| `clone` | Thread creation | 🟢 Implemented (TEAM_230) | 14 |
 | `futex` | Mutex, condvar | � Implemented | 17a |
-| TLS (`TPIDR_EL0`) | Thread-local storage | 🔴 Not implemented | 14+ |
-| `set_tid_address` | Thread ID management | 🔴 Not implemented | 14+ |
+| TLS (`TPIDR_EL0`) | Thread-local storage | 🟢 Implemented (context-switched) | 14 |
+| `set_tid_address` | Thread ID management | 🟢 Implemented (TEAM_228) | 14 |
 | **Signals** | | | |
-| `rt_sigaction` | Signal handlers | 🔴 Not implemented | 12 |
-| `rt_sigprocmask` | Signal masking | 🔴 Not implemented | 12 |
-| `kill` / `tgkill` | Send signals | 🔴 Not implemented | 12 |
+| `rt_sigaction` | Signal handlers | 🟢 Implemented | 14 |
+| `rt_sigprocmask` | Signal masking | 🟢 Implemented | 14 |
+| `kill` / `tgkill` | Send signals | 🟢 kill implemented | 14 |
 | **Process** | | | |
 | `fork` / `vfork` | Process creation | 🔴 Not implemented | 12 |
 | `execve` | Program execution | 🟡 Have `spawn` | 12 |
 | `wait4` / `waitpid` | Child reaping | � Implemented | 8d |
 | `getpid` / `getppid` | Process IDs | 🟢 Implemented | 8 |
 | **I/O** | | | |
-| `pipe` / `pipe2` | Shell pipelines | 🔴 Not implemented | 12 |
-| `dup` / `dup2` / `dup3` | FD duplication | 🔴 Not implemented | 12 |
-| `ioctl` | TTY control | 🔴 Not implemented | 13 |
+| `pipe` / `pipe2` | Shell pipelines | 🟢 Implemented (TEAM_233) | 14 |
+| `dup` / `dup2` / `dup3` | FD duplication | 🟢 Implemented (TEAM_233) | 14 |
+| `ioctl` | TTY control | 🟢 Implemented (TTY ops) | 14 |
 | `poll` / `select` | I/O multiplexing | 🔴 Not implemented | 13 |
 | **Filesystem** | | | |
 | `openat` | Open files | 🟢 Implemented | 10 |
@@ -576,6 +613,7 @@ pub trait SuperblockOps: Send + Sync {
 > This phase represents "graduation" — proving LevitateOS has a fully functional POSIX-like userspace.
 
 - **Objective**: Port Rust's standard library to LevitateOS and run production Rust binaries.
+- **Strategy**: Leverage **[Eyra](https://github.com/sunfishcode/eyra)** to achieve a pure Rust `std` environment without a C-based libc.
 - **Prerequisites**: All syscalls from the gap analysis table must be implemented.
 
 #### Phase 17a: Threading & Synchronization
@@ -615,6 +653,7 @@ pub trait SuperblockOps: Send + Sync {
 #### References
 
 - [uutils-levbox](https://github.com/uutils/levbox) — Target project
+- [Eyra](https://github.com/sunfishcode/eyra) — Pure Rust Linux-compatible runtime (Recommended)
 - [relibc](https://github.com/redox-os/relibc) — Rust libc implementation
 - [rust-lang/libc](https://github.com/rust-lang/libc) — FFI bindings reference
 - [Redox OS std port](https://gitlab.redox-os.org/redox-os/rust) — Prior art
@@ -707,39 +746,44 @@ Once the userspace foundation is solid, we move to secure multi-user support.
 
 ### Gap Analysis Summary
 
-#### 🔴 Critical Gaps (Required for `std`/uutils)
+#### ✅ Critical Features Now Implemented
 
-| Feature | Redox | Theseus | Tock | LevitateOS | Phase |
-|---------|-------|---------|------|------------|-------|
-| Futex (WAIT/WAKE) | ✅ | ❌ channels | ❌ | ❌ Missing | 17a |
-| mmap/munmap | ✅ Full | ✅ | ❌ | ❌ Missing | 17b |
-| clone/fork with CoW | ✅ | ✅ spawn | ❌ | ❌ Missing | 15/17a |
-| Signals (SIGCHLD, etc.) | ✅ Full | ✅ 4 types | ❌ upcalls | ❌ Missing | 15 |
-| Pipe (for `|`) | ✅ | ✅ | ❌ | ❌ Missing | 15 |
-| TLS (TPIDR_EL0) | ✅ | ✅ | ✅ | ❌ Missing | 17a |
+| Feature | Redox | Theseus | Tock | LevitateOS | Team |
+|---------|-------|---------|------|------------|------|
+| Futex (WAIT/WAKE) | ✅ | ❌ channels | ❌ | ✅ Done | TEAM_208 |
+| mmap/munmap | ✅ Full | ✅ | ❌ | ✅ Done | TEAM_228/238 |
+| mprotect | ✅ | ✅ | ❌ | ✅ Done | TEAM_239 |
+| clone (threads) | ✅ | ✅ spawn | ❌ | ✅ Done | TEAM_230 |
+| Signals (kill, sigaction) | ✅ Full | ✅ 4 types | ❌ upcalls | ✅ Done | - |
+| Pipe (pipe2) | ✅ | ✅ | ❌ | ✅ Done | TEAM_233 |
+| TLS (TPIDR_EL0) | ✅ | ✅ | ✅ | ✅ Done | - |
 
-#### 🟡 Important Gaps
+#### 🔴 Remaining Gaps
 
-| Feature | Status | Phase | Reference File |
-|---------|--------|-------|----------------|
-| dup/dup2/dup3 | ❌ Missing | 15 | `redox/src/syscall/fs.rs` |
-| poll/select | ❌ Missing | 16 | `redox/src/event.rs` |
-| ioctl | ❌ Missing | 16 | Theseus `tty/` |
-| Wait queues | ❌ Missing | 15 | `redox/src/sync/wait_queue.rs` |
-| Scheduler policies | 🟡 Simple RR | 17+ | `tock/kernel/src/scheduler.rs` |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| fork (CoW) | ❌ Missing | Only thread-style clone supported |
+| execve | 🟡 Stub | Returns ENOSYS, have spawn instead |
+| poll/select | ❌ Missing | I/O multiplexing |
+| Scheduler policies | 🟡 Simple RR | Currently round-robin only |
 
 #### 🟢 Features LevitateOS Already Has
 
-| Feature | Status | Phase Completed |
-|---------|--------|-----------------|
-| VFS layer | ✅ | 14 |
-| tmpfs (full CRUD) | ✅ | 14 |
-| initramfs | ✅ | 4 |
-| Mount/Umount | ✅ | 14 |
-| waitpid | ✅ | 8d |
-| spawn_args | ✅ | 8d |
-| symlinkat/linkat | ✅ | 11 |
-| clock_gettime/nanosleep | ✅ | 10 |
+| Feature | Status | Team/Phase |
+|---------|--------|------------|
+| VFS layer | ✅ | Phase 14 |
+| tmpfs (full CRUD) | ✅ | Phase 14 |
+| initramfs | ✅ | Phase 4 |
+| Mount/Umount | ✅ | Phase 14 |
+| waitpid | ✅ | Phase 8d |
+| spawn_args | ✅ | Phase 8d |
+| symlinkat/linkat | ✅ | Phase 11 |
+| clock_gettime/nanosleep | ✅ | Phase 10 |
+| dup/dup3 | ✅ | TEAM_233 |
+| ioctl (TTY) | ✅ | TEAM_244 |
+| writev/readv | ✅ | TEAM_217 |
+| Linux ABI syscalls | ✅ | TEAM_345 |
+| x86_64 support | ✅ | TEAM_250-330 |
 
 ### Key Reference Files for Implementation
 
@@ -752,22 +796,23 @@ Once the userspace foundation is solid, we move to secure multi-user support.
 | Scheduler | Tock | [scheduler.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/tock/kernel/src/scheduler.rs) |
 | Task/TLS | Theseus | [task/lib.rs](file:///home/vince/Projects/LevitateOS/.external-kernels/theseus/kernel/task/src/lib.rs) |
 
-### Recommended Implementation Order
+### Next Steps for std Support
 
-1. **Phase 15 (Lower effort, high impact)**
-   - `pipe2` → Enables shell pipelines
-   - `dup`/`dup2` → FD redirection
-   - Basic signals (SIGCHLD, SIGKILL, SIGTERM)
+Most syscall infrastructure is now complete. Remaining work:
 
-2. **Phase 17a (Threading)**
-   - `clone` with CLONE_VM
-   - TLS via TPIDR_EL0
-   - `futex` (WAIT/WAKE)
+1. **Test with actual std binary**
+   - Try Eyra/Origin ecosystem (sunfishcode)
+   - Build custom target JSON for LevitateOS
 
-3. **Phase 17b (Memory)**
-   - `mmap`/`munmap` (anonymous first)
-   - `mprotect` for guard pages
+2. **Verify struct layouts**
+   - Termios, Stat, Timespec vs Linux
+   - Add compile-time size assertions
+
+3. **Fork/Exec implementation** (optional for threads)
+   - Fork-style clone with CoW
+   - Replace spawn with execve
 
 > [!TIP]
-> **Quick win**: Pipe + dup only requires ~500 lines of kernel code but unlocks major shell functionality.
+> See `.teams/TEAM_347_investigate_std_support.md` for detailed std support analysis.
+> See `docs/planning/.archive/std-support/` for the full implementation plan.
 

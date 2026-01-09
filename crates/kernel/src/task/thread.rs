@@ -127,6 +127,8 @@ pub fn create_thread(
         clear_child_tid: AtomicUsize::new(clear_child_tid),
         // TEAM_238: Threads share parent's VMA tracking (same address space)
         vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
+        // TEAM_350: Initialize TLS with child_tls from clone flags
+        tls: AtomicUsize::new(child_tls),
     };
 
     Ok(Arc::new(tcb))

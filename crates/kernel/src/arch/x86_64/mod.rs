@@ -74,6 +74,18 @@ pub enum SyscallNumber {
     Utimensat = 280,
     Dup3 = 292,
     Pipe2 = 293,
+    // TEAM_350: Eyra prerequisites
+    Gettid = 186,
+    ExitGroup = 231,
+    Getuid = 102,
+    Geteuid = 107,
+    Getgid = 104,
+    Getegid = 108,
+    ClockGetres = 229,
+    Madvise = 28,
+    Getrandom = 318,
+    ArchPrctl = 158,
+    Faccessat = 269,
 
     // === Custom LevitateOS syscalls ===
     Spawn = 1000,
@@ -129,6 +141,18 @@ impl SyscallNumber {
             280 => Some(Self::Utimensat),
             292 => Some(Self::Dup3),
             293 => Some(Self::Pipe2),
+            // TEAM_350: Eyra prerequisites
+            186 => Some(Self::Gettid),
+            231 => Some(Self::ExitGroup),
+            102 => Some(Self::Getuid),
+            107 => Some(Self::Geteuid),
+            104 => Some(Self::Getgid),
+            108 => Some(Self::Getegid),
+            229 => Some(Self::ClockGetres),
+            28 => Some(Self::Madvise),
+            318 => Some(Self::Getrandom),
+            158 => Some(Self::ArchPrctl),
+            269 => Some(Self::Faccessat),
             // Custom LevitateOS
             1000 => Some(Self::Spawn),
             1001 => Some(Self::SpawnArgs),

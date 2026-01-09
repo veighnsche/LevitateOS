@@ -232,6 +232,8 @@ pub struct TaskControlBlock {
     pub clear_child_tid: AtomicUsize,
     /// TEAM_238: Virtual memory area tracking for munmap support
     pub vmas: IrqSafeLock<crate::memory::vma::VmaList>,
+    /// TEAM_350: Thread-local storage base address (FS base on x86_64)
+    pub tls: AtomicUsize,
 }
 
 /// TEAM_220: Global tracking of the foreground process for shell control.
@@ -285,6 +287,7 @@ impl Default for TaskControlBlock {
             signal_trampoline: AtomicUsize::new(0),
             clear_child_tid: AtomicUsize::new(0),
             vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
+            tls: AtomicUsize::new(0),
         }
     }
 }
@@ -329,6 +332,8 @@ impl From<UserTask> for TaskControlBlock {
             clear_child_tid: AtomicUsize::new(0),
             // TEAM_238: New user processes start with empty VMA list
             vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
+            // TEAM_350: TLS base starts at 0
+            tls: AtomicUsize::new(0),
         }
     }
 }

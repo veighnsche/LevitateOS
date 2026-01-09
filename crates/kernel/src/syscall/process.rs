@@ -511,3 +511,174 @@ pub fn sys_set_tid_address(tidptr: usize) -> i64 {
     // Return current TID
     task.id.0 as i64
 }
+
+// ============================================================================
+// TEAM_350: Eyra Prerequisites - Simple Syscalls
+// ============================================================================
+
+/// TEAM_350: sys_gettid - Get thread ID.
+///
+/// Returns the caller's thread ID (TID). In a single-threaded process,
+/// this is the same as the PID.
+pub fn sys_gettid() -> i64 {
+    crate::task::current_task().id.0 as i64
+}
+
+/// TEAM_350: sys_exit_group - Terminate all threads in the process.
+///
+/// Unlike sys_exit which only terminates the calling thread, exit_group
+/// terminates all threads in the thread group (process).
+///
+/// For now, LevitateOS doesn't have multi-threaded processes with shared
+/// resources, so this behaves the same as sys_exit.
+pub fn sys_exit_group(status: i32) -> i64 {
+    log::trace!("[SYSCALL] exit_group({})", status);
+    // TEAM_350: For now, same as exit since we don't track thread groups
+    sys_exit(status)
+}
+
+/// TEAM_350: sys_getuid - Get real user ID.
+///
+/// LevitateOS is single-user, always returns 0 (root).
+pub fn sys_getuid() -> i64 {
+    0
+}
+
+/// TEAM_350: sys_geteuid - Get effective user ID.
+///
+/// LevitateOS is single-user, always returns 0 (root).
+pub fn sys_geteuid() -> i64 {
+    0
+}
+
+/// TEAM_350: sys_getgid - Get real group ID.
+///
+/// LevitateOS is single-user, always returns 0 (root group).
+pub fn sys_getgid() -> i64 {
+    0
+}
+
+/// TEAM_350: sys_getegid - Get effective group ID.
+///
+/// LevitateOS is single-user, always returns 0 (root group).
+pub fn sys_getegid() -> i64 {
+    0
+}
+
+// ============================================================================
+// TEAM_350: arch_prctl (x86_64 only) - Set architecture-specific thread state
+// ============================================================================
+
+/// TEAM_350: arch_prctl codes for x86_64
+#[cfg(target_arch = "x86_64")]
+pub mod arch_prctl_codes {
+    pub const ARCH_SET_GS: i32 = 0x1001;
+    pub const ARCH_SET_FS: i32 = 0x1002;
+    pub const ARCH_GET_FS: i32 = 0x1003;
+    pub const ARCH_GET_GS: i32 = 0x1004;
+}
+
+/// TEAM_350: sys_arch_prctl - Set architecture-specific thread state (x86_64).
+///
+/// Used primarily for setting the FS base register for TLS (Thread Local Storage).
+///
+/// # Arguments
+/// * `code` - ARCH_SET_FS, ARCH_GET_FS, ARCH_SET_GS, ARCH_GET_GS
+/// * `addr` - Address to set/get
+///
+/// # Returns
+/// 0 on success, negative errno on failure.
+#[cfg(target_arch = "x86_64")]
+pub fn sys_arch_prctl(code: i32, addr: usize) -> i64 {
+    use arch_prctl_codes::*;
+
+    log::trace!("[SYSCALL] arch_prctl(code=0x{:x}, addr=0x{:x})", code, addr);
+
+    match code {
+        ARCH_SET_FS => {
+            // TEAM_350: Set FS base register for TLS
+            // SAFETY: Writing to FS_BASE MSR is safe if addr is valid
+            unsafe {
+                // IA32_FS_BASE MSR = 0xC0000100
+                core::arch::asm!(
+                    "wrmsr",
+                    in("ecx") 0xC000_0100u32,
+                    in("eax") (addr as u32),
+                    in("edx") ((addr >> 32) as u32),
+                    options(nostack, preserves_flags)
+                );
+            }
+            // Store in task for context switch restore
+            let task = crate::task::current_task();
+            task.tls.store(addr, core::sync::atomic::Ordering::Release);
+            0
+        }
+        ARCH_GET_FS => {
+            // TEAM_350: Get FS base register
+            let task = crate::task::current_task();
+            if addr != 0 {
+                if mm_user::validate_user_buffer(task.ttbr0, addr, 8, true).is_ok() {
+                    if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, addr) {
+                        let fs_base = task.tls.load(core::sync::atomic::Ordering::Acquire);
+                        // SAFETY: validate_user_buffer confirmed address is writable
+                        unsafe {
+                            *(ptr as *mut u64) = fs_base as u64;
+                        }
+                        return 0;
+                    }
+                }
+                return errno::EFAULT;
+            }
+            0
+        }
+        ARCH_SET_GS => {
+            // TEAM_350: Set GS base register (less commonly used)
+            unsafe {
+                // IA32_GS_BASE MSR = 0xC0000101
+                core::arch::asm!(
+                    "wrmsr",
+                    in("ecx") 0xC000_0101u32,
+                    in("eax") (addr as u32),
+                    in("edx") ((addr >> 32) as u32),
+                    options(nostack, preserves_flags)
+                );
+            }
+            0
+        }
+        ARCH_GET_GS => {
+            // TEAM_350: Get GS base - read from MSR
+            let task = crate::task::current_task();
+            if addr != 0 {
+                if mm_user::validate_user_buffer(task.ttbr0, addr, 8, true).is_ok() {
+                    if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, addr) {
+                        let gs_base: u64;
+                        unsafe {
+                            let lo: u32;
+                            let hi: u32;
+                            core::arch::asm!(
+                                "rdmsr",
+                                in("ecx") 0xC000_0101u32,
+                                out("eax") lo,
+                                out("edx") hi,
+                                options(nostack, preserves_flags)
+                            );
+                            gs_base = ((hi as u64) << 32) | (lo as u64);
+                            *(ptr as *mut u64) = gs_base;
+                        }
+                        return 0;
+                    }
+                }
+                return errno::EFAULT;
+            }
+            0
+        }
+        _ => errno::EINVAL,
+    }
+}
+
+/// TEAM_350: sys_arch_prctl stub for non-x86_64 architectures.
+#[cfg(not(target_arch = "x86_64"))]
+pub fn sys_arch_prctl(_code: i32, _addr: usize) -> i64 {
+    // arch_prctl is x86_64-specific
+    errno::ENOSYS
+}

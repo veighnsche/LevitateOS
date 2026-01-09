@@ -458,3 +458,30 @@ fn prot_to_page_flags(prot: u32) -> PageFlags {
 
     flags
 }
+
+/// TEAM_350: sys_madvise - Give advice about use of memory.
+///
+/// This is a stub that ignores all advice and returns success.
+/// Allocators call madvise but can tolerate it failing or being ignored.
+///
+/// # Arguments
+/// * `addr` - Start address of memory region
+/// * `len` - Length of memory region
+/// * `advice` - Advice hint (MADV_DONTNEED, MADV_WILLNEED, etc.)
+///
+/// # Returns
+/// 0 on success (we always succeed by ignoring the advice)
+#[allow(unused_variables)]
+pub fn sys_madvise(addr: usize, len: usize, advice: i32) -> i64 {
+    // TEAM_350: Stub - ignore advice, return success
+    // Common advice values:
+    // MADV_NORMAL = 0, MADV_RANDOM = 1, MADV_SEQUENTIAL = 2
+    // MADV_WILLNEED = 3, MADV_DONTNEED = 4
+    log::trace!(
+        "[SYSCALL] madvise(addr=0x{:x}, len=0x{:x}, advice={})",
+        addr,
+        len,
+        advice
+    );
+    0
+}

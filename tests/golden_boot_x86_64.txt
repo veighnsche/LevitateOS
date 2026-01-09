@@ -2,10 +2,10 @@ limine: Loading kernel `boot:///boot/levitate-kernel`...
 limine: Loading module `boot:///boot/initramfs.cpio`...
 LH123456789CXLRikdHeap initialized.
 [BOOT] Protocol: Limine
-[BOOT] Memory: 19 regions, 467 MB usable
+[BOOT] Memory: 19 regions, 465 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
 [MEM] Buddy Allocator initialized with unified BootInfo
-[CPU] x86_64 PCR initialized at 0xffffffff80059a00
+[CPU] x86_64 PCR initialized at 0xffffffff80062a00
 [SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff800100a8
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
