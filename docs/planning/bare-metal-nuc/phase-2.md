@@ -41,9 +41,10 @@ Current HAL uses the 8259 PIC as a temporary crutch. This must be replaced for N
 - **Interrupts**: Polling first, then MSI-X.
 
 ### 4. XHCI/USB Stack
-- This is the largest task. We will start with a minimal XHCI driver that only supports HID (Keyboard/Mouse) for the NUC.
 - New crate `crates/drivers/xhci`.
-- Integrates with `input-device` trait.
+- **Detailed Design**: See [xhci-detailed-design.md](file:///home/vince/Projects/LevitateOS/docs/planning/bare-metal-nuc/xhci-detailed-design.md).
+- **Minimal Goal**: Support USB HID (Keyboard/Mouse) for console interaction.
+- **Strategy**: Start with a polling-based Ring model (Command/Event/Transfer).
 
 ## API Design Changes
 ### PCI Crate
@@ -59,6 +60,12 @@ pub fn map_device_memory(phys: PhysAddr, size: usize) -> VirtAddr;
 ```
 
 ## Behavioral Decisions & Answers (Based on Unix Rules)
+
+### 2. Graphics Abstraction (SimpleGPU)
+- New crate `crates/drivers/simple-gpu`.
+- **Detailed Design**: See [simple-gpu-detailed-design.md](file:///home/vince/Projects/LevitateOS/docs/planning/bare-metal-nuc/simple-gpu-detailed-design.md).
+- **Fallback Policy**: Used when specialized drivers (like VirtIO GPU) are missing.
+- **Performance**: Aims for Write-Combining (WC) via PAT in the future.
 
 ### Q1: Graphics Mode Selection
 **Decision**: Automatic hierarchy with override policy.
