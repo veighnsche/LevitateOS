@@ -65,7 +65,7 @@ pub fn install_userspace_to_disk(arch: &str) -> Result<()> {
     let disk_path = "tinyos_disk.img";
     let mut count = 0;
     for bin in binaries {
-        let src = format!("userspace/target/{}/release/{}", target, bin);
+        let src = format!("crates/userspace/target/{}/release/{}", target, bin);
         if std::path::Path::new(&src).exists() {
             let status = Command::new("mcopy")
                 .args(["-i", &format!("{}@@1M", disk_path), "-o", &src, &format!("::/{}", bin)])

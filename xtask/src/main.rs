@@ -313,7 +313,7 @@ pub fn get_binaries(arch: &str) -> Result<Vec<String>> {
         "x86_64" => "x86_64-unknown-none",
         _ => bail!("Unsupported architecture: {}", arch),
     };
-    let release_dir = PathBuf::from(format!("userspace/target/{}/release", target));
+    let release_dir = PathBuf::from(format!("crates/userspace/target/{}/release", target));
     if !release_dir.exists() {
         return Ok(bins);
     }

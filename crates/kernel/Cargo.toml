@@ -14,13 +14,13 @@ multitask-demo = [] # TEAM_071: Enable demo tasks for preemption verification
 verbose-syscalls = [] # TEAM_299: Enable verbose syscall logging
 
 [dependencies]
-los_hal = { path = "../crates/hal" }
-los_utils = { path = "../crates/utils" }
-los_error = { path = "../crates/error" }
-los_virtio = { path = "../crates/virtio" }
-los_term = { path = "../crates/term" }
-los_pci = { path = "../crates/pci" }
-los_gpu = { path = "../crates/gpu" }
+los_hal = { path = "../hal" }
+los_utils = { path = "../utils" }
+los_error = { path = "../error" }
+los_virtio = { path = "../virtio" }
+los_term = { path = "../term" }
+los_pci = { path = "../pci" }
+los_gpu = { path = "../gpu" }
 linked_list_allocator = "0.10.5"
 # TEAM_141: Use workspace dependencies for version consistency
 virtio-drivers.workspace = true

@@ -54,7 +54,7 @@ pub fn build_userspace(arch: &str) -> Result<()> {
     // We build in-place now as the workspace isolation issues should be resolved
     // by individual build.rs scripts and correct linker arguments.
     let status = Command::new("cargo")
-        .current_dir("userspace")
+        .current_dir("crates/userspace")
         .args([
             "build",
             "--release",
@@ -95,7 +95,7 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
     print!("📦 Creating initramfs ({} binaries)... ", binaries.len());
     let mut count = 0;
     for bin in &binaries {
-        let src = PathBuf::from(format!("userspace/target/{}/release/{}", target, bin));
+        let src = PathBuf::from(format!("crates/userspace/target/{}/release/{}", target, bin));
         if src.exists() {
             std::fs::copy(&src, root.join(bin))?;
             count += 1;
@@ -151,7 +151,7 @@ pub fn create_test_initramfs(arch: &str) -> Result<()> {
     };
 
     // Copy test_runner as "init" - this is the key difference
-    let test_runner_src = PathBuf::from(format!("userspace/target/{}/release/test_runner", target));
+    let test_runner_src = PathBuf::from(format!("crates/userspace/target/{}/release/test_runner", target));
     if !test_runner_src.exists() {
         bail!("test_runner binary not found - build userspace first");
     }
@@ -171,7 +171,7 @@ pub fn create_test_initramfs(arch: &str) -> Result<()> {
     ];
     let mut count = 0;
     for bin in &test_binaries {
-        let src = PathBuf::from(format!("userspace/target/{}/release/{}", target, bin));
+        let src = PathBuf::from(format!("crates/userspace/target/{}/release/{}", target, bin));
         if src.exists() {
             std::fs::copy(&src, root.join(bin))?;
             count += 1;

@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "kernel",
+    "crates/kernel",
     "crates/hal",
     "crates/utils",
     "crates/term",
@@ -11,7 +11,7 @@ members = [
     "xtask",
 ]
 exclude = [
-    "userspace",
+    "crates/userspace",
 ]
 default-members = ["crates/hal", "crates/utils", "xtask"]
 resolver = "2"

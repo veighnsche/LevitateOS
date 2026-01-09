@@ -2,7 +2,7 @@
 # TEAM_198: Updated to include all levbox utilities
 set -e
 
-RELEASE_DIR="userspace/target/aarch64-unknown-none/release"
+RELEASE_DIR="crates/userspace/target/aarch64-unknown-none/release"
 
 # Create staging dir
 mkdir -p initrd_root

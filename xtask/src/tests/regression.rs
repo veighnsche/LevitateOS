@@ -112,10 +112,10 @@ pub fn run() -> Result<()> {
 fn test_enable_mmu_signature(results: &mut TestResults) {
     println!("API: enable_mmu stub signature matches real function");
 
-    let content = match fs::read_to_string("levitate-hal/src/mmu.rs") {
+    let content = match fs::read_to_string("crates/hal/src/mmu.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read levitate-hal/src/mmu.rs");
+            results.fail("Could not read crates/hal/src/mmu.rs");
             return;
         }
     };
@@ -135,10 +135,10 @@ fn test_enable_mmu_signature(results: &mut TestResults) {
 fn test_kernel_phys_end(results: &mut TestResults) {
     println!("Sync: KERNEL_PHYS_END constant matches linker.ld __heap_end");
 
-    let mmu_rs = match fs::read_to_string("levitate-hal/src/mmu.rs") {
+    let mmu_rs = match fs::read_to_string("crates/hal/src/mmu.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read levitate-hal/src/mmu.rs");
+            results.fail("Could not read crates/hal/src/mmu.rs");
             return;
         }
     };
@@ -190,10 +190,10 @@ fn test_kernel_phys_end(results: &mut TestResults) {
 fn test_input_dimensions(results: &mut TestResults) {
     println!("Pattern: Input cursor scaling uses GPU dimensions");
 
-    let content = match fs::read_to_string("kernel/src/input.rs") {
+    let content = match fs::read_to_string("crates/kernel/src/input.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/input.rs");
+            results.fail("Could not read crates/kernel/src/input.rs");
             return;
         }
     };
@@ -249,10 +249,10 @@ fn extract_hex_from_line(line: &str) -> Option<u64> {
 fn test_virtio_block_driver(results: &mut TestResults) {
     println!("Phase 4: VirtIO Block driver integration");
 
-    let block_rs = match fs::read_to_string("kernel/src/block.rs") {
+    let block_rs = match fs::read_to_string("crates/kernel/src/block.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/block.rs");
+            results.fail("Could not read crates/kernel/src/block.rs");
             return;
         }
     };
@@ -276,10 +276,10 @@ fn test_virtio_block_driver(results: &mut TestResults) {
 fn test_fat32_integration(results: &mut TestResults) {
     println!("Phase 4: FAT32 filesystem integration");
 
-    let fat_rs = match fs::read_to_string("kernel/src/fs/fat.rs") {
+    let fat_rs = match fs::read_to_string("crates/kernel/src/fs/fat.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/fs/fat.rs");
+            results.fail("Could not read crates/kernel/src/fs/fat.rs");
             return;
         }
     };
@@ -304,10 +304,10 @@ fn test_fat32_integration(results: &mut TestResults) {
 fn test_initramfs_parser(results: &mut TestResults) {
     println!("Phase 4: Initramfs CPIO parser integration");
 
-    let init_rs = match fs::read_to_string("kernel/src/init.rs") {
+    let init_rs = match fs::read_to_string("crates/kernel/src/init.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/init.rs");
+            results.fail("Could not read crates/kernel/src/init.rs");
             return;
         }
     };
@@ -331,10 +331,10 @@ fn test_initramfs_parser(results: &mut TestResults) {
 fn test_gicv3_support(results: &mut TestResults) {
     println!("Phase 5: GICv3 driver support");
 
-    let gic_rs = match fs::read_to_string("levitate-hal/src/gic.rs") {
+    let gic_rs = match fs::read_to_string("crates/hal/src/gic.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read levitate-hal/src/gic.rs");
+            results.fail("Could not read crates/hal/src/gic.rs");
             return;
         }
     };
@@ -374,10 +374,10 @@ fn test_gicv3_support(results: &mut TestResults) {
 fn test_buddy_allocator_integration(results: &mut TestResults) {
     println!("Phase 5: Buddy Allocator integration");
 
-    let memory_mod = match fs::read_to_string("kernel/src/memory/mod.rs") {
+    let memory_mod = match fs::read_to_string("crates/kernel/src/memory/mod.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/memory/mod.rs");
+            results.fail("Could not read crates/kernel/src/memory/mod.rs");
             return;
         }
     };
@@ -390,10 +390,10 @@ fn test_buddy_allocator_integration(results: &mut TestResults) {
     }
 
     // TEAM_146: Verify memory::init is called in init.rs (refactored from main.rs)
-    let init_rs = match fs::read_to_string("kernel/src/init.rs") {
+    let init_rs = match fs::read_to_string("crates/kernel/src/init.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/init.rs");
+            results.fail("Could not read crates/kernel/src/init.rs");
             return;
         }
     };
@@ -414,10 +414,10 @@ fn test_buddy_allocator_integration(results: &mut TestResults) {
 fn test_gpu_stage3_init(results: &mut TestResults) {
     println!("TEAM_065: GPU initialization in Stage 3");
 
-    let virtio_rs = match fs::read_to_string("kernel/src/virtio.rs") {
+    let virtio_rs = match fs::read_to_string("crates/kernel/src/virtio.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/virtio.rs");
+            results.fail("Could not read crates/kernel/src/virtio.rs");
             return;
         }
     };
@@ -429,10 +429,10 @@ fn test_gpu_stage3_init(results: &mut TestResults) {
         results.fail("virtio.rs missing init_gpu() - GPU not split to Stage 3");
     }
 
-    let init_rs = match fs::read_to_string("kernel/src/init.rs") {
+    let init_rs = match fs::read_to_string("crates/kernel/src/init.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/init.rs");
+            results.fail("Could not read crates/kernel/src/init.rs");
             return;
         }
     };
@@ -450,10 +450,10 @@ fn test_gpu_stage3_init(results: &mut TestResults) {
 fn test_spec4_enforcement(results: &mut TestResults) {
     println!("TEAM_065: SPEC-4 initrd failure handling");
 
-    let init_rs = match fs::read_to_string("kernel/src/init.rs") {
+    let init_rs = match fs::read_to_string("crates/kernel/src/init.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/init.rs");
+            results.fail("Could not read crates/kernel/src/init.rs");
             return;
         }
     };
@@ -477,10 +477,10 @@ fn test_spec4_enforcement(results: &mut TestResults) {
 fn test_gpu_error_handling(results: &mut TestResults) {
     println!("TEAM_065: GPU error handling");
 
-    let gpu_rs = match fs::read_to_string("kernel/src/gpu.rs") {
+    let gpu_rs = match fs::read_to_string("crates/kernel/src/gpu.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/gpu.rs");
+            results.fail("Could not read crates/kernel/src/gpu.rs");
             return;
         }
     };
@@ -495,7 +495,7 @@ fn test_gpu_error_handling(results: &mut TestResults) {
 
     // Verify DrawTarget uses GpuError, not Infallible
     // TEAM_141: DrawTarget impl is in levitate-gpu/src/lib.rs (not gpu.rs)
-    let los_gpu_lib = fs::read_to_string("levitate-gpu/src/lib.rs").unwrap_or_default();
+    let los_gpu_lib = fs::read_to_string("crates/gpu/src/lib.rs").unwrap_or_default();
     if los_gpu_lib.contains("type Error = GpuError") || gpu_rs.contains("type Error = GpuError") {
         results.pass("DrawTarget uses GpuError (not Infallible)");
     } else if los_gpu_lib.contains("type Error = core::convert::Infallible") || gpu_rs.contains("type Error = core::convert::Infallible") {
@@ -511,10 +511,10 @@ fn test_gpu_error_handling(results: &mut TestResults) {
 fn test_boot_stage_enum(results: &mut TestResults) {
     println!("TEAM_065: BootStage state machine");
 
-    let init_rs = match fs::read_to_string("kernel/src/init.rs") {
+    let init_rs = match fs::read_to_string("crates/kernel/src/init.rs") {
         Ok(c) => c,
         Err(_) => {
-            results.fail("Could not read kernel/src/init.rs");
+            results.fail("Could not read crates/kernel/src/init.rs");
             return;
         }
     };
@@ -559,7 +559,7 @@ fn test_gpu_display_actually_works(results: &mut TestResults) {
     println!("TEAM_111: GPU display - VirtIO command verification");
 
     // TEAM_115: Check levitate-gpu (replaces levitate-drivers-gpu)
-    let gpu_lib = fs::read_to_string("levitate-gpu/src/lib.rs").unwrap_or_default();
+    let gpu_lib = fs::read_to_string("crates/gpu/src/lib.rs").unwrap_or_default();
     
     // Check 1: Must use virtio-drivers VirtIOGpu
     let uses_virtio_drivers = gpu_lib.contains("virtio_drivers::device::gpu::VirtIOGpu")
@@ -590,8 +590,8 @@ fn test_gpu_display_actually_works(results: &mut TestResults) {
     }
 
     // Check 4: Kernel must call flush() after drawing
-    let kernel_gpu = fs::read_to_string("kernel/src/gpu.rs").unwrap_or_default();
-    let terminal_rs = fs::read_to_string("kernel/src/terminal.rs").unwrap_or_default();
+    let kernel_gpu = fs::read_to_string("crates/kernel/src/gpu.rs").unwrap_or_default();
+    let terminal_rs = fs::read_to_string("crates/kernel/src/terminal.rs").unwrap_or_default();
     
     let kernel_flushes = kernel_gpu.contains(".flush()")
         || terminal_rs.contains(".flush()")
@@ -692,7 +692,7 @@ fn test_qemu_window_size(results: &mut TestResults) {
 fn test_shell_backspace(results: &mut TestResults) {
     println!("TEAM_142: Shell backspace handling");
 
-    let shell_main = fs::read_to_string("userspace/shell/src/main.rs").unwrap_or_default();
+    let shell_main = fs::read_to_string("crates/userspace/shell/src/main.rs").unwrap_or_default();
     
     // Must handle both backspace codes (0x08 and 0x7f)
     if shell_main.contains("0x08") && shell_main.contains("0x7f") {
@@ -724,7 +724,7 @@ fn test_graceful_shutdown(results: &mut TestResults) {
     println!("TEAM_142: Graceful shutdown implementation");
 
     // Check kernel syscall
-    let syscall_rs = fs::read_to_string("kernel/src/syscall.rs").unwrap_or_default();
+    let syscall_rs = fs::read_to_string("crates/kernel/src/syscall.rs").unwrap_or_default();
     
     // Must have Shutdown syscall number
     if syscall_rs.contains("Shutdown = 8") {
@@ -748,7 +748,7 @@ fn test_graceful_shutdown(results: &mut TestResults) {
     }
 
     // Check libsyscall wrapper
-    let libsyscall = fs::read_to_string("userspace/libsyscall/src/lib.rs").unwrap_or_default();
+    let libsyscall = fs::read_to_string("crates/userspace/libsyscall/src/lib.rs").unwrap_or_default();
     
     if libsyscall.contains("SYS_SHUTDOWN") && libsyscall.contains("pub fn shutdown") {
         results.pass("libsyscall has shutdown() wrapper");
@@ -757,7 +757,7 @@ fn test_graceful_shutdown(results: &mut TestResults) {
     }
 
     // Check shell exit command
-    let shell_main = fs::read_to_string("userspace/shell/src/main.rs").unwrap_or_default();
+    let shell_main = fs::read_to_string("crates/userspace/shell/src/main.rs").unwrap_or_default();
     
     if shell_main.contains("exit --verbose") && shell_main.contains("shutdown") {
         results.pass("Shell 'exit --verbose' triggers shutdown");
