@@ -4,10 +4,17 @@ members = [
     "crates/hal",
     "crates/utils",
     "crates/term",
-    "crates/virtio",
     "crates/pci",
     "crates/gpu",
     "crates/error",
+    "crates/virtio-transport",
+    "crates/drivers/virtio-blk",
+    "crates/drivers/virtio-gpu",
+    "crates/drivers/virtio-input",
+    "crates/drivers/virtio-net",
+    "crates/traits/input-device",
+    "crates/traits/network-device",
+    "crates/traits/storage-device",
     "xtask",
 ]
 exclude = [

@@ -54,5 +54,8 @@ pub const SYS_GET_FOREGROUND: u32 = 1003;
 pub const SYS_ISATTY: u32 = 1010;
 
 // Legacy/Compat mappings that might be needed temporarily or specific to architecture
+// TEAM_339 BREADCRUMB: BUG - __NR_pause is x86_64 only (34). aarch64 Linux does NOT have
+// pause syscall - must use ppoll(NULL, 0, NULL, NULL) instead. This will be fixed as part
+// of the Linux ABI compatibility work. See docs/planning/linux-abi-compatibility/
 #[allow(non_upper_case_globals)]
-pub const __NR_pause: u32 = 34; // Verify arch support later
+pub const __NR_pause: u32 = 34;

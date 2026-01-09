@@ -47,3 +47,32 @@ If the change is intentional and approved:
 - [ ] No noisy logs from external crates.
 - [ ] No duplicate messages across boot stages.
 - [ ] Tests pass with `cargo xtask test behavior`.
+
+## 5. Pre-Existing Baseline Failures (TEAM_342)
+
+If tests fail **before** you make any code changes:
+
+### 5.1 Verify It's Pre-Existing
+```bash
+git status  # Check for uncommitted code changes
+git stash   # Temporarily stash changes
+cargo xtask test --arch x86_64  # Run test on clean state
+git stash pop  # Restore changes
+```
+
+### 5.2 Determine Cause
+- **Recent refactors:** Golden log may not have been updated after merges
+- **Environment differences:** Memory layout, addresses may vary
+- **New features:** Added logging that wasn't captured
+
+### 5.3 Resolution Options
+1. **Update golden log** (if current behavior is correct):
+   ```bash
+   cargo xtask test --arch x86_64 --update
+   ```
+2. **Investigate regression** (if old behavior should be restored)
+3. **Ask user** for guidance if unclear
+
+### 5.4 Rule 4 Reminder
+Per global rules: Never modify baseline data unless USER explicitly approves.
+If in doubt, ask before updating golden files.

@@ -17,7 +17,6 @@ verbose-syscalls = [] # TEAM_299: Enable verbose syscall logging
 los_hal = { path = "../hal" }
 los_utils = { path = "../utils" }
 los_error = { path = "../error" }
-los_virtio = { path = "../virtio" }
 los_term = { path = "../term" }
 los_pci = { path = "../pci" }
 los_gpu = { path = "../gpu" }
