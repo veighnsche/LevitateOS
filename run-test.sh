@@ -2,6 +2,7 @@
 # run-test.sh - Run LevitateOS internal tests
 #
 # TEAM_243: Test runner mode for AI agent verification
+# TEAM_326: Updated for refactored xtask commands.
 #
 # Boots the OS with a test-specific initramfs that runs all internal
 # tests (*_test binaries) automatically and outputs results to stdout.
@@ -12,7 +13,7 @@
 # Usage:
 #   ./run-test.sh             # Run all internal tests (x86_64)
 #   ./run-test.sh --aarch64   # Run all internal tests (AArch64)
-#   cargo xtask run test      # Same as above
+#   cargo xtask run --test    # Same as above
 
 set -e
 
@@ -26,4 +27,4 @@ for arg in "$@"; do
     esac
 done
 
-exec cargo xtask run test --arch "$ARCH" "${ARGS[@]}"
+exec cargo xtask run --test --arch "$ARCH" "${ARGS[@]}"

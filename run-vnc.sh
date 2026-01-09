@@ -2,6 +2,7 @@
 # run-vnc.sh - Run LevitateOS in QEMU with VNC for browser viewing
 #
 # TEAM_111: Created to enable browser-based QEMU display debugging
+# TEAM_326: Consider using: cargo xtask run --vnc
 #
 # Flags:
 #   --aarch64  - Run on AArch64 instead of x86_64 (default)

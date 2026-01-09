@@ -2,6 +2,7 @@
 # run-pixel6.sh - Build and run LevitateOS in QEMU with Pixel 6 hardware profile
 #
 # TEAM_042: Pixel 6 Emulation Profile (Updated with mitigations)
+# TEAM_326: Consider using: cargo xtask run --profile pixel6 --arch aarch64
 #
 # NOTE: This script is AArch64-only (Pixel 6 is an ARM device)
 #
