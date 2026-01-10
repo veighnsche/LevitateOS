@@ -30,6 +30,7 @@ use std::path::PathBuf;
 
 mod build;
 mod calc;
+mod config;
 mod disk;
 mod qemu;
 mod run;
@@ -57,11 +58,11 @@ enum Commands {
     // === Most Common ===
     /// Run QEMU (builds first if needed)
     Run(RunArgs),
-    
+
     /// Build components
     #[command(subcommand)]
     Build(build::BuildCommands),
-    
+
     /// Run tests
     Test(TestArgs),
 
@@ -69,7 +70,7 @@ enum Commands {
     /// Interact with running VM (session, debug, exec)
     #[command(subcommand)]
     Vm(vm::VmCommands),
-    
+
     // === Disk Management ===
     /// Manage disk images
     #[command(subcommand)]
@@ -78,13 +79,13 @@ enum Commands {
     // === Utilities ===
     /// Run preflight checks
     Check,
-    
+
     /// Clean up artifacts and QEMU locks
     Clean,
-    
+
     /// Kill any running QEMU instances
     Kill,
-    
+
     /// Debug calculator for memory/address/bit math
     #[command(subcommand)]
     Calc(calc::CalcCommands),
@@ -96,41 +97,40 @@ pub struct RunArgs {
     /// Run with GDB server enabled (port 1234)
     #[arg(long)]
     pub gdb: bool,
-    
+
     /// Wait for GDB connection on startup (requires --gdb)
     #[arg(long)]
     pub wait: bool,
-    
+
     /// Run in terminal-only mode (no GUI window)
     #[arg(long)]
     pub term: bool,
-    
+
     /// Run with VNC display for browser verification
     #[arg(long)]
     pub vnc: bool,
-    
+
     /// Run headless (no display)
     #[arg(long)]
     pub headless: bool,
-    
+
     // TEAM_370: Removed --iso flag - x86_64 always uses ISO, aarch64 can't use ISO
-    
     /// Enable GPU debug tracing
     #[arg(long)]
     pub gpu_debug: bool,
-    
+
     /// QEMU profile (default, pixel6)
     #[arg(long, default_value = "default")]
     pub profile: String,
-    
+
     /// Run internal OS tests
     #[arg(long)]
     pub test: bool,
-    
+
     /// Verify GPU display via VNC
     #[arg(long)]
     pub verify_gpu: bool,
-    
+
     /// Timeout for verify-gpu (seconds)
     #[arg(long, default_value = "30")]
     pub timeout: u32,
@@ -152,7 +152,10 @@ fn main() -> Result<()> {
     let arch = cli.arch.as_str();
 
     if arch != "aarch64" && arch != "x86_64" {
-        bail!("Unsupported architecture: {}. Use 'aarch64' or 'x86_64'", arch);
+        bail!(
+            "Unsupported architecture: {}. Use 'aarch64' or 'x86_64'",
+            arch
+        );
     }
 
     // Ensure we're in project root
@@ -208,7 +211,7 @@ fn main() -> Result<()> {
         // TEAM_326: Refactored command handlers
         Commands::Run(args) => {
             preflight::check_preflight(arch)?;
-            
+
             // Handle special modes first
             if args.test {
                 run::run_qemu_test(arch)?;

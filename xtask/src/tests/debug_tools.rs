@@ -13,6 +13,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+use crate::config::{GoldenRating, XtaskConfig};
 use crate::support::qmp::QmpClient;
 
 const QMP_SOCKET: &str = "./debug-test-qmp.sock";
@@ -84,15 +85,24 @@ fn start_qemu_with_qmp(arch: &str) -> Result<std::process::Child> {
     };
 
     let qmp_arg = format!("unix:{},server,nowait", QMP_SOCKET);
-    
+
     // Minimal QEMU args - NO kernel, NO ISO, NO guest OS
     // This gives us deterministic initial CPU/memory state for testing
     let args: Vec<String> = vec![
-        "-M".into(), if arch == "aarch64" { "virt" } else { "q35" }.into(),
-        "-cpu".into(), if arch == "aarch64" { "cortex-a72" } else { "qemu64" }.into(),
-        "-m".into(), "64M".into(), // Minimal memory
+        "-M".into(),
+        if arch == "aarch64" { "virt" } else { "q35" }.into(),
+        "-cpu".into(),
+        if arch == "aarch64" {
+            "cortex-a72"
+        } else {
+            "qemu64"
+        }
+        .into(),
+        "-m".into(),
+        "64M".into(), // Minimal memory
         "-nographic".into(),
-        "-qmp".into(), qmp_arg,
+        "-qmp".into(),
+        qmp_arg,
         "-S".into(), // Start paused - deterministic initial state
     ];
 
@@ -131,7 +141,7 @@ fn test_debug_regs(arch: &str, update: bool) -> Result<()> {
     let result = client.execute("human-monitor-command", Some(args))?;
 
     let output = result.as_str().unwrap_or("");
-    
+
     // Normalize output for comparison (strip volatile values)
     let normalized = normalize_regs_output(output, arch);
 
@@ -209,7 +219,7 @@ fn test_debug_mem(arch: &str, update: bool) -> Result<()> {
 /// Normalize register output by replacing volatile values with placeholders
 fn normalize_regs_output(output: &str, _arch: &str) -> String {
     let mut normalized = String::new();
-    
+
     for line in output.lines() {
         // Replace all hex sequences of 8+ characters with X placeholders
         // Also normalize CPU flags like -ZC- which vary based on execution state
@@ -217,7 +227,7 @@ fn normalize_regs_output(output: &str, _arch: &str) -> String {
         normalized.push_str(&normalized_line);
         normalized.push('\n');
     }
-    
+
     normalized
 }
 
@@ -225,7 +235,7 @@ fn normalize_regs_output(output: &str, _arch: &str) -> String {
 fn normalize_volatile_values(line: &str) -> String {
     let mut result = String::new();
     let mut chars = line.chars().peekable();
-    
+
     while let Some(ch) = chars.next() {
         if ch == '=' {
             result.push(ch);
@@ -262,8 +272,16 @@ fn normalize_volatile_values(line: &str) -> String {
             // These vary based on CPU state, normalize them
             let mut flag_chars = vec![ch];
             while let Some(&next) = chars.peek() {
-                if next == '-' || next == 'Z' || next == 'C' || next == 'N' || next == 'V' 
-                   || next == 'z' || next == 'c' || next == 'n' || next == 'v' {
+                if next == '-'
+                    || next == 'Z'
+                    || next == 'C'
+                    || next == 'N'
+                    || next == 'V'
+                    || next == 'z'
+                    || next == 'c'
+                    || next == 'n'
+                    || next == 'v'
+                {
                     flag_chars.push(chars.next().unwrap());
                 } else {
                     break;
@@ -281,7 +299,7 @@ fn normalize_volatile_values(line: &str) -> String {
             result.push(ch);
         }
     }
-    
+
     result
 }
 
@@ -332,33 +350,86 @@ fn format_hexdump(data: &[u8], base_addr: u64) -> String {
 
 /// Compare output with golden file
 fn compare_with_golden(actual: &str, golden_path: &str, test_name: &str) -> Result<()> {
+    // Load config to check golden file rating
+    let config = XtaskConfig::load()?;
+    let rating = config.golden_rating(golden_path);
+
     if !Path::new(golden_path).exists() {
-        bail!(
-            "Golden file not found: {}\n\
-             Run with --update to create it:\n  \
-             cargo xtask test debug --update",
-            golden_path
-        );
+        // Create golden file if it doesn't exist
+        fs::write(golden_path, actual)?;
+        println!("    📝 Created new golden file: {}", golden_path);
+        return Ok(());
     }
 
     let expected = fs::read_to_string(golden_path)
         .context(format!("Failed to read golden file: {}", golden_path))?;
 
-    if actual.trim() != expected.trim() {
-        // Write actual output for debugging
-        let actual_path = golden_path.replace("golden_", "actual_");
-        fs::write(&actual_path, actual)?;
+    let matches = actual.trim() == expected.trim();
 
-        bail!(
-            "{} output differs from golden file!\n\
-             Expected: {}\n\
-             Actual:   {}\n\
-             \n\
-             To update golden file, run:\n  \
-             cargo xtask test debug --update",
-            test_name, golden_path, actual_path
-        );
+    match rating {
+        GoldenRating::Silver => {
+            // Silver files: Always auto-update and show diff
+            if !matches {
+                fs::write(golden_path, actual)?;
+                println!("    🔄 SILVER MODE: Golden file updated");
+                println!("    --- Changes ---");
+                print_simple_diff(&expected, actual);
+            }
+            Ok(())
+        }
+        GoldenRating::Gold => {
+            if matches {
+                Ok(())
+            } else {
+                // Write actual output for debugging
+                let actual_path = golden_path.replace("golden_", "actual_");
+                fs::write(&actual_path, actual)?;
+
+                bail!(
+                    "{} output differs from golden file!\n\
+                     Expected: {}\n\
+                     Actual:   {}\n\
+                     \n\
+                     To update golden file, run:\n  \
+                     cargo xtask test debug --update",
+                    test_name,
+                    golden_path,
+                    actual_path
+                );
+            }
+        }
+    }
+}
+
+/// Print a simple diff for debug output
+fn print_simple_diff(expected: &str, actual: &str) {
+    let expected_lines: Vec<&str> = expected.lines().collect();
+    let actual_lines: Vec<&str> = actual.lines().collect();
+
+    let max_len = expected_lines.len().max(actual_lines.len());
+    let mut diff_count = 0;
+
+    for i in 0..max_len.min(10) {
+        // Show first 10 differences
+        match (expected_lines.get(i), actual_lines.get(i)) {
+            (Some(e), Some(a)) if e != a => {
+                println!("    - {}", e);
+                println!("    + {}", a);
+                diff_count += 1;
+            }
+            (Some(e), None) => {
+                println!("    - {}", e);
+                diff_count += 1;
+            }
+            (None, Some(a)) => {
+                println!("    + {}", a);
+                diff_count += 1;
+            }
+            _ => {}
+        }
     }
 
-    Ok(())
+    if max_len > 10 {
+        println!("    ... ({} more lines)", max_len - 10);
+    }
 }

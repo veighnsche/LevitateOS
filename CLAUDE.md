@@ -71,6 +71,10 @@ cargo xtask test levitate      # LevitateOS display tests
 # Update golden files when behavior intentionally changes
 cargo xtask test behavior --update
 cargo xtask test debug --update
+
+# Configure golden file ratings (gold = strict, silver = auto-update)
+# Edit xtask.toml to set files as "silver" during active development
+# See docs/development/silver-golden-files.md for details
 ```
 
 ### VM Interaction

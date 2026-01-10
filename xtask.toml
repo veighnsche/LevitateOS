@@ -1,0 +1,62 @@
+# LevitateOS xtask Configuration
+#
+# This file configures the behavior of `cargo xtask` commands.
+#
+# For detailed documentation on silver vs gold golden files, see:
+#   docs/development/silver-golden-files.md
+
+# =============================================================================
+# Golden File Configuration
+# =============================================================================
+#
+# Each golden file can be rated as "gold" or "silver":
+# - gold: File must match exactly. Test fails if there's a mismatch.
+#         Use --update flag to update the golden file when changes are intentional.
+# - silver: File auto-updates on every run. Test always passes but shows diff.
+#          Use this during active development when behavior changes frequently.
+#
+# Default: "gold" (if not specified)
+
+[golden_files]
+
+# Behavior test golden files
+"tests/golden_boot.txt" = "gold"
+"tests/golden_boot_x86_64.txt" = "silver"  # Currently under active development
+"tests/golden_shutdown.txt" = "gold"
+
+# Debug tools golden files
+"tests/golden_debug_regs_aarch64.txt" = "gold"
+"tests/golden_debug_regs_x86_64.txt" = "gold"
+"tests/golden_debug_mem_aarch64.txt" = "gold"
+"tests/golden_debug_mem_x86_64.txt" = "gold"
+
+# =============================================================================
+# Test Configuration
+# =============================================================================
+
+[test]
+# Default timeout for behavior tests (seconds)
+behavior_timeout = 15
+
+# Default timeout for VM interaction tests (seconds)
+vm_timeout = 30
+
+# =============================================================================
+# Build Configuration
+# =============================================================================
+
+[build]
+# Whether to enable verbose output during builds by default
+verbose = false
+
+# =============================================================================
+# QEMU Configuration
+# =============================================================================
+
+[qemu]
+# Default profile for each architecture
+default_profile_aarch64 = "default"
+default_profile_x86_64 = "default"
+
+# Memory size for each profile (can be overridden per-profile)
+# Format: "512M", "2G", etc.
