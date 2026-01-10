@@ -4,10 +4,135 @@
 //! - Per-process TTBR0 page table creation
 //! - User memory mapping functions
 //! - Address space layout for user processes
+//!
+//! TEAM_415: Refactored with StackWriter and auxv submodule.
 
 use crate::memory::FRAME_ALLOCATOR;
 use los_hal::mmu::{self, MmuError, PAGE_SIZE, PageFlags, PageTable};
 use los_hal::traits::PageAllocator;
+
+// ============================================================================
+// TEAM_415: Auxiliary Vector Types and Constants
+// ============================================================================
+
+/// TEAM_217: Auxiliary Vector entry type.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AuxEntry {
+    pub a_type: usize,
+    pub a_val: usize,
+}
+
+pub const AT_NULL: usize = 0;
+pub const AT_PHDR: usize = 3;
+pub const AT_PHENT: usize = 4;
+pub const AT_PHNUM: usize = 5;
+pub const AT_PAGESZ: usize = 6;
+pub const AT_BASE: usize = 7;   // TEAM_354: Base address for PIE
+pub const AT_ENTRY: usize = 9;  // TEAM_354: Entry point
+pub const AT_HWCAP: usize = 16;
+pub const AT_RANDOM: usize = 25;
+
+// ============================================================================
+// TEAM_415: StackWriter - Helper for setting up user stack
+// ============================================================================
+
+/// TEAM_415: Helper struct for writing to user stack during process setup.
+///
+/// Encapsulates the common pattern of writing bytes, usizes, and strings
+/// to a user stack through page table translation.
+struct StackWriter {
+    ttbr0_phys: usize,
+    sp: usize,
+}
+
+impl StackWriter {
+    /// Create a new StackWriter starting at the given stack pointer.
+    fn new(ttbr0_phys: usize, stack_top: usize) -> Self {
+        Self { ttbr0_phys, sp: stack_top }
+    }
+
+    /// Get the current stack pointer.
+    fn sp(&self) -> usize {
+        self.sp
+    }
+
+    /// Write raw bytes to the stack (growing downward).
+    fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), MmuError> {
+        self.sp -= bytes.len();
+        for (i, &byte) in bytes.iter().enumerate() {
+            let ptr = user_va_to_kernel_ptr(self.ttbr0_phys, self.sp + i)
+                .ok_or(MmuError::InvalidVirtualAddress)?;
+            // SAFETY: ptr is valid from user_va_to_kernel_ptr
+            unsafe { *ptr = byte; }
+        }
+        Ok(())
+    }
+
+    /// Write a usize to the stack (growing downward).
+    fn write_usize(&mut self, val: usize) -> Result<(), MmuError> {
+        self.sp -= core::mem::size_of::<usize>();
+        let ptr = user_va_to_kernel_ptr(self.ttbr0_phys, self.sp)
+            .ok_or(MmuError::InvalidVirtualAddress)?;
+        // SAFETY: ptr is valid and aligned for usize write
+        unsafe { *(ptr as *mut usize) = val; }
+        Ok(())
+    }
+
+    /// Write a null-terminated string to the stack.
+    /// Returns the user-space pointer to the string.
+    fn write_string(&mut self, s: &str) -> Result<usize, MmuError> {
+        let len = s.len() + 1; // Include null terminator
+        self.sp -= len;
+        self.sp &= !7; // Align to 8 bytes
+        let str_ptr = self.sp;
+
+        for (i, byte) in s.bytes().enumerate() {
+            let ptr = user_va_to_kernel_ptr(self.ttbr0_phys, str_ptr + i)
+                .ok_or(MmuError::InvalidVirtualAddress)?;
+            // SAFETY: ptr is valid from user_va_to_kernel_ptr
+            unsafe { *ptr = byte; }
+        }
+        // Null terminator
+        let ptr = user_va_to_kernel_ptr(self.ttbr0_phys, str_ptr + s.len())
+            .ok_or(MmuError::InvalidVirtualAddress)?;
+        // SAFETY: ptr is valid from user_va_to_kernel_ptr
+        unsafe { *ptr = 0; }
+
+        Ok(str_ptr)
+    }
+
+    /// Align the stack pointer to 16 bytes, with optional extra padding.
+    fn align16(&mut self, extra_padding: bool) {
+        self.sp &= !15;
+        if extra_padding {
+            self.sp -= 8;
+        }
+    }
+}
+
+// ============================================================================
+// TEAM_415: Page Allocation Helper
+// ============================================================================
+
+/// TEAM_415: Allocate, zero, and map a single page.
+///
+/// Common pattern used by setup_user_stack, setup_user_tls, and alloc_and_map_heap_page.
+fn alloc_zero_map_page(ttbr0_phys: usize, user_va: usize, flags: PageFlags) -> Result<(), MmuError> {
+    // Allocate physical page
+    let phys = FRAME_ALLOCATOR
+        .alloc_page()
+        .ok_or(MmuError::AllocationFailed)?;
+
+    // Zero the page for security
+    let page_ptr = mmu::phys_to_virt(phys) as *mut u8;
+    // SAFETY: phys was just allocated and is valid
+    unsafe { core::ptr::write_bytes(page_ptr, 0, PAGE_SIZE); }
+
+    // Map into user address space
+    // SAFETY: caller ensures ttbr0_phys and user_va are valid
+    unsafe { map_user_page(ttbr0_phys, user_va, phys, flags) }
+}
 
 /// TEAM_073: User address space layout constants.
 pub mod layout {
@@ -161,88 +286,32 @@ pub unsafe fn map_user_range(
 ///
 /// # Returns
 /// Initial stack pointer (top of stack) on success.
+/// TEAM_415: Refactored to use alloc_zero_map_page helper.
 pub unsafe fn setup_user_stack(ttbr0_phys: usize, stack_pages: usize) -> Result<usize, MmuError> {
     let stack_size = stack_pages * PAGE_SIZE;
     let stack_bottom = layout::STACK_TOP - stack_size;
 
-    // Allocate physical pages for stack
     for i in 0..stack_pages {
         let page_va = stack_bottom + i * PAGE_SIZE;
-
-        // Allocate physical page
-        let phys = FRAME_ALLOCATOR
-            .alloc_page()
-            .ok_or(MmuError::AllocationFailed)?;
-
-        // Zero the stack page for security
-        let page_ptr = mmu::phys_to_virt(phys) as *mut u8;
-        // SAFETY: phys was just allocated and is valid. We zero it to prevent
-        // information leakage between processes.
-        unsafe {
-            core::ptr::write_bytes(page_ptr, 0, PAGE_SIZE);
-        }
-
-        // Map into user address space
-        // SAFETY: ttbr0_phys and page_va are validated by the caller or setup.
-        unsafe {
-            map_user_page(ttbr0_phys, page_va, phys, PageFlags::USER_STACK)?;
-        }
+        alloc_zero_map_page(ttbr0_phys, page_va, PageFlags::USER_STACK)?;
     }
 
-    // Return stack pointer (top of stack, stack grows down)
     Ok(layout::STACK_TOP)
 }
 
 /// TEAM_408: Allocate and map TLS area for user process.
+/// TEAM_415: Refactored to use alloc_zero_map_page helper.
 ///
 /// On AArch64, TPIDR_EL0 points to this area. Userspace runtimes like
 /// Origin/Eyra expect a valid TLS pointer on entry.
-///
-/// # Arguments
-/// * `ttbr0_phys` - Physical address of user L0 page table
-///
-/// # Returns
-/// Virtual address of TLS area (to set in TPIDR_EL0) on success.
 pub unsafe fn setup_user_tls(ttbr0_phys: usize) -> Result<usize, MmuError> {
-    // Allocate physical page for TLS
-    let phys = FRAME_ALLOCATOR
-        .alloc_page()
-        .ok_or(MmuError::AllocationFailed)?;
-
-    // Zero the TLS page
-    let page_ptr = mmu::phys_to_virt(phys) as *mut u8;
-    unsafe {
-        core::ptr::write_bytes(page_ptr, 0, PAGE_SIZE);
-    }
-
-    // Map into user address space at TLS_BASE
-    unsafe {
-        map_user_page(ttbr0_phys, layout::TLS_BASE, phys, PageFlags::USER_DATA)?;
-    }
-
+    alloc_zero_map_page(ttbr0_phys, layout::TLS_BASE, PageFlags::USER_DATA)?;
     log::debug!("[TLS] TEAM_408: Allocated TLS at 0x{:x}", layout::TLS_BASE);
     Ok(layout::TLS_BASE)
 }
 
-/// TEAM_217: Auxiliary Vector entry type.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AuxEntry {
-    pub a_type: usize,
-    pub a_val: usize,
-}
-
-pub const AT_NULL: usize = 0;
-pub const AT_PHDR: usize = 3;
-pub const AT_PHENT: usize = 4;
-pub const AT_PHNUM: usize = 5;
-pub const AT_PAGESZ: usize = 6;
-pub const AT_BASE: usize = 7;   // TEAM_354: Base address for PIE
-pub const AT_ENTRY: usize = 9;  // TEAM_354: Entry point
-pub const AT_HWCAP: usize = 16;
-pub const AT_RANDOM: usize = 25;
-
 /// TEAM_169: Set up user stack with argc/argv/envp/auxv.
+/// TEAM_415: Refactored to use StackWriter.
 ///
 /// Per Phase 2 Q5 decision: Stack-based argument passing (Linux ABI compatible).
 ///
@@ -252,7 +321,7 @@ pub const AT_RANDOM: usize = 25;
 ///   +---------------+
 ///   | random data   |  <- 16 bytes for AT_RANDOM
 ///   | env strings   |  <- Environment variable strings
-///   | arg strings   |  <- Argument strings  
+///   | arg strings   |  <- Argument strings
 ///   | AT_NULL       |  <- auxv terminator
 ///   | auxv[n]       |  <- Auxiliary vector entries
 ///   | ...           |
@@ -269,16 +338,6 @@ pub const AT_RANDOM: usize = 25;
 ///   +---------------+
 /// Low addresses
 /// ```
-///
-/// # Arguments
-/// * `ttbr0_phys` - Physical address of user L0 page table
-/// * `stack_top` - Top of the allocated stack
-/// * `args` - Argument strings
-/// * `envs` - Environment variable strings
-/// * `auxv` - Auxiliary vector entries
-///
-/// # Returns
-/// New stack pointer after setting up arguments.
 pub fn setup_stack_args(
     ttbr0_phys: usize,
     stack_top: usize,
@@ -286,147 +345,63 @@ pub fn setup_stack_args(
     envs: &[&str],
     auxv: &[AuxEntry],
 ) -> Result<usize, MmuError> {
-    let mut sp = stack_top;
-
-    // Helper to write raw bytes to user stack
-    let write_bytes = |sp: &mut usize, bytes: &[u8]| -> Result<(), MmuError> {
-        *sp -= bytes.len();
-        for (i, &byte) in bytes.iter().enumerate() {
-            let ptr = user_va_to_kernel_ptr(ttbr0_phys, *sp + i)
-                .ok_or(MmuError::InvalidVirtualAddress)?;
-            unsafe {
-                *ptr = byte;
-            }
-        }
-        Ok(())
-    };
-
-    // Helper to write a usize to user stack
-    let write_usize = |sp: &mut usize, val: usize| -> Result<(), MmuError> {
-        *sp -= core::mem::size_of::<usize>();
-        let ptr = user_va_to_kernel_ptr(ttbr0_phys, *sp).ok_or(MmuError::InvalidVirtualAddress)?;
-        unsafe {
-            *(ptr as *mut usize) = val;
-        }
-        Ok(())
-    };
-
-    // Helper to write a string to user stack (returns pointer to string)
-    let write_string = |sp: &mut usize, s: &str| -> Result<usize, MmuError> {
-        let len = s.len() + 1; // Include null terminator
-        *sp -= len;
-        *sp &= !7; // Align to 8 bytes
-        let str_ptr = *sp;
-
-        for (i, byte) in s.bytes().enumerate() {
-            let ptr = user_va_to_kernel_ptr(ttbr0_phys, str_ptr + i)
-                .ok_or(MmuError::InvalidVirtualAddress)?;
-            unsafe {
-                *ptr = byte;
-            }
-        }
-        // Null terminator
-        let ptr = user_va_to_kernel_ptr(ttbr0_phys, str_ptr + s.len())
-            .ok_or(MmuError::InvalidVirtualAddress)?;
-        unsafe {
-            *ptr = 0;
-        }
-
-        Ok(str_ptr)
-    };
+    let mut sw = StackWriter::new(ttbr0_phys, stack_top);
 
     // 0. Write random data for AT_RANDOM
     let mut random_bytes = [0u8; 16];
-    // TODO: Use actual entropy
     for i in 0..16 {
-        random_bytes[i] = (i * 7) as u8;
+        random_bytes[i] = (i * 7) as u8; // TODO: Use actual entropy
     }
-    write_bytes(&mut sp, &random_bytes)?;
-    let random_ptr = sp;
+    sw.write_bytes(&random_bytes)?;
+    let random_ptr = sw.sp();
 
     // 1. Write all strings to stack (env first, then args)
     let mut env_ptrs = alloc::vec::Vec::new();
     for env in envs.iter().rev() {
-        let ptr = write_string(&mut sp, env)?;
-        env_ptrs.push(ptr);
+        env_ptrs.push(sw.write_string(env)?);
     }
     env_ptrs.reverse();
 
     let mut arg_ptrs = alloc::vec::Vec::new();
     for arg in args.iter().rev() {
-        let ptr = write_string(&mut sp, arg)?;
-        arg_ptrs.push(ptr);
+        arg_ptrs.push(sw.write_string(arg)?);
     }
     arg_ptrs.reverse();
 
-    // TEAM_363: Calculate total size of pointer arrays to ensure 16-byte alignment.
-    // The x86-64 ABI requires 16-byte stack alignment at function entry.
-    // We need to pre-calculate the size and add padding if necessary.
-    //
-    // Size calculation:
-    // - auxv: (auxv.len() + 4 mandatory entries) * 16 bytes each
-    // - envp: (envs.len() + 1 NULL) * 8 bytes
-    // - argv: (args.len() + 1 NULL) * 8 bytes  
-    // - argc: 8 bytes
+    // TEAM_363: Calculate total size for 16-byte alignment (x86-64 ABI requirement)
     let auxv_entries = auxv.len() + 4; // AT_PAGESZ, AT_HWCAP, AT_RANDOM, AT_NULL
-    let total_array_size = 
-        auxv_entries * 16 +           // auxv (each entry is 2 usizes)
-        (envs.len() + 1) * 8 +        // envp + NULL
-        (args.len() + 1) * 8 +        // argv + NULL
-        8;                             // argc
-    
-    // Align sp to 16 bytes, accounting for the total size we'll write
-    sp &= !15;
-    // If total size is not 16-byte aligned, we need extra padding
-    if total_array_size % 16 != 0 {
-        sp -= 8; // Add 8 bytes of padding
-    }
+    let total_array_size = auxv_entries * 16 + (envs.len() + 1) * 8 + (args.len() + 1) * 8 + 8;
+    sw.align16(total_array_size % 16 != 0);
 
-    // 2. Write Auxiliary Vector (auxv)
-    // Add mandatory entries
+    // 2. Write Auxiliary Vector (auxv) with mandatory entries
     let mut final_auxv = alloc::vec::Vec::from(auxv);
-    final_auxv.push(AuxEntry {
-        a_type: AT_PAGESZ,
-        a_val: PAGE_SIZE,
-    });
-    final_auxv.push(AuxEntry {
-        a_type: AT_HWCAP,
-        a_val: 0,
-    }); // TODO: Pass actual HWCAP
-    final_auxv.push(AuxEntry {
-        a_type: AT_RANDOM,
-        a_val: random_ptr,
-    });
-    final_auxv.push(AuxEntry {
-        a_type: AT_NULL,
-        a_val: 0,
-    });
+    final_auxv.push(AuxEntry { a_type: AT_PAGESZ, a_val: PAGE_SIZE });
+    final_auxv.push(AuxEntry { a_type: AT_HWCAP, a_val: 0 }); // TODO: Pass actual HWCAP
+    final_auxv.push(AuxEntry { a_type: AT_RANDOM, a_val: random_ptr });
+    final_auxv.push(AuxEntry { a_type: AT_NULL, a_val: 0 });
 
     for entry in final_auxv.iter().rev() {
-        write_usize(&mut sp, entry.a_val)?;
-        write_usize(&mut sp, entry.a_type)?;
+        sw.write_usize(entry.a_val)?;
+        sw.write_usize(entry.a_type)?;
     }
 
     // 3. Write envp[] array (NULL terminated)
-    write_usize(&mut sp, 0)?;
+    sw.write_usize(0)?;
     for ptr in env_ptrs.iter().rev() {
-        write_usize(&mut sp, *ptr)?;
+        sw.write_usize(*ptr)?;
     }
 
     // 4. Write argv[] array (NULL terminated)
-    write_usize(&mut sp, 0)?;
+    sw.write_usize(0)?;
     for ptr in arg_ptrs.iter().rev() {
-        write_usize(&mut sp, *ptr)?;
+        sw.write_usize(*ptr)?;
     }
 
     // 5. Write argc
-    let argc = args.len();
-    write_usize(&mut sp, argc)?;
+    sw.write_usize(args.len())?;
 
-    // Verify alignment (should already be aligned due to pre-calculation above)
-    debug_assert!(sp % 16 == 0, "Stack not 16-byte aligned: sp=0x{:x}", sp);
-
-    Ok(sp)
+    debug_assert!(sw.sp() % 16 == 0, "Stack not 16-byte aligned: sp=0x{:x}", sw.sp());
+    Ok(sw.sp())
 }
 
 /// TEAM_073: Allocate physical pages and map them for user code/data.
@@ -566,33 +541,9 @@ pub unsafe fn destroy_user_page_table(ttbr0_phys: usize) -> Result<(), MmuError>
 }
 
 /// TEAM_166: Allocate and map a single heap page for sbrk.
-///
-/// # Arguments
-/// * `ttbr0_phys` - Physical address of user L0 page table
-/// * `user_va` - Virtual address to map (page-aligned)
-///
-/// # Returns
-/// Ok(()) on success, Err on allocation or mapping failure.
+/// TEAM_415: Now delegates to alloc_zero_map_page helper.
 pub fn alloc_and_map_heap_page(ttbr0_phys: usize, user_va: usize) -> Result<(), MmuError> {
-    // Allocate physical page
-    let phys = FRAME_ALLOCATOR
-        .alloc_page()
-        .ok_or(MmuError::AllocationFailed)?;
-
-    // Zero the page for security
-    let page_ptr = mmu::phys_to_virt(phys) as *mut u8;
-    // SAFETY: The page was just allocated and is valid.
-    unsafe {
-        core::ptr::write_bytes(page_ptr, 0, PAGE_SIZE);
-    }
-
-    // Map into user address space with heap flags (RW, user accessible)
-    // SAFETY: ttbr0_phys and user_va are validated.
-    unsafe {
-        map_user_page_at(ttbr0_phys, user_va, phys, PageFlags::USER_DATA)?;
-    }
-
-    Ok(())
+    alloc_zero_map_page(ttbr0_phys, user_va, PageFlags::USER_DATA)
 }
 
 /// TEAM_166: Internal helper - map a page at a specific physical address.

@@ -36,8 +36,12 @@ pub fn sys_writev(fd: usize, iov_ptr: usize, count: usize) -> i64 {
 
     for i in 0..count {
         let entry_addr = iov_ptr + i * core::mem::size_of::<UserIoVec>();
+        // TEAM_416: Replace unwrap() with proper error handling for panic safety
         let iov = unsafe {
-            let kptr = mm_user::user_va_to_kernel_ptr(ttbr0, entry_addr).unwrap();
+            let kptr = match mm_user::user_va_to_kernel_ptr(ttbr0, entry_addr) {
+                Some(p) => p,
+                None => return errno::EFAULT,
+            };
             *(kptr as *const UserIoVec)
         };
 
@@ -87,8 +91,11 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
-            // SAFETY: validate_user_buffer confirmed buffer is accessible
-            let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            // TEAM_416: Replace unwrap() with proper error handling for panic safety
+            let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
+                Some(p) => p,
+                None => return errno::EFAULT,
+            };
             unsafe {
                 core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
@@ -111,8 +118,11 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
-            // SAFETY: validate_user_buffer confirmed buffer is accessible
-            let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            // TEAM_416: Replace unwrap() with proper error handling for panic safety
+            let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
+                Some(p) => p,
+                None => return errno::EFAULT,
+            };
             unsafe {
                 core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
@@ -129,8 +139,11 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
-            // SAFETY: validate_user_buffer confirmed buffer is accessible
-            let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            // TEAM_416: Replace unwrap() with proper error handling for panic safety
+            let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
+                Some(p) => p,
+                None => return errno::EFAULT,
+            };
             unsafe {
                 core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
@@ -159,8 +172,11 @@ fn write_to_tty(
     }
 
     let mut kbuf = alloc::vec![0u8; len];
-    // SAFETY: validate_user_buffer confirmed buffer is accessible
-    let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+    // TEAM_416: Replace unwrap() with proper error handling for panic safety
+    let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
+        Some(p) => p,
+        None => return errno::EFAULT,
+    };
     unsafe {
         core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
     }

@@ -125,8 +125,11 @@ pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
     // Initialize PRNG if needed
     let _ = get_prng_state();
 
-    // SAFETY: validate_user_buffer confirmed buffer is accessible
-    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf).unwrap();
+    // TEAM_416: Replace unwrap() with proper error handling for panic safety
+    let dest = match mm_user::user_va_to_kernel_ptr(task.ttbr0, buf) {
+        Some(ptr) => ptr,
+        None => return crate::syscall::errno::EFAULT,
+    };
 
     // Fill buffer with random bytes
     let mut written = 0usize;

@@ -11,9 +11,12 @@ pub mod sys;
 pub mod time;
 
 // TEAM_413: Re-export commonly used helpers
+// TEAM_415: Added ioctl helpers
 pub use helpers::{
     get_fd, get_vfs_file, is_valid_fd, read_struct_from_user, read_user_path, resolve_at_path,
     write_struct_to_user, SyscallResultExt, UserPtr, UserSlice,
+    ioctl_get_termios, ioctl_read_termios, ioctl_write_i32, ioctl_read_i32,
+    ioctl_write_u32, ioctl_read_u32,
 };
 
 pub use crate::arch::{Stat, SyscallFrame, SyscallNumber, Timespec, is_svc_exception};

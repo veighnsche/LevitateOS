@@ -113,8 +113,11 @@ pub fn sys_getcwd(buf: usize, size: usize) -> i64 {
         return errno::ERANGE;
     }
 
-    // SAFETY: validate_user_buffer confirmed buffer is accessible
-    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf).unwrap();
+    // TEAM_416: Replace unwrap() with proper error handling for panic safety
+    let dest = match mm_user::user_va_to_kernel_ptr(task.ttbr0, buf) {
+        Some(p) => p,
+        None => return errno::EFAULT,
+    };
     unsafe {
         core::ptr::copy_nonoverlapping(path.as_bytes().as_ptr(), dest, path_len);
         *dest.add(path_len) = 0; // null terminator

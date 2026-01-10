@@ -5,15 +5,21 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     if target_arch == "x86_64" {
-        // TEAM_258: Compile assembly boot code for x86_64
+        // TEAM_415: Compile assembly boot code for x86_64 (split into multiple files)
         cc::Build::new()
-            .file("src/arch/x86_64/boot.S")
+            .file("src/arch/x86_64/asm/boot.S")
+            .file("src/arch/x86_64/asm/gdt.S")
+            .file("src/arch/x86_64/asm/page_tables.S")
+            .file("src/arch/x86_64/asm/long_mode.S")
             .flag("-fno-PIC")
             .flag("-mno-red-zone")
             .compile("boot");
 
         // Rerun if assembly changes
-        println!("cargo:rerun-if-changed=src/arch/x86_64/boot.S");
+        println!("cargo:rerun-if-changed=src/arch/x86_64/asm/boot.S");
+        println!("cargo:rerun-if-changed=src/arch/x86_64/asm/gdt.S");
+        println!("cargo:rerun-if-changed=src/arch/x86_64/asm/page_tables.S");
+        println!("cargo:rerun-if-changed=src/arch/x86_64/asm/long_mode.S");
         // Rerun if linker script changes
         println!("cargo:rerun-if-changed=src/arch/x86_64/linker.ld");
 

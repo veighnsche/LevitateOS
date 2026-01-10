@@ -421,6 +421,68 @@ impl<T> SyscallResultExt<T> for Result<T, crate::fs::vfs::error::VfsError> {
     }
 }
 
+// ============================================================================
+// TEAM_415: Ioctl Helpers for FD operations
+// ============================================================================
+
+use crate::fs::tty::Termios;
+
+/// TEAM_415: Write a termios struct to user space.
+///
+/// This helper encapsulates the common pattern in TCGETS ioctl handlers.
+pub fn ioctl_get_termios(ttbr0: usize, arg: usize, termios: &Termios) -> i64 {
+    match write_struct_to_user(ttbr0, arg, termios) {
+        Ok(()) => 0,
+        Err(e) => e,
+    }
+}
+
+/// TEAM_415: Read a termios struct from user space.
+///
+/// This helper encapsulates the common pattern in TCSETS ioctl handlers.
+/// Returns the Termios on success, or negative errno on failure.
+pub fn ioctl_read_termios(ttbr0: usize, arg: usize) -> Result<Termios, i64> {
+    read_struct_from_user(ttbr0, arg)
+}
+
+/// TEAM_415: Write an i32 value to user space for ioctl.
+///
+/// Used for TIOCGPGRP and similar ioctls that return an integer.
+pub fn ioctl_write_i32(ttbr0: usize, arg: usize, value: i32) -> i64 {
+    let ptr = UserPtr::<i32>::new(ttbr0, arg);
+    match ptr.write(value) {
+        Ok(()) => 0,
+        Err(e) => e,
+    }
+}
+
+/// TEAM_415: Read an i32 value from user space for ioctl.
+///
+/// Used for TIOCSPGRP and similar ioctls that take an integer.
+pub fn ioctl_read_i32(ttbr0: usize, arg: usize) -> Result<i32, i64> {
+    let ptr = UserPtr::<i32>::new(ttbr0, arg);
+    ptr.read()
+}
+
+/// TEAM_415: Write a u32 value to user space for ioctl.
+///
+/// Used for TIOCGPTN and similar ioctls that return an unsigned integer.
+pub fn ioctl_write_u32(ttbr0: usize, arg: usize, value: u32) -> i64 {
+    let ptr = UserPtr::<u32>::new(ttbr0, arg);
+    match ptr.write(value) {
+        Ok(()) => 0,
+        Err(e) => e,
+    }
+}
+
+/// TEAM_415: Read a u32 value from user space for ioctl.
+///
+/// Used for TIOCSPTLCK and similar ioctls that take an unsigned integer.
+pub fn ioctl_read_u32(ttbr0: usize, arg: usize) -> Result<u32, i64> {
+    let ptr = UserPtr::<u32>::new(ttbr0, arg);
+    ptr.read()
+}
+
 #[cfg(test)]
 mod tests {
     // Unit tests would go here if we had a test harness

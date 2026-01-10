@@ -181,8 +181,11 @@ fn stat_to_statx(stat: &crate::arch::Stat) -> Statx {
 fn copy_statx_to_user(ttbr0: usize, statxbuf: usize, statx: &Statx) -> i64 {
     let statx_size = core::mem::size_of::<Statx>();
 
-    // SAFETY: Caller (sys_statx) validates buffer before calling this function
-    let dest = mm_user::user_va_to_kernel_ptr(ttbr0, statxbuf).unwrap();
+    // TEAM_416: Replace unwrap() with proper error handling for panic safety
+    let dest = match mm_user::user_va_to_kernel_ptr(ttbr0, statxbuf) {
+        Some(p) => p,
+        None => return crate::syscall::errno::EFAULT,
+    };
     unsafe {
         core::ptr::copy_nonoverlapping(statx as *const Statx as *const u8, dest, statx_size);
     }

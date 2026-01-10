@@ -1,8 +1,10 @@
+//! TEAM_228: Memory management syscalls.
+//! TEAM_415: Refactored with helper functions.
+
 use crate::memory::FRAME_ALLOCATOR;
 use crate::memory::user as mm_user;
-use los_hal::mmu::{self, PAGE_SIZE, PageAllocator, PageFlags};
-
-// Memory management system calls.
+use crate::memory::vma::VmaFlags;
+use los_hal::mmu::{self, PAGE_SIZE, PageAllocator, PageFlags, PageTable, phys_to_virt, tlb_flush_page};
 
 // TEAM_228: mmap protection flags (matching Linux)
 pub const PROT_NONE: u32 = 0;
@@ -19,6 +21,41 @@ pub const MAP_ANONYMOUS: u32 = 0x20;
 // TEAM_228: Error codes
 const ENOMEM: i64 = -12;
 const EINVAL: i64 = -22;
+
+// ============================================================================
+// TEAM_415: Helper Functions
+// ============================================================================
+
+/// TEAM_415: Round up a length to the next page boundary.
+#[inline]
+fn page_align_up(len: usize) -> usize {
+    (len + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)
+}
+
+/// TEAM_415: Get mutable reference to user page table from TTBR0.
+///
+/// # Safety
+/// Caller must ensure ttbr0 is a valid page table physical address.
+#[inline]
+unsafe fn get_user_page_table(ttbr0: usize) -> &'static mut PageTable {
+    let l0_va = phys_to_virt(ttbr0);
+    &mut *(l0_va as *mut PageTable)
+}
+
+/// TEAM_415: Convert PROT_* flags to VmaFlags.
+fn prot_to_vma_flags(prot: u32) -> VmaFlags {
+    let mut flags = VmaFlags::empty();
+    if prot & PROT_READ != 0 {
+        flags |= VmaFlags::READ;
+    }
+    if prot & PROT_WRITE != 0 {
+        flags |= VmaFlags::WRITE;
+    }
+    if prot & PROT_EXEC != 0 {
+        flags |= VmaFlags::EXEC;
+    }
+    flags
+}
 
 /// TEAM_238: RAII guard for mmap allocation cleanup.
 ///
@@ -61,10 +98,8 @@ impl Drop for MmapGuard {
         }
 
         // Failure path - clean up all allocated pages
-        use los_hal::mmu::{PageTable, phys_to_virt, tlb_flush_page};
-
-        let l0_va = phys_to_virt(self.ttbr0);
-        let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
+        // SAFETY: ttbr0 was validated when MmapGuard was created
+        let l0 = unsafe { get_user_page_table(self.ttbr0) };
 
         for &(va, phys) in &self.allocated {
             // 1. Unmap the page (clear PTE)
@@ -72,7 +107,6 @@ impl Drop for MmapGuard {
                 walk.table.entry_mut(walk.index).clear();
                 tlb_flush_page(va);
             }
-
             // 2. Free the physical page
             FRAME_ALLOCATOR.free_page(phys);
         }
@@ -222,22 +256,12 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
     guard.commit();
 
     // TEAM_238: Record the VMA
+    // TEAM_415: Use prot_to_vma_flags helper
     {
-        use crate::memory::vma::{Vma, VmaFlags};
-        let mut vma_flags = VmaFlags::empty();
-        if prot & PROT_READ != 0 {
-            vma_flags |= VmaFlags::READ;
-        }
-        if prot & PROT_WRITE != 0 {
-            vma_flags |= VmaFlags::WRITE;
-        }
-        if prot & PROT_EXEC != 0 {
-            vma_flags |= VmaFlags::EXEC;
-        }
-        let vma = Vma::new(base_addr, base_addr + alloc_len, vma_flags);
+        use crate::memory::vma::Vma;
+        let vma = Vma::new(base_addr, base_addr + alloc_len, prot_to_vma_flags(prot));
         let mut vmas = task.vmas.lock();
-        // Ignore error if overlapping (shouldn't happen with proper mmap)
-        let _ = vmas.insert(vma);
+        let _ = vmas.insert(vma); // Ignore error if overlapping
     }
 
     log::trace!(
@@ -252,30 +276,17 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
 
 /// TEAM_228: sys_munmap - Unmap memory from process address space.
 /// TEAM_238: Implemented proper VMA tracking and page unmapping.
-///
-/// # Arguments
-/// * `addr` - Start address of mapping (must be page-aligned)
-/// * `len` - Length to unmap
-///
-/// # Returns
-/// 0 on success, negative error code on failure.
+/// TEAM_415: Refactored to use helper functions.
 pub fn sys_munmap(addr: usize, len: usize) -> i64 {
-    use los_hal::mmu::{PageTable, phys_to_virt, tlb_flush_page};
-
     // Validate alignment
-    if addr & 0xFFF != 0 {
+    if addr & 0xFFF != 0 || len == 0 {
         return EINVAL;
     }
 
-    if len == 0 {
-        return EINVAL;
-    }
-
-    // Page-align length
-    let aligned_len = (len + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
+    let aligned_len = page_align_up(len);
     let end = match addr.checked_add(aligned_len) {
         Some(e) => e,
-        None => return EINVAL, // Overflow
+        None => return EINVAL,
     };
 
     let task = crate::task::current_task();
@@ -285,138 +296,78 @@ pub fn sys_munmap(addr: usize, len: usize) -> i64 {
     {
         let mut vmas = task.vmas.lock();
         if vmas.remove(addr, end).is_err() {
-            // No VMA found - per POSIX, this is not necessarily an error
-            // but we'll return success anyway (Linux behavior)
             log::trace!("[MUNMAP] No VMA found for 0x{:x}-0x{:x}", addr, end);
         }
     }
 
     // 2. Unmap and free pages
-    let l0_va = phys_to_virt(ttbr0);
-    let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
+    // SAFETY: ttbr0 from task is always valid
+    let l0 = unsafe { get_user_page_table(ttbr0) };
 
     let mut current = addr;
     while current < end {
-        // Try to find the page mapping
         if let Ok(walk) = mmu::walk_to_entry(l0, current, 3, false) {
             let entry = walk.table.entry(walk.index);
             if entry.is_valid() {
-                // Get physical address before clearing
                 let phys = entry.address();
-
-                // Clear the entry
                 walk.table.entry_mut(walk.index).clear();
-
-                // Flush TLB for this page
                 tlb_flush_page(current);
-
-                // Free the physical page
                 FRAME_ALLOCATOR.free_page(phys);
             }
         }
-
         current += PAGE_SIZE;
     }
 
     log::trace!("[MUNMAP] Unmapped 0x{:x}-0x{:x}", addr, end);
-
-    0 // Success
+    0
 }
 
 /// TEAM_239: sys_mprotect - Change protection on memory region.
-///
-/// # Arguments
-/// * `addr` - Start address (must be page-aligned)
-/// * `len` - Length of region
-/// * `prot` - New protection flags
-///
-/// # Returns
-/// 0 on success, negative error code on failure.
+/// TEAM_415: Refactored to use helper functions.
 pub fn sys_mprotect(addr: usize, len: usize, prot: u32) -> i64 {
-    use los_hal::mmu::{PageFlags, PageTable, phys_to_virt, tlb_flush_page};
-
     // Validate alignment
-    if addr & (PAGE_SIZE - 1) != 0 {
+    if addr & (PAGE_SIZE - 1) != 0 || len == 0 {
         return EINVAL;
     }
 
-    if len == 0 {
-        return EINVAL;
-    }
-
-    // Page-align length
-    let aligned_len = (len + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
+    let aligned_len = page_align_up(len);
     let end = match addr.checked_add(aligned_len) {
         Some(e) => e,
-        None => return EINVAL, // Overflow
+        None => return EINVAL,
     };
 
     let task = crate::task::current_task();
-    let ttbr0 = task.ttbr0;
-
-    // Convert prot to PageFlags
     let new_flags = prot_to_page_flags(prot);
 
-    // Get access to root page table
-    let l0_va = phys_to_virt(ttbr0);
-    let l0 = unsafe { &mut *(l0_va as *mut PageTable) };
+    // SAFETY: ttbr0 from task is always valid
+    let l0 = unsafe { get_user_page_table(task.ttbr0) };
 
     // Walk each page and update protection
     let mut current = addr;
     let mut modified_count = 0usize;
 
     while current < end {
-        // Walk to the L3 (leaf) entry for this page
         if let Ok(walk) = mmu::walk_to_entry(l0, current, 3, false) {
             let entry = walk.table.entry(walk.index);
             if entry.is_valid() {
-                // Get the physical address (preserve it)
                 let phys = entry.address();
-
-                // Set new entry with same address but new flags
-                // L3 entries use TABLE bit = 1 for pages
-                walk.table
-                    .entry_mut(walk.index)
-                    .set(phys, new_flags | PageFlags::TABLE);
-
-                // Flush TLB for this page
+                walk.table.entry_mut(walk.index).set(phys, new_flags | PageFlags::TABLE);
                 tlb_flush_page(current);
                 modified_count += 1;
             }
         }
-        // If page not mapped, skip it (Linux behavior)
-
         current += PAGE_SIZE;
     }
 
     // Update VMA tracking
-    {
-        use crate::memory::vma::VmaFlags;
-        let mut vma_flags = VmaFlags::empty();
-        if prot & PROT_READ != 0 {
-            vma_flags |= VmaFlags::READ;
-        }
-        if prot & PROT_WRITE != 0 {
-            vma_flags |= VmaFlags::WRITE;
-        }
-        if prot & PROT_EXEC != 0 {
-            vma_flags |= VmaFlags::EXEC;
-        }
-
-        let mut vmas = task.vmas.lock();
-        // Update protection flags for overlapping VMAs
-        vmas.update_protection(addr, end, vma_flags);
-    }
+    task.vmas.lock().update_protection(addr, end, prot_to_vma_flags(prot));
 
     log::trace!(
         "[MPROTECT] Changed protection for {} pages at 0x{:x}-0x{:x} prot=0x{:x}",
-        modified_count,
-        addr,
-        end,
-        prot
+        modified_count, addr, end, prot
     );
 
-    0 // Success
+    0
 }
 
 /// TEAM_228: Find a free region in user address space for mmap.

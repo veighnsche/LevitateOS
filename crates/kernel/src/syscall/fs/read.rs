@@ -27,8 +27,12 @@ pub fn sys_readv(fd: usize, iov_ptr: usize, count: usize) -> i64 {
 
     for i in 0..count {
         let entry_addr = iov_ptr + i * core::mem::size_of::<UserIoVec>();
+        // TEAM_416: Replace unwrap() with proper error handling for panic safety
         let iov = unsafe {
-            let kptr = mm_user::user_va_to_kernel_ptr(ttbr0, entry_addr).unwrap();
+            let kptr = match mm_user::user_va_to_kernel_ptr(ttbr0, entry_addr) {
+                Some(p) => p,
+                None => return errno::EFAULT,
+            };
             *(kptr as *const UserIoVec)
         };
 
@@ -96,8 +100,11 @@ pub fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
             let mut kbuf = alloc::vec![0u8; len];
             match vfs_read(file, &mut kbuf) {
                 Ok(n) => {
-                    // SAFETY: validate_user_buffer confirmed buffer is accessible
-                    let dest = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+                    // TEAM_416: Replace unwrap() with proper error handling for panic safety
+                    let dest = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
+                        Some(p) => p,
+                        None => return errno::EFAULT,
+                    };
                     unsafe {
                         core::ptr::copy_nonoverlapping(kbuf.as_ptr(), dest, n);
                     }
@@ -119,8 +126,11 @@ pub fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
                 return result as i64;
             }
             let n = result as usize;
-            // SAFETY: validate_user_buffer confirmed buffer is accessible
-            let dest = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            // TEAM_416: Replace unwrap() with proper error handling for panic safety
+            let dest = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
+                Some(p) => p,
+                None => return errno::EFAULT,
+            };
             unsafe {
                 core::ptr::copy_nonoverlapping(kbuf.as_ptr(), dest, n);
             }

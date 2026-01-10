@@ -525,87 +525,9 @@ impl<'a> Elf<'a> {
         Ok((entry_point, initial_brk))
     }
 
-    /// TEAM_354: Process relocations for PIE binaries using goblin
-    fn process_relocations(&self, ttbr0_phys: usize, load_base: usize) -> Result<usize, ElfError> {
-        use goblin::elf::Elf as GoblinElf;
-        
-        log::debug!("[ELF] Processing relocations for PIE, load_base=0x{:x}", load_base);
-        
-        // Parse with goblin to get relocations
-        let elf = match GoblinElf::parse(self.data) {
-            Ok(e) => e,
-            Err(e) => {
-                log::warn!("[ELF] Goblin parse failed for relocations: {:?}", e);
-                return Ok(0);
-            }
-        };
-
-        let mut count = 0;
-
-        // Process .rela.dyn relocations (goblin parses these automatically)
-        log::debug!("[ELF] Found {} dynrelas", elf.dynrelas.len());
-        for rela in &elf.dynrelas {
-            let addend = rela.r_addend.unwrap_or(0);
-            if count < 5 {
-                log::trace!("[ELF] Reloc: offset=0x{:x}, type={}, addend=0x{:x}", 
-                    rela.r_offset, rela.r_type, addend);
-            }
-            self.apply_relocation(ttbr0_phys, load_base, rela.r_offset as usize, addend, rela.r_type)?;
-            count += 1;
-        }
-
-        Ok(count)
-    }
-
-    /// TEAM_354: Apply a single relocation
-    fn apply_relocation(
-        &self,
-        ttbr0_phys: usize,
-        load_base: usize,
-        r_offset: usize,
-        r_addend: i64,
-        r_type: u32,
-    ) -> Result<(), ElfError> {
-        // Architecture-specific relocation constants
-        #[cfg(target_arch = "aarch64")]
-        const R_RELATIVE: u32 = 1027; // R_AARCH64_RELATIVE
-
-        #[cfg(target_arch = "x86_64")]
-        const R_RELATIVE: u32 = 8; // R_X86_64_RELATIVE
-
-        match r_type {
-            R_RELATIVE => {
-                // R_*_RELATIVE: *target = load_base + addend
-                let target_va = load_base + r_offset;
-                let value = (load_base as i64 + r_addend) as u64;
-                self.write_user_u64(ttbr0_phys, target_va, value)?;
-            }
-            other => {
-                log::trace!("[ELF] Skipping unsupported reloc type {}", other);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// TEAM_354: Write a u64 to user address space
-    fn write_user_u64(&self, ttbr0_phys: usize, va: usize, value: u64) -> Result<(), ElfError> {
-        let l0_va = mmu::phys_to_virt(ttbr0_phys);
-        let l0 = unsafe { &mut *(l0_va as *mut mmu::PageTable) };
-
-        let page_va = va & !0xFFF;
-        let page_offset = va & 0xFFF;
-
-        match mmu::walk_to_entry(l0, page_va, 3, false) {
-            Ok(walk) => {
-                let phys = walk.table.entry(walk.index).address() + page_offset;
-                let ptr = mmu::phys_to_virt(phys) as *mut u64;
-                unsafe { ptr.write_unaligned(value); }
-                Ok(())
-            }
-            Err(_) => Err(ElfError::MappingFailed),
-        }
-    }
+    // TEAM_414: Removed dead code - process_relocations(), apply_relocation(), write_user_u64()
+    // PIE binaries perform self-relocation via _start, so kernel-side relocation is not needed.
+    // The goblin dependency was also removed as it was only used by this dead code.
 }
 
 use los_hal::traits::PageAllocator;
