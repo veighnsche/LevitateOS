@@ -108,9 +108,7 @@ pub struct RunArgs {
     #[arg(long)]
     pub headless: bool,
     
-    /// Boot from Limine ISO instead of -kernel
-    #[arg(long)]
-    pub iso: bool,
+    // TEAM_370: Removed --iso flag - x86_64 always uses ISO, aarch64 can't use ISO
     
     /// Enable GPU debug tracing
     #[arg(long)]
@@ -214,7 +212,8 @@ fn main() -> Result<()> {
             } else if args.vnc {
                 run::run_qemu_vnc(arch)?;
             } else if args.term {
-                let use_iso = args.iso || arch == "x86_64";
+                // TEAM_370: x86_64 always uses ISO, aarch64 never does
+                let use_iso = arch == "x86_64";
                 run::run_qemu_term(arch, use_iso)?;
             } else if args.gdb {
                 let profile = match args.profile.as_str() {
@@ -226,7 +225,9 @@ fn main() -> Result<()> {
                     }
                     _ => if arch == "x86_64" { qemu::QemuProfile::X86_64 } else { qemu::QemuProfile::Default }
                 };
-                let use_iso = args.iso || arch == "x86_64";
+                // TEAM_370: x86_64 always uses ISO, aarch64 never does
+                let use_iso = arch == "x86_64";
+                // TEAM_369: Eyra is always enabled (provides std support)
                 if use_iso {
                     build::build_iso(arch)?;
                 } else {
@@ -245,7 +246,9 @@ fn main() -> Result<()> {
                     }
                     _ => if arch == "x86_64" { qemu::QemuProfile::X86_64 } else { qemu::QemuProfile::Default }
                 };
-                let use_iso = args.iso || arch == "x86_64";
+                // TEAM_370: x86_64 always uses ISO, aarch64 never does
+                let use_iso = arch == "x86_64";
+                // TEAM_369: Eyra is always enabled (provides std support)
                 if use_iso {
                     build::build_iso(arch)?;
                 } else {
@@ -257,15 +260,15 @@ fn main() -> Result<()> {
         Commands::Build(cmd) => {
             preflight::check_preflight(arch)?;
             match cmd {
+                // TEAM_369: All commands now always include Eyra (provides std)
                 build::BuildCommands::All => build::build_all(arch)?,
                 build::BuildCommands::Kernel => build::build_kernel_only(arch)?,
-                build::BuildCommands::Userspace { .. } => {
+                build::BuildCommands::Userspace => {
                     build::build_userspace(arch)?;
                     build::create_initramfs(arch)?;
                 }
                 build::BuildCommands::Initramfs => build::create_initramfs(arch)?,
                 build::BuildCommands::Iso => build::build_iso(arch)?,
-                // TEAM_367: Eyra utilities build command
                 build::BuildCommands::Eyra { arch: eyra_arch, only } => {
                     build::build_eyra(&eyra_arch, only.as_deref())?;
                 }

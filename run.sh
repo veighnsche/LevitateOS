@@ -1,13 +1,13 @@
 #!/bin/bash
 # run.sh - Canonical LevitateOS Launcher
 # TEAM_326: Updated for refactored xtask commands.
+# TEAM_369: Now includes Eyra coreutils by default for full utility support.
 #
 # Usage:
-#   ./run.sh              # Run in GUI mode (Default)
+#   ./run.sh              # Run in GUI mode with Eyra coreutils
 #   ./run.sh --term       # Run in Terminal mode
 #   ./run.sh --gdb        # Run with GDB server
 #   ./run.sh --vnc        # Run with VNC display
-#   ./run.sh --iso        # Force ISO boot
 #   ./run.sh clean        # Clean artifacts
 #
 # This script delegates to the Rust build system (xtask) which handles
@@ -21,5 +21,5 @@ if [ "$1" = "clean" ]; then
     exit 0
 fi
 
-# TEAM_326: All run options are now flags, pass directly
+# TEAM_369: Eyra coreutils are now the default (provides std support)
 exec cargo xtask run "$@"

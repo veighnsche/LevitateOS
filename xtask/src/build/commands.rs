@@ -7,19 +7,15 @@ use crate::disk;
 
 #[derive(Subcommand)]
 pub enum BuildCommands {
-    /// Build everything (Kernel + Userspace + Disk)
+    /// Build everything (Kernel + Userspace + Disk + Eyra coreutils)
     All,
     /// Build kernel only
     Kernel,
     /// Build userspace only
-    Userspace {
-        /// Build specific package? (Not implemented, builds workspace)
-        #[arg(long)]
-        package: Option<String>,
-    },
+    Userspace,
     /// Build initramfs only
     Initramfs,
-    /// Build bootable Limine ISO
+    /// Build bootable Limine ISO (includes Eyra coreutils)
     Iso,
     /// Build Eyra-based userspace utilities (uutils coreutils)
     /// TEAM_367: Auto-discovers and builds all utilities in crates/userspace/eyra/
@@ -33,7 +29,12 @@ pub enum BuildCommands {
     },
 }
 
+// TEAM_369: Eyra is always enabled (provides std support)
 pub fn build_all(arch: &str) -> Result<()> {
+    // TEAM_369: Always build Eyra utilities (provides std)
+    println!("🔧 Building Eyra utilities...");
+    build_eyra(arch, None)?;
+    
     // TEAM_073: Build userspace first
     build_userspace(arch)?;
     create_initramfs(arch)?;
@@ -82,6 +83,7 @@ pub fn build_userspace(arch: &str) -> Result<()> {
     Ok(())
 }
 
+// TEAM_369: Always includes Eyra binaries (provides std support)
 pub fn create_initramfs(arch: &str) -> Result<()> {
     println!("Creating initramfs for {}...", arch);
     let root = PathBuf::from("initrd_root");
@@ -125,6 +127,28 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
         count += 1;
     }
     
+    // TEAM_369: Always add Eyra coreutils (provides std support)
+    let eyra_utils = [
+        "cat", "pwd", "mkdir", "ls", "echo", "env",
+        "touch", "rm", "rmdir", "ln", "cp", "mv",
+        "true", "false"
+    ];
+    let mut eyra_count = 0;
+    for util in &eyra_utils {
+        let src = PathBuf::from(format!(
+            "crates/userspace/eyra/{}/target/{}/release/{}",
+            util, eyra_target, util
+        ));
+        if src.exists() {
+            std::fs::copy(&src, root.join(util))?;
+            eyra_count += 1;
+        }
+    }
+    if eyra_count > 0 {
+        println!("  📦 Added {} Eyra coreutils", eyra_count);
+        count += eyra_count;
+    }
+    
     println!("[DONE] ({} added)", count);
 
     // 3. Create CPIO archive
@@ -156,8 +180,9 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
     Ok(())
 }
 
-/// TEAM_243: Create test-specific initramfs with test_runner as init.
-/// This initramfs boots directly into the test runner instead of shell.
+/// TEAM_369: Create test-specific initramfs with Eyra utilities.
+/// TEAM_243's test_runner was in levbox which was deleted (ulib dependency removed).
+/// This now creates a minimal test initramfs with Eyra coreutils.
 pub fn create_test_initramfs(arch: &str) -> Result<()> {
     println!("Creating test initramfs for {}...", arch);
     let root = PathBuf::from("initrd_test_root");
@@ -168,42 +193,35 @@ pub fn create_test_initramfs(arch: &str) -> Result<()> {
     }
     std::fs::create_dir(&root)?;
 
-    let target = match arch {
-        "aarch64" => "aarch64-unknown-none",
-        "x86_64" => "x86_64-unknown-none",
+    let eyra_target = match arch {
+        "aarch64" => "aarch64-unknown-linux-gnu",
+        "x86_64" => "x86_64-unknown-linux-gnu",
         _ => bail!("Unsupported architecture: {}", arch),
     };
 
-    // Copy test_runner as "init" - this is the key difference
-    let test_runner_src = PathBuf::from(format!("crates/userspace/target/{}/release/test_runner", target));
-    if !test_runner_src.exists() {
-        bail!("test_runner binary not found - build userspace first");
-    }
-    std::fs::copy(&test_runner_src, root.join("init"))?;
-
-    // Copy all test binaries (*_test)
-    // TEAM_256: Added suite_test_core and core utilities it depends on
-    let test_binaries = [
-        // Test binaries
-        "mmap_test", "pipe_test", "signal_test", "clone_test", "interrupt_test", 
-        "tty_test", "pty_test", "pty_interact", "stat_test", "link_test", 
-        "time_test", "sched_yield_test", "error_test",
-        // TEAM_256: suite_test_core (core utils test suite)
-        "suite_test_core",
-        // TEAM_256: Core utilities spawned by suite_test_core
-        "mkdir", "ls", "touch", "rm", "cp", "mv", "rmdir", "cat",
+    // TEAM_369: Copy Eyra utilities for testing
+    let eyra_utils = [
+        "cat", "pwd", "mkdir", "ls", "echo", "env",
+        "touch", "rm", "rmdir", "ln", "cp", "mv",
+        "true", "false"
     ];
     let mut count = 0;
-    for bin in &test_binaries {
-        let src = PathBuf::from(format!("crates/userspace/target/{}/release/{}", target, bin));
+    for util in &eyra_utils {
+        let src = PathBuf::from(format!(
+            "crates/userspace/eyra/{}/target/{}/release/{}",
+            util, eyra_target, util
+        ));
         if src.exists() {
-            std::fs::copy(&src, root.join(bin))?;
+            std::fs::copy(&src, root.join(util))?;
             count += 1;
-        } else {
-            println!("  Warning: {} not found", bin);
         }
     }
-    println!("📦 Test initramfs: init + {} test binaries", count);
+    
+    if count == 0 {
+        bail!("No Eyra utilities found. Run 'cargo xtask build eyra' first.");
+    }
+    
+    println!("📦 Test initramfs: {} Eyra utilities", count);
 
     // Create CPIO archive
     let cpio_file = std::fs::File::create("initramfs_test.cpio")?;
@@ -286,6 +304,7 @@ fn build_kernel_with_features(features: &[&str], arch: &str) -> Result<()> {
 }
 
 /// TEAM_283: Build a bootable Limine ISO
+// TEAM_369: Always includes Eyra (provides std support)
 pub fn build_iso(arch: &str) -> Result<()> {
     build_iso_with_features(&[], arch)
 }
@@ -303,6 +322,9 @@ fn build_iso_with_features(features: &[&str], arch: &str) -> Result<()> {
     println!("💿 Building Limine ISO for {}...", arch);
 
     // 1. Ensure all components are built
+    // TEAM_369: Always build Eyra utilities (provides std)
+    println!("🔧 Building Eyra utilities...");
+    build_eyra(arch, None)?;
     build_userspace(arch)?;
     create_initramfs(arch)?;
     crate::disk::install_userspace_to_disk(arch)?;

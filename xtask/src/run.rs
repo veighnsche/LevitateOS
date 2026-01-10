@@ -5,49 +5,11 @@
 use crate::qemu::{Arch, QemuBuilder};
 use crate::{build, disk};
 use anyhow::{bail, Context, Result};
-use clap::Subcommand;
+// TEAM_370: Removed unused clap::Subcommand import
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-#[derive(Subcommand)]
-pub enum RunCommands {
-    /// Run with GUI window (keyboard goes to QEMU window)
-    Default {
-        /// Boot from Limine ISO instead of -kernel
-        #[arg(long)]
-        iso: bool,
-        /// TEAM_320: Enable QEMU GPU debug tracing
-        #[arg(long)]
-        gpu_debug: bool,
-    },
-    /// Run Pixel 6 Profile
-    Pixel6,
-    /// Run with VNC for browser verification
-    Vnc,
-    /// Run with GDB server enabled (port 1234)
-    Gdb {
-        /// Wait for GDB connection on startup
-        #[arg(long)]
-        wait: bool,
-        /// Boot from Limine ISO instead of -kernel
-        #[arg(long)]
-        iso: bool,
-    },
-    /// Run in terminal-only mode (WSL-like, keyboard in terminal)
-    Term {
-        /// Boot from Limine ISO instead of -kernel
-        #[arg(long)]
-        iso: bool,
-    },
-    /// TEAM_243: Run internal OS tests (for AI agent verification)
-    Test,
-    /// TEAM_320: Verify GPU display via VNC + Puppeteer (automated black screen detection)
-    VerifyGpu {
-        /// Timeout in seconds to wait for display
-        #[arg(long, default_value = "30")]
-        timeout: u32,
-    },
-}
+// TEAM_370: Removed dead RunCommands enum - main.rs uses RunArgs instead
 
 // Re-export for backwards compatibility with main.rs
 pub use crate::qemu::QemuProfile;
