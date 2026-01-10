@@ -1,0 +1,29 @@
+[workspace]
+members = [
+    "cat",
+    "cp",
+    "echo",
+    "env",
+    "eyra-test-runner",
+    "false",
+    "ln",
+    "ls",
+    "mkdir",
+    "mv",
+    "pwd",
+    "rm",
+    "rmdir",
+    "touch",
+    "true",
+]
+resolver = "2"
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+strip = true
+
+[unstable]
+build-std-features = ["panic_immediate_abort"]
+

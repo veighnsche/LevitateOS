@@ -6,8 +6,6 @@
 
 // TEAM_259: PIT implementation
 
-use core::arch::asm;
-
 const PIT_CHANNEL_0: u16 = 0x40;
 const PIT_COMMAND: u16 = 0x43;
 // [X86_PIT2] PIT base frequency for divisor calculation
@@ -25,11 +23,43 @@ impl Pit {
         unsafe {
             // Command byte: Channel 0, access mode: lobyte/hibyte, operating mode: rate generator, binary mode
             // 0x36 = 00 11 011 0
-            asm!("out dx, al", in("dx") PIT_COMMAND, in("al") 0x36u8, options(nomem, nostack, preserves_flags));
+            crate::x86_64::cpu::outb(PIT_COMMAND, 0x36u8);
 
             // Set divisor
-            asm!("out dx, al", in("dx") PIT_CHANNEL_0, in("al") (divisor & 0xFF) as u8, options(nomem, nostack, preserves_flags));
-            asm!("out dx, al", in("dx") PIT_CHANNEL_0, in("al") ((divisor >> 8) & 0xFF) as u8, options(nomem, nostack, preserves_flags));
+            crate::x86_64::cpu::outb(PIT_CHANNEL_0, (divisor & 0xFF) as u8);
+            crate::x86_64::cpu::outb(PIT_CHANNEL_0, ((divisor >> 8) & 0xFF) as u8);
         }
+    }
+}
+
+// =============================================================================
+// Unit Tests
+// =============================================================================
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use crate::x86_64::cpu::io::{IoOp, clear_ops, get_ops};
+
+    /// Tests: [X86_PIT1] Rate generator mode, [X86_PIT2] Divisor formula
+    #[test]
+    fn test_pit_init() {
+        clear_ops();
+
+        // Target: 100Hz
+        // Divisor = 1193182 / 100 = 11931 (0x2e9b)
+        Pit::init(100);
+
+        let ops = get_ops();
+        assert_eq!(ops.len(), 3);
+
+        // 1. Command byte 0x36 to PIT_COMMAND (0x43)
+        assert_eq!(ops[0], IoOp::Outb(0x43, 0x36));
+
+        // 2. Low byte of divisor (0x9b) to PIT_CHANNEL_0 (0x40)
+        assert_eq!(ops[1], IoOp::Outb(0x40, 0x9b));
+
+        // 3. High byte of divisor (0x2e) to PIT_CHANNEL_0 (0x40)
+        assert_eq!(ops[2], IoOp::Outb(0x40, 0x2e));
     }
 }

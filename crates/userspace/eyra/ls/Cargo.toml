@@ -5,17 +5,7 @@ version = "0.2.0"
 edition = "2021"
 description = "GNU-compatible ls from uutils-coreutils"
 
-[workspace]
-
 [dependencies]
 eyra = { version = "0.22", features = ["experimental-relocate"] }
 uu_ls = "0.2"
 
-[profile.release]
-panic = "abort"
-opt-level = "s"
-lto = true
-strip = true
-
-[unstable]
-build-std-features = ["panic_immediate_abort"]

@@ -74,7 +74,6 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
     drop(fd_table);
 
     let ttbr0 = task.ttbr0;
-    // los_hal::println!("[SYS_WRITE] buf={:x}, len={}", buf, len);
     match entry.fd_type {
         FdType::Stdout | FdType::Stderr => {
             let n = write_to_tty(&crate::fs::tty::CONSOLE_TTY, buf, len, ttbr0, true, None);

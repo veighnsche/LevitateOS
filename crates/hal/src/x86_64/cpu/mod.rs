@@ -6,10 +6,14 @@
 //! - **IDT** (Interrupt Descriptor Table) - Interrupt/exception handlers
 //! - **Exceptions** - CPU exception handling (page fault, GP fault, etc.)
 
+pub mod control;
+pub mod exceptions;
 pub mod gdt;
 pub mod idt;
-pub mod exceptions;
+pub mod io;
 
-pub use gdt::*;
-pub use idt::{Idt, IdtEntry, IDT, init as idt_init};
-pub use exceptions::*;
+pub use control::*;
+pub use exceptions::{ExceptionStackFrame, init as exceptions_init};
+pub use gdt::{GDT, Gdt, GdtTssEntry, TSS_SELECTOR, TaskStateSegment, init as gdt_init};
+pub use idt::{IDT, Idt, IdtEntry, init as idt_init};
+pub use io::*;

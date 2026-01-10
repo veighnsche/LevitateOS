@@ -12,28 +12,26 @@
 //!
 //! See the README.md in this directory for architecture diagrams.
 
-use crate::traits::InterruptController;
-
 // === Compartments ===
+pub mod boot;
 pub mod cpu;
-pub mod mem;
 pub mod interrupts;
 pub mod io;
-pub mod boot;
+pub mod mem;
 
 // === Re-exports for backward compatibility ===
 // CPU
+pub use cpu::exceptions;
 pub use cpu::gdt;
 pub use cpu::idt;
-pub use cpu::exceptions;
 pub mod tss {
     pub use crate::x86_64::cpu::gdt::*;
 }
 
 // Memory
-pub use mem::paging;
-pub use mem::mmu;
 pub use mem::frame_alloc;
+pub use mem::mmu;
+pub use mem::paging;
 
 // Interrupts
 pub use interrupts::apic;
@@ -41,9 +39,9 @@ pub use interrupts::ioapic;
 pub use interrupts::pit;
 
 // I/O
+pub use io::console;
 pub use io::serial;
 pub use io::vga;
-pub use io::console;
 
 // Boot - TEAM_316: Limine-only, no multiboot re-exports needed
 

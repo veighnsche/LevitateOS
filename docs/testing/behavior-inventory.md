@@ -24,12 +24,47 @@ TEAM_030: Behavior-driven test inventory
 ### Group 5: Timer
 - `crates/hal/src/timer.rs` — `los_hal`
 
-### Group 6: Kernel Drivers (runtime-only, no unit tests)
-- `kernel/src/block.rs`
+### Group 6: Initramfs & FDT
+- `crates/hal/src/fdt.rs` — `los_hal`
+- `crates/utils/src/cpio.rs` — `los_utils`
+
+### Group 7: Slab Allocator
+- `crates/hal/src/allocator/slab/` — `los_hal`
+
+### Group 8: Buddy Allocator
+- `crates/hal/src/allocator/buddy.rs` — `los_hal`
+
+### Group 9: VirtIO Network
+- `crates/drivers/virtio-net/src/lib.rs`
+
+### Group 10: GPU Terminal
+- `kernel/src/terminal.rs`
+
+### Group 11: Multitasking & Scheduler
+- `kernel/src/task/`
+
+### Group 12: Userspace Shell
+- `kernel/src/syscall.rs`
+- `kernel/src/task/process.rs`
+- `userspace/shell/src/main.rs`
+
+### Group 13: GPU Display Regression
 - `kernel/src/gpu.rs`
-- `kernel/src/input.rs`
-- `kernel/src/net.rs`
-- `kernel/src/virtio.rs`
+
+### Group 14: x86_64 Architecture
+- `crates/hal/src/x86_64/`
+
+### Group 15: PCI Bus & Discovery
+- `crates/pci/src/lib.rs`
+
+### Group 16: NVMe Storage Driver
+- `crates/drivers/nvme/src/lib.rs`
+
+### Group 17: VirtIO GPU Driver
+- `crates/drivers/virtio-gpu/src/lib.rs`
+
+### Group 18: XHCI USB Controller
+- `crates/drivers/xhci/src/lib.rs`
 
 ---
 
@@ -873,7 +908,104 @@ TEAM_303: x86_64 architecture behaviors for Phase 3 multi-arch support
 
 ---
 
+## Group 15: PCI Bus & Discovery — Behavior Inventory
+
+TEAM_373: Added PCI discovery behaviors
+
+### PCI Bus (`crates/pci/src/lib.rs`)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| P1 | pci_allocate returns aligned address | ❌ | |
+| P2 | pci_allocate returns None when pool exhausted | ❌ | |
+| P3 | pci_allocate is thread-safe (atomic) | ❌ | |
+| P4 | find_virtio_device identifies correct DeviceType | ❌ | |
+| P5 | find_virtio_device allocates BARs for found device | ❌ | |
+
+### Group 15 Summary
+- **PCI Bus**: 0/5 behaviors tested ❌
+
+---
+
+## Group 16: NVMe Storage Driver — Behavior Inventory
+
+TEAM_373: Added NVMe driver behaviors (stub)
+
+### NVMe Driver (`crates/drivers/nvme/src/lib.rs`)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| N1 | block_size returns 512 | ❌ | |
+| N2 | size_in_blocks returns 0 (stub) | ❌ | |
+| N3 | read_blocks returns Err(NotReady) (stub) | ❌ | |
+| N4 | write_blocks returns Err(NotReady) (stub) | ❌ | |
+
+### Group 16 Summary
+- **NVMe Driver**: 0/4 behaviors tested ❌
+
+---
+
+## Group 17: VirtIO GPU Driver — Behavior Inventory
+
+TEAM_373: Added VirtIO GPU wrapper behaviors
+
+### VirtIO GPU (`crates/drivers/virtio-gpu/src/lib.rs`)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| VG1 | new() initializes with correct resolution | ❌ | |
+| VG2 | new() sets up and clears framebuffer | ❌ | |
+| VG3 | flush() calls inner flush | ❌ | |
+| VG4 | Display adapter draws to correct offsets | ❌ | |
+| VG5 | FramebufferGpu handles BGR vs RGB (Limine) | ❌ | |
+
+### Group 17 Summary
+- **VirtIO GPU**: 0/5 behaviors tested ❌
+
+---
+
+## Group 18: XHCI USB Controller — Behavior Inventory
+
+TEAM_373: Added XHCI driver behaviors (stub)
+
+### XHCI Driver (`crates/drivers/xhci/src/lib.rs`)
+
+| ID | Behavior | Tested? | Test |
+|----|----------|---------|------|
+| X1 | poll returns false (stub) | ❌ | |
+| X2 | read_char returns None (stub) | ❌ | |
+| X3 | poll_event returns None (stub) | ❌ | |
+
+### Group 18 Summary
+- **XHCI Driver**: 0/3 behaviors tested ❌
+
+---
+
+## Updated Overall Summary (TEAM_373)
+
+| Group | Module | Behaviors | Tested | Gap |
+|-------|--------|-----------|--------|-----|
+| 1-14 | Previous Groups | 202 | 200 | ⚠️ |
+| 15 | PCI Bus | 5 | 0 | ❌ |
+| 16 | NVMe Driver | 4 | 0 | ❌ |
+| 17 | VirtIO GPU | 5 | 0 | ❌ |
+| 18 | XHCI Driver | 3 | 0 | ❌ |
+| **Total** | | **219** | **200** | **19 new gaps** ❌ |
+
+---
+
 ## Maintenance Log
+
+### TEAM_373: Structural Testing Gap Resolution (2026-01-10)
+
+Added Groups 15-18 to document driver behaviors and identify testing gaps:
+- PCI Bus & Discovery (5 behaviors)
+- NVMe Storage Driver (4 behaviors)
+- VirtIO GPU Driver (5 behaviors)
+- XHCI USB Controller (3 behaviors)
+
+Updated file headers for consistency across all groups. 19 new testing gaps identified.
+
 
 ### TEAM_303: x86_64 Behavior Documentation (2026-01-08)
 

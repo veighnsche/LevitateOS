@@ -1,8 +1,6 @@
-use crate::traits::PageAllocator;
 use super::frame_alloc::EARLY_ALLOCATOR;
-pub use super::paging::{
-    self, ENTRIES_PER_TABLE, PageTable, PageTableEntry, PageTableFlags,
-};
+pub use super::paging::{self, ENTRIES_PER_TABLE, PageTable, PageTableEntry, PageTableFlags};
+use crate::traits::PageAllocator;
 use bitflags::bitflags;
 use los_error::define_kernel_error;
 
@@ -195,15 +193,13 @@ pub fn unmap_page(root: &mut PageTable, va: usize) -> Result<(), MmuError> {
 
 pub fn tlb_flush_all() {
     unsafe {
-        use core::arch::asm;
-        asm!("mov rax, cr3", "mov cr3, rax", out("rax") _);
+        crate::x86_64::cpu::flush_tlb();
     }
 }
 
 pub fn tlb_flush_page(va: usize) {
     unsafe {
-        use core::arch::asm;
-        asm!("invlpg [{}]", in(reg) va);
+        crate::x86_64::cpu::invlpg(va);
     }
 }
 
@@ -253,8 +249,7 @@ impl crate::traits::MmuInterface for PageTable {
     fn switch_to(&self) {
         let phys = virt_to_phys(self as *const _ as usize);
         unsafe {
-            use core::arch::asm;
-            asm!("mov cr3, {}", in(reg) phys);
+            crate::x86_64::cpu::load_cr3(phys as u64);
         }
     }
 }
@@ -464,6 +459,117 @@ pub fn copy_kernel_mappings(dst: &mut PageTable, src: &PageTable) {
     for i in 256..512 {
         if src.entries[i].is_valid() {
             dst.entries[i] = src.entries[i];
+        }
+    }
+}
+
+// =============================================================================
+// Unit Tests
+// =============================================================================
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+
+    /// Tests: [M23] Physical address subtraction, [M21] Virtual address addition
+    #[test]
+    fn test_address_conversion() {
+        unsafe {
+            let original_offset = get_phys_offset();
+            let original_phys_base = get_kernel_phys_base();
+
+            set_phys_offset(0xFFFF800000000000);
+            set_kernel_phys_base(0x2000000);
+
+            // Higher-half HHDM
+            assert_eq!(phys_to_virt(0x1000), 0xFFFF800000001000);
+            assert_eq!(virt_to_phys(0xFFFF800000001000), 0x1000);
+
+            // Higher-half Kernel
+            assert_eq!(virt_to_phys(0xFFFFFFFF80000000), 0x2000000);
+            assert_eq!(virt_to_phys(0xFFFFFFFF80001000), 0x2000000 + 0x1000);
+
+            // Cleanup
+            set_phys_offset(original_offset);
+            set_kernel_phys_base(original_phys_base);
+        }
+    }
+
+    #[test]
+    fn test_page_flags() {
+        let flags = PageFlags::KERNEL_DATA;
+        assert!(flags.contains(PageFlags::PRESENT));
+        assert!(flags.contains(PageFlags::WRITABLE));
+        assert!(!flags.is_user());
+
+        let u_flags = PageFlags::USER_CODE;
+        assert!(u_flags.contains(PageFlags::PRESENT));
+        assert!(u_flags.is_user());
+        assert!(!u_flags.is_writable());
+    }
+
+    /// TEAM_373: Test page table walk and translation using mock memory.
+    #[test]
+    fn test_mmu_translation_mock() {
+        #[repr(C, align(4096))]
+        #[derive(Clone, Copy)]
+        struct AlignedPage([u8; 4096]);
+
+        // Allocate 16 pages of aligned memory
+        let mut mock_phys_mem = vec![AlignedPage([0u8; 4096]); 16];
+        let base_ptr = mock_phys_mem.as_mut_ptr() as usize;
+
+        unsafe {
+            let original_offset = get_phys_offset();
+            // Set offset such that phys_to_virt(pa) returns a pointer into our vec
+            set_phys_offset(base_ptr);
+
+            // 1. Setup a simple PML4 -> PDPT -> PD -> PT -> Page structure
+            // We use offsets within the vec as "physical addresses"
+            let pml4_pa = 0;
+            let pdpt_pa = 4096;
+            let pd_pa = 8192;
+            let pt_pa = 12288;
+            let target_pa = 16384;
+
+            let root = &mut *(phys_to_virt(pml4_pa) as *mut PageTable);
+            root.zero();
+
+            // PML4[0] -> PDPT
+            root.entries[0]
+                .set_address(pdpt_pa, PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
+
+            // PDPT[0] -> PD
+            let pdpt = &mut *(phys_to_virt(pdpt_pa) as *mut PageTable);
+            pdpt.zero();
+            pdpt.entries[0].set_address(pd_pa, PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
+
+            // PD[0] -> PT
+            let pd = &mut *(phys_to_virt(pd_pa) as *mut PageTable);
+            pd.zero();
+            pd.entries[0].set_address(pt_pa, PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
+
+            // PT[0] -> target
+            let pt = &mut *(phys_to_virt(pt_pa) as *mut PageTable);
+            pt.zero();
+            pt.entries[0].set_address(
+                target_pa,
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+            );
+
+            // 2. Translate virtual address 0
+            if let Some((pa, flags)) = translate(root, 0) {
+                assert_eq!(pa, target_pa);
+                assert!(flags.contains(PageFlags::PRESENT));
+            } else {
+                panic!("Translation failed");
+            }
+
+            // 3. Translate non-existent address
+            assert!(translate(root, 0x1000 * 512 * 512 * 512).is_none());
+
+            // Cleanup
+            set_phys_offset(original_offset);
         }
     }
 }

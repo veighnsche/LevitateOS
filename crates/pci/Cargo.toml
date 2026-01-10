@@ -7,6 +7,10 @@ readme = "README.md"
 [lints]
 workspace = true
 
+[features]
+default = []
+std = ["los_hal/std"]
+
 [dependencies]
 los_hal = { path = "../hal" }
 # TEAM_141: Use workspace dependencies for version consistency

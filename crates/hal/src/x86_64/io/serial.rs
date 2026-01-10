@@ -1,9 +1,6 @@
-use core::arch::asm;
 use core::fmt;
 
 // TEAM_259: Simple Serial Port (COM1) driver for x86_64 early logging.
-
-const COM1: u16 = 0x3F8;
 
 pub struct SerialPort {
     base_port: u16,
@@ -67,17 +64,11 @@ impl SerialPort {
     }
 
     unsafe fn outb(&self, offset: u16, data: u8) {
-        unsafe {
-            asm!("out dx, al", in("dx") self.base_port + offset, in("al") data, options(nomem, nostack, preserves_flags));
-        }
+        crate::x86_64::cpu::outb(self.base_port + offset, data);
     }
 
     unsafe fn inb(&self, offset: u16) -> u8 {
-        let res: u8;
-        unsafe {
-            asm!("in al, dx", out("al") res, in("dx") self.base_port + offset, options(nomem, nostack, preserves_flags));
-        }
-        res
+        crate::x86_64::cpu::inb(self.base_port + offset)
     }
 }
 

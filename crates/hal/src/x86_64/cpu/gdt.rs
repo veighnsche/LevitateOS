@@ -4,7 +4,6 @@
 //! [X86_GDT3] User code DPL=3, [X86_GDT4] TSS 64-bit base,
 //! [X86_TSS1] TSS.rsp0 for Ring 0 transitions, [X86_TSS2] set_kernel_stack()
 
-use core::arch::asm;
 use core::ptr::addr_of;
 
 // TEAM_296: GDT Segment Selectors
@@ -87,12 +86,6 @@ impl Gdt {
 pub static mut TSS: TaskStateSegment = TaskStateSegment::new();
 pub static mut GDT: Gdt = Gdt::new();
 
-#[repr(C, packed)]
-struct GdtPointer {
-    limit: u16,
-    base: u64,
-}
-
 pub unsafe fn init() {
     let tss_addr = addr_of!(TSS) as usize;
     let tss_limit = (core::mem::size_of::<TaskStateSegment>() - 1) as u32;
@@ -105,20 +98,15 @@ pub unsafe fn init() {
         GDT.tss.base_upper = (tss_addr >> 32) as u32;
         GDT.tss.limit_high_flags = ((tss_limit >> 16) & 0x0F) as u8;
 
-        let ptr = GdtPointer {
+        let ptr = crate::x86_64::cpu::DescriptorTablePointer {
             limit: (core::mem::size_of::<Gdt>() - 1) as u16,
             base: addr_of!(GDT) as u64,
         };
 
-        asm!(
-            "lgdt [{}]",
-            "ltr {tss_sel:x}",
-            in(reg) &ptr,
-            tss_sel = in(reg) TSS_SELECTOR,
-        );
+        crate::x86_64::cpu::lgdt(&ptr);
+        crate::x86_64::cpu::ltr(TSS_SELECTOR);
     }
 }
-
 /// TEAM_296: Update the kernel stack pointer in the TSS for user-mode entry.
 /// This ensures that if an interrupt occurs in userspace, the CPU switches to the correct kernel stack.
 /// [X86_TSS2] Updates TSS.rsp[0] for Ring 0 transitions
@@ -126,5 +114,80 @@ pub fn set_kernel_stack(stack_top: usize) {
     unsafe {
         // [X86_TSS1] TSS.rsp0 provides kernel stack for Ring 0 entry
         TSS.rsp[0] = stack_top as u64;
+    }
+}
+
+// =============================================================================
+// Unit Tests
+// =============================================================================
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use crate::x86_64::cpu::control::get_gdt;
+
+    /// Tests: [X86_GDT1] GDT structure, [X86_GDT2] Kernel code DPL=0, [X86_GDT3] User segments DPL=3
+    #[test]
+    fn test_gdt_structure() {
+        let gdt = Gdt::new();
+
+        // Kernel code: Long mode (bit 53), Present (bit 47), Exec (bit 43), DPL 0 (bits 45-46)
+        assert!(
+            gdt.kernel_code & (1 << 53) != 0,
+            "Kernel code should be 64-bit"
+        );
+        assert!(
+            gdt.kernel_code & (1 << 47) != 0,
+            "Kernel code should be present"
+        );
+        assert!(
+            gdt.kernel_code & (0x3 << 45) == 0,
+            "Kernel code should be DPL 0"
+        );
+
+        // User segments: DPL 3 (bits 45-46)
+        assert!(
+            gdt.user_code & (0x3 << 45) == (0x3 << 45),
+            "User code should be DPL 3"
+        );
+        assert!(
+            gdt.user_data & (0x3 << 45) == (0x3 << 45),
+            "User data should be DPL 3"
+        );
+    }
+
+    /// Tests: [X86_GDT4] TSS 64-bit base patching, [X86_TSS2] set_kernel_stack()
+    #[test]
+    fn test_gdt_init() {
+        unsafe {
+            init();
+
+            let (base, limit) = get_gdt();
+            assert!(base != 0);
+            assert_eq!(limit as usize, core::mem::size_of::<Gdt>() - 1);
+
+            // Verify TSS base was patched correctly
+            let tss_addr = addr_of!(TSS) as usize;
+            let limit_low = GDT.tss.limit_low;
+            let base_low = GDT.tss.base_low;
+            let base_mid = GDT.tss.base_mid;
+            let base_high = GDT.tss.base_high;
+            let base_upper = GDT.tss.base_upper;
+
+            assert!(limit_low > 0);
+            assert_eq!(base_low, tss_addr as u16);
+            assert_eq!(base_mid, (tss_addr >> 16) as u8);
+            assert_eq!(base_high, (tss_addr >> 24) as u8);
+            assert_eq!(base_upper, (tss_addr >> 32) as u32);
+        }
+    }
+
+    #[test]
+    fn test_tss_stack() {
+        set_kernel_stack(0xDEADC0DE);
+        unsafe {
+            let rsp0 = TSS.rsp[0];
+            assert_eq!(rsp0, 0xDEADC0DE);
+        }
     }
 }

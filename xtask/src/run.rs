@@ -231,7 +231,7 @@ fn find_websockify() -> Result<String> {
     )
 }
 
-/// TEAM_243: Run QEMU with test runner for automated OS testing
+/// TEAM_374: Run QEMU with test runner for automated OS testing
 pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("🧪 Running LevitateOS Internal Tests for {}...\n", arch);
 
@@ -239,11 +239,12 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
     let use_iso = arch == "x86_64";
 
     // Build everything including test runner
-    build::build_userspace(arch)?;
-    build::create_test_initramfs(arch)?;
+    // TEAM_374: Use build_iso_test which includes test initramfs
     if use_iso {
-        build::build_iso(arch)?;
+        build::build_iso_test(arch)?;
     } else {
+        build::build_userspace(arch)?;
+        build::create_test_initramfs(arch)?;
         build::build_kernel_verbose(arch)?;
     }
     disk::create_disk_image_if_missing()?;

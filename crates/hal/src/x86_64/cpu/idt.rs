@@ -53,24 +53,59 @@ impl Idt {
     }
 
     pub fn load(&self) {
-        let ptr = IdtPtr {
+        let ptr = crate::x86_64::cpu::DescriptorTablePointer {
             limit: (size_of::<Self>() - 1) as u16,
             base: self as *const _ as u64,
         };
         unsafe {
-            core::arch::asm!("lidt [{}]", in(reg) &ptr, options(readonly, nostack, preserves_flags));
+            crate::x86_64::cpu::lidt(&ptr);
         }
     }
-}
-
-#[repr(C, packed)]
-struct IdtPtr {
-    limit: u16,
-    base: u64,
 }
 
 pub static IDT: Mutex<Idt> = Mutex::new(Idt::new());
 
 pub fn init() {
     IDT.lock().load();
+}
+
+// =============================================================================
+// Unit Tests
+// =============================================================================
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use crate::x86_64::cpu::control::get_idt;
+
+    #[test]
+    fn test_idt_entry_set_handler() {
+        let mut entry = IdtEntry::missing();
+        let handler = 0xDEADBEEFCAFEBABEu64; // 8-byte address
+        entry.set_handler(handler);
+
+        // Verification must use local copies to avoid unaligned reference errors in packed struct
+        let offset_low = entry.offset_low;
+        let offset_mid = entry.offset_mid;
+        let offset_high = entry.offset_high;
+
+        let selector = entry.selector;
+        let type_attr = entry.type_attr;
+
+        assert_eq!(offset_low, 0xBABEu16);
+        assert_eq!(offset_mid, 0xCAFEu16);
+        assert_eq!(offset_high, 0xDEADBEEFu32);
+        assert_eq!(selector, 0x08);
+        assert_eq!(type_attr, 0x8E);
+    }
+
+    #[test]
+    fn test_idt_load() {
+        let idt = Idt::new();
+        idt.load();
+
+        let (base, limit) = get_idt();
+        assert_eq!(base, &idt as *const _ as u64);
+        assert_eq!(limit as usize, size_of::<Idt>() - 1);
+    }
 }

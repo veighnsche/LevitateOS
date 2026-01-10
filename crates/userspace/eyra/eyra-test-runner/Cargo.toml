@@ -1,0 +1,10 @@
+# TEAM_374: Eyra Test Runner for LevitateOS
+# Tests all Eyra-based utilities systematically
+[package]
+name = "eyra-test-runner"
+version = "0.1.0"
+edition = "2021"
+description = "Test runner for Eyra userspace utilities"
+
+[dependencies]
+eyra = { version = "0.22", features = ["experimental-relocate"] }

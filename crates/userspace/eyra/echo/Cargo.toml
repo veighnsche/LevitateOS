@@ -5,18 +5,8 @@ name = "echo"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-
 [dependencies]
 eyra = { version = "0.22", features = ["experimental-relocate"] }
 uu_echo = "0.2"
 
 # TEAM_367: Fixed - added build.rs with -nostartfiles
-[profile.release]
-panic = "abort"
-opt-level = "s"
-lto = true
-strip = true
-
-[unstable]
-build-std-features = ["panic_immediate_abort"]

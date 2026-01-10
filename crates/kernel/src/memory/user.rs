@@ -15,8 +15,9 @@ pub mod layout {
     /// Max user address for 48-bit VA with TTBR0
     pub const STACK_TOP: usize = 0x0000_7FFF_FFFF_0000;
 
-    /// User stack size (64KB default)
-    pub const STACK_SIZE: usize = 65536;
+    /// User stack size (2MB for Eyra/Linux compatibility)
+    /// TEAM_374: Eyra binaries need much larger stack than bare-metal userspace
+    pub const STACK_SIZE: usize = 2 * 1024 * 1024;
 
     /// End of user address space (bit 47 clear = TTBR0)
     pub const USER_SPACE_END: usize = 0x0000_8000_0000_0000;

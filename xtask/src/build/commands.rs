@@ -134,14 +134,25 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
         "true", "false"
     ];
     let mut eyra_count = 0;
+    
+    // TEAM_371: Eyra utilities are now in a workspace, so they share a target directory
+    let eyra_target_dir = PathBuf::from(format!("crates/userspace/eyra/target/{}/release", eyra_target));
+    
     for util in &eyra_utils {
-        let src = PathBuf::from(format!(
-            "crates/userspace/eyra/{}/target/{}/release/{}",
-            util, eyra_target, util
-        ));
+        let src = eyra_target_dir.join(util);
         if src.exists() {
             std::fs::copy(&src, root.join(util))?;
             eyra_count += 1;
+        } else {
+            // Fallback to old path for transition (Rule 5: We should eventually remove this)
+            let legacy_src = PathBuf::from(format!(
+                "crates/userspace/eyra/{}/target/{}/release/{}",
+                util, eyra_target, util
+            ));
+            if legacy_src.exists() {
+                std::fs::copy(&legacy_src, root.join(util))?;
+                eyra_count += 1;
+            }
         }
     }
     if eyra_count > 0 {
@@ -180,9 +191,8 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
     Ok(())
 }
 
-/// TEAM_369: Create test-specific initramfs with Eyra utilities.
-/// TEAM_243's test_runner was in levbox which was deleted (ulib dependency removed).
-/// This now creates a minimal test initramfs with Eyra coreutils.
+/// TEAM_374: Create test-specific initramfs with Eyra utilities and test runner.
+/// Includes init, shell, and eyra-test-runner for comprehensive testing.
 pub fn create_test_initramfs(arch: &str) -> Result<()> {
     println!("Creating test initramfs for {}...", arch);
     let root = PathBuf::from("initrd_test_root");
@@ -198,19 +208,40 @@ pub fn create_test_initramfs(arch: &str) -> Result<()> {
         "x86_64" => "x86_64-unknown-linux-gnu",
         _ => bail!("Unsupported architecture: {}", arch),
     };
+    
+    let bare_target = match arch {
+        "aarch64" => "aarch64-unknown-none",
+        "x86_64" => "x86_64-unknown-none",
+        _ => bail!("Unsupported architecture: {}", arch),
+    };
 
-    // TEAM_369: Copy Eyra utilities for testing
+    // TEAM_374: Copy init and shell for boot
+    let init_src = PathBuf::from(format!("crates/userspace/target/{}/release/init", bare_target));
+    let shell_src = PathBuf::from(format!("crates/userspace/target/{}/release/shell", bare_target));
+    
+    if init_src.exists() {
+        std::fs::copy(&init_src, root.join("init"))?;
+    }
+    if shell_src.exists() {
+        std::fs::copy(&shell_src, root.join("shell"))?;
+    }
+    
+    // Create hello.txt for cat test
+    std::fs::write(root.join("hello.txt"), "Hello from initramfs!\n")?;
+
+    // TEAM_374: Copy Eyra utilities for testing
     let eyra_utils = [
         "cat", "pwd", "mkdir", "ls", "echo", "env",
         "touch", "rm", "rmdir", "ln", "cp", "mv",
-        "true", "false"
+        "true", "false", "eyra-test-runner"
     ];
     let mut count = 0;
+    
+    // TEAM_371: Eyra utilities are now in a workspace
+    let eyra_target_dir = PathBuf::from(format!("crates/userspace/eyra/target/{}/release", eyra_target));
+    
     for util in &eyra_utils {
-        let src = PathBuf::from(format!(
-            "crates/userspace/eyra/{}/target/{}/release/{}",
-            util, eyra_target, util
-        ));
+        let src = eyra_target_dir.join(util);
         if src.exists() {
             std::fs::copy(&src, root.join(util))?;
             count += 1;
@@ -221,7 +252,7 @@ pub fn create_test_initramfs(arch: &str) -> Result<()> {
         bail!("No Eyra utilities found. Run 'cargo xtask build eyra' first.");
     }
     
-    println!("📦 Test initramfs: {} Eyra utilities", count);
+    println!("📦 Test initramfs: {} Eyra utilities + init/shell", count);
 
     // Create CPIO archive
     let cpio_file = std::fs::File::create("initramfs_test.cpio")?;
@@ -306,15 +337,20 @@ fn build_kernel_with_features(features: &[&str], arch: &str) -> Result<()> {
 /// TEAM_283: Build a bootable Limine ISO
 // TEAM_369: Always includes Eyra (provides std support)
 pub fn build_iso(arch: &str) -> Result<()> {
-    build_iso_with_features(&[], arch)
+    build_iso_internal(&[], arch, false)
 }
 
 /// TEAM_286: Build ISO with verbose feature for behavior testing
 pub fn build_iso_verbose(arch: &str) -> Result<()> {
-    build_iso_with_features(&["verbose"], arch)
+    build_iso_internal(&["verbose"], arch, false)
 }
 
-fn build_iso_with_features(features: &[&str], arch: &str) -> Result<()> {
+/// TEAM_374: Build ISO for testing with test initramfs
+pub fn build_iso_test(arch: &str) -> Result<()> {
+    build_iso_internal(&["verbose"], arch, true)
+}
+
+fn build_iso_internal(features: &[&str], arch: &str, use_test_initramfs: bool) -> Result<()> {
     if arch != "x86_64" {
         bail!("ISO build currently only supported for x86_64");
     }
@@ -326,7 +362,11 @@ fn build_iso_with_features(features: &[&str], arch: &str) -> Result<()> {
     println!("🔧 Building Eyra utilities...");
     build_eyra(arch, None)?;
     build_userspace(arch)?;
-    create_initramfs(arch)?;
+    if use_test_initramfs {
+        create_test_initramfs(arch)?;
+    } else {
+        create_initramfs(arch)?;
+    }
     crate::disk::install_userspace_to_disk(arch)?;
     build_kernel_with_features(features, arch)?;
 
@@ -341,8 +381,12 @@ fn build_iso_with_features(features: &[&str], arch: &str) -> Result<()> {
 
     // 2. Copy components to ISO root
     let kernel_path = "target/x86_64-unknown-none/release/levitate-kernel";
-    // TEAM_327: Use arch-specific initramfs path
-    let initramfs_path = format!("initramfs_{}.cpio", arch);
+    // TEAM_374: Use test initramfs when in test mode
+    let initramfs_path = if use_test_initramfs {
+        "initramfs_test.cpio".to_string()
+    } else {
+        format!("initramfs_{}.cpio", arch)
+    };
     let limine_cfg_path = "limine.cfg";
 
     std::fs::copy(kernel_path, boot_dir.join("levitate-kernel"))
@@ -411,7 +455,9 @@ pub fn build_eyra(arch: &str, only: Option<&str>) -> Result<()> {
     }
     utilities.sort();
     
-    // Filter if --only was specified
+    // TEAM_371: Always let Cargo handle incremental compilation.
+    // Never skip cargo build - Cargo will detect source changes and rebuild only what's needed.
+    // The previous code skipped cargo entirely if binaries existed, which broke rebuild detection.
     let to_build: Vec<&String> = if let Some(name) = only {
         let matches: Vec<&String> = utilities.iter().filter(|u| *u == name).collect();
         if matches.is_empty() {
@@ -422,40 +468,41 @@ pub fn build_eyra(arch: &str, only: Option<&str>) -> Result<()> {
         utilities.iter().collect()
     };
     
-    println!("🔧 Building {} Eyra utilities for {}...\n", to_build.len(), arch);
+    println!("🔧 Checking Eyra utilities for {}...", arch);
     
     let mut success = 0;
     let mut failed = 0;
     
+    // TEAM_371: Instead of a loop with 15+ separate cargo calls, 
+    // we use a single cargo call with multiple -p arguments.
+    // This allows cargo to handle the entire dependency graph efficiently
+    // and only rebuild what is necessary, while showing full output.
+    // 
+    // IMPORTANT: We must explicitly use the pinned toolchain for Eyra
+    // to avoid conflicts with the host toolchain used by xtask.
+    let mut cmd = Command::new("cargo");
+    cmd.current_dir(&eyra_dir)
+        .arg("+nightly-2025-04-28")
+        .env_remove("RUSTUP_TOOLCHAIN")
+        .args([
+            "build",
+            "--release",
+            "--target", target,
+            "-Zbuild-std=std,panic_abort",
+        ]);
+    
     for utility in &to_build {
-        let util_dir = eyra_dir.join(utility);
-        print!("  Building {}... ", utility);
-        std::io::Write::flush(&mut std::io::stdout())?;
-        
-        let output = Command::new("cargo")
-            .current_dir(&util_dir)
-            .args([
-                "build",
-                "--release",
-                "--target", target,
-                "-Zbuild-std=std,panic_abort",
-            ])
-            .output()
-            .context(format!("Failed to run cargo build for {}", utility))?;
-        
-        if output.status.success() {
-            println!("✅");
-            success += 1;
-        } else {
-            println!("❌");
-            failed += 1;
-            // Print first few lines of error
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            for line in stderr.lines().take(5) {
-                println!("    {}", line);
-            }
-        }
+        cmd.arg("-p").arg(utility);
     }
+
+    let status = cmd.status()
+        .context("Failed to run cargo build for Eyra utilities")?;
+    
+    if !status.success() {
+        bail!("Failed to build Eyra utilities");
+    }
+    
+    success = to_build.len();
     
     println!("\n📊 Results: {} succeeded, {} failed", success, failed);
     

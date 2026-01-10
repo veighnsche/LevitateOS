@@ -1,7 +1,6 @@
-# TEAM_363: Temporarily reduced workspace during Eyra migration
-# Old apps (levbox, init, shell) depend on deleted ulib - will be replaced by Eyra versions in userspace/
+# TEAM_374: Userspace workspace with init, shell, and libsyscall
 [workspace]
-members = ["libsyscall"]
+members = ["init", "shell", "libsyscall"]
 resolver = "2"
 
 [workspace.lints.rust]

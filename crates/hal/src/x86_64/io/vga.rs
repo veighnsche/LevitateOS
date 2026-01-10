@@ -37,6 +37,7 @@ pub enum Color {
 pub struct ColorCode(u8);
 
 impl ColorCode {
+    #[allow(dead_code)]
     fn new(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
