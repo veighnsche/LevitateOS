@@ -97,9 +97,10 @@ SECTIONS
     } :data
 
     /* Kernel heap - must be part of a segment to be mapped by Limine */
+    /* TEAM_387: Increased from 16MB to 128MB for mature coreutils support */
     .heap ALIGN(4K) : AT(ADDR(.heap) - _kernel_virt_base + _phys_offset) {
         __heap_start = .;
-        . = . + 0x1000000; /* 16MB */
+        . = . + 0x8000000; /* 128MB */
         __heap_end = .;
         BYTE(0) /* Force section to have size and be included in segment MemSiz */
     } :data

@@ -29,6 +29,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 mod build;
+mod calc;
 mod disk;
 mod qemu;
 mod run;
@@ -83,6 +84,10 @@ enum Commands {
     
     /// Kill any running QEMU instances
     Kill,
+    
+    /// Debug calculator for memory/address/bit math
+    #[command(subcommand)]
+    Calc(calc::CalcCommands),
 }
 
 // TEAM_326: Simplified run args with flags instead of subcommands
@@ -296,6 +301,9 @@ fn main() -> Result<()> {
         },
         Commands::Kill => {
             clean::kill_qemu(arch)?;
+        },
+        Commands::Calc(cmd) => {
+            calc::run(cmd)?;
         },
     }
 

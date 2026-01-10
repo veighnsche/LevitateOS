@@ -5,14 +5,14 @@
 /// QEMU hardware profiles for different target configurations
 #[derive(Clone, Copy, Debug, Default)]
 pub enum QemuProfile {
-    /// Default: 512MB RAM, 1 core, cortex-a53 (aarch64)
+    /// Default: 2GB RAM, 1 core, cortex-a53 (aarch64)
     #[default]
     Default,
     /// Pixel 6: 8GB RAM, 8 cores, cortex-a76, GICv3
     Pixel6,
     /// Test: GICv3 on default machine
     GicV3,
-    /// x86_64: 512MB RAM, 1 core, q35
+    /// x86_64: 2GB RAM, 1 core, q35
     X86_64,
 }
 
@@ -40,10 +40,11 @@ impl QemuProfile {
     /// Returns the memory size
     pub fn memory(&self) -> &'static str {
         match self {
-            QemuProfile::Default => "512M",
+            // TEAM_387: Increased from 512M to 2G for mature coreutils support
+            QemuProfile::Default => "2G",
             QemuProfile::Pixel6 => "8G",
-            QemuProfile::GicV3 => "512M",
-            QemuProfile::X86_64 => "512M",
+            QemuProfile::GicV3 => "2G",
+            QemuProfile::X86_64 => "2G",
         }
     }
 
@@ -84,9 +85,9 @@ mod tests {
 
     #[test]
     fn test_memory_values() {
-        assert_eq!(QemuProfile::Default.memory(), "512M");
+        assert_eq!(QemuProfile::Default.memory(), "2G");
         assert_eq!(QemuProfile::Pixel6.memory(), "8G");
-        assert_eq!(QemuProfile::X86_64.memory(), "512M");
+        assert_eq!(QemuProfile::X86_64.memory(), "2G");
     }
 
     #[test]

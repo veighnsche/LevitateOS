@@ -41,9 +41,9 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 extern crate alloc;
 
-/// TEAM_073: Default stack size for user tasks (64KB).
+/// TEAM_387: Default stack size for user tasks (2MB - Linux default).
 #[allow(dead_code)]
-pub const USER_STACK_SIZE: usize = 65536;
+pub const USER_STACK_SIZE: usize = 2 * 1024 * 1024;
 
 /// TEAM_073: User address space layout constants.
 pub mod layout {
