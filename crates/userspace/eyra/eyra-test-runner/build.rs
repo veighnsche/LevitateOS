@@ -1,8 +1,9 @@
-// TEAM_374: Tell the linker not to use the system startup code.
-// Eyra provides its own _start implementation via Origin.
-// This fixes the duplicate _start symbol conflict with Scrt1.o.
+// TEAM_374: Build script for eyra-test-runner
+//
+// NOTE: -nostartfiles is now configured at workspace level in .cargo/config.toml
+// Individual binaries no longer need to specify it in build.rs
 fn main() {
-    println!("cargo:rustc-link-arg=-nostartfiles");
+    // -nostartfiles moved to workspace config
 
     // Create empty libgcc_eh.a stub for aarch64 cross-compilation.
     let out_dir = std::env::var("OUT_DIR").unwrap();

@@ -6,9 +6,16 @@ Port brush shell to run on Eyra/LevitateOS.
 
 ## Prerequisites
 
+- **Phase 0 complete** (epoll + eventfd syscalls implemented in kernel)
 - Phase 1 complete (discovery)
 - Phase 2 complete (design decisions made)
 - All blocking questions answered
+
+## ✅ Resolved: `_start` Symbol Conflict
+
+TEAM_381 centralized the `-nostartfiles` flag in `.cargo/config.toml` at the Eyra workspace level. This prevents the duplicate `_start` symbol conflict (Origin vs GCC's crt1.o).
+
+**No additional work needed** — brush will automatically inherit this configuration.
 
 ## Implementation Steps
 
@@ -16,7 +23,7 @@ Port brush shell to run on Eyra/LevitateOS.
 - [ ] Add brush-shell as dependency or vendor
 - [ ] Create `crates/userspace/eyra/brush/` structure
 - [ ] Add to Eyra workspace Cargo.toml
-- [ ] Create build.rs with -nostartfiles
+- [ ] Create build.rs with libgcc_eh stub (for aarch64, see eyra-hello/build.rs)
 
 ### Step 2: Verify Eyra Compatibility
 - [ ] Test compilation with Eyra toolchain

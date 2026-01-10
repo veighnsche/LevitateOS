@@ -1,9 +1,12 @@
 # TEAM_380: Simplified workspace - coreutils is now a submodule with its own workspace
 # Individual utility crates removed in favor of multi-call binary
+# TEAM_380: Added libsyscall and libsyscall-tests for std support
 [workspace]
 members = [
     "eyra-hello",
     "eyra-test-runner",
+    "libsyscall",
+    "libsyscall-tests",
 ]
 resolver = "2"
 
@@ -15,4 +18,3 @@ strip = true
 
 [unstable]
 build-std-features = ["panic_immediate_abort"]
-

@@ -1,0 +1,24 @@
+# TEAM_380: Migrated libsyscall to eyra directory for std support in integration tests
+[package]
+name = "libsyscall"
+version = "0.1.0"
+edition = "2021"
+readme = "README.md"
+description = "Userspace syscall library for LevitateOS with Eyra std support"
+
+# Note: workspace lints not available in this workspace
+
+[lib]
+
+[dependencies]
+linux-raw-sys = { version = "0.4", default-features = false, features = ["errno", "general", "ioctl", "no_std"] }
+
+# Optional std support via Eyra for integration tests
+[dependencies.eyra]
+version = "0.22"
+features = ["experimental-relocate"]
+optional = true
+
+[features]
+default = []
+std = ["eyra"]

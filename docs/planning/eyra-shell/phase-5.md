@@ -14,7 +14,7 @@ Clean up, document, and prepare for handoff.
 
 ### Step 2: Documentation
 - [ ] Update docs/ARCHITECTURE.md with shell info
-- [ ] Create docs/SHELL.md with Ion usage guide
+- [ ] Create docs/SHELL.md with brush usage guide
 - [ ] Document any LevitateOS-specific behavior
 - [ ] Update README if needed
 
@@ -32,10 +32,10 @@ Clean up, document, and prepare for handoff.
 
 ### docs/SHELL.md
 ```markdown
-# LevitateOS Shell (Ion)
+# LevitateOS Shell (brush)
 
 ## Overview
-LevitateOS uses Ion Shell, a modern Rust shell from Redox OS.
+LevitateOS uses brush, a POSIX/Bash-compatible shell written in Rust.
 
 ## Basic Usage
 - Commands: type and press Enter
@@ -44,38 +44,57 @@ LevitateOS uses Ion Shell, a modern Rust shell from Redox OS.
 - Exit: `exit` or Ctrl+D
 
 ## Scripting
-Ion uses its own syntax (not POSIX/Bash).
+brush is fully Bash-compatible.
 
 ### Variables
-let name = "value"
+name="value"
 echo $name
 
 ### Arrays
-let arr = [1 2 3]
-echo @arr
+arr=(1 2 3)
+echo ${arr[@]}
 
 ### Conditionals
-if test -f /file
+if [ -f /file ]; then
     echo "exists"
-end
+fi
 
 ### Loops
-for x in 1 2 3
+for x in 1 2 3; do
     echo $x
-end
+done
 
 ### Functions
-fn greet name
-    echo "Hello, $name"
-end
+greet() {
+    echo "Hello, $1"
+}
 
 ## References
-- Ion Manual: https://doc.redox-os.org/ion-manual/
+- brush: https://github.com/reubeno/brush
+- Bash Manual: https://www.gnu.org/software/bash/manual/
 ```
+
+### Step 5: TODO Tracking
+- [ ] Add any incomplete work to `TODO.md`
+- [ ] Add `TODO(TEAM_XXX)` comments in code for future work
+- [ ] Document known limitations
+
+## Handoff Checklist (Rule 10)
+
+Before closing this plan:
+
+- [ ] Project builds cleanly (`cargo xtask build`)
+- [ ] All tests pass (`cargo xtask test`)
+- [ ] Golden log tests pass
+- [ ] Team file updated with final status
+- [ ] Remaining TODOs documented
+- [ ] docs/ARCHITECTURE.md updated
+- [ ] docs/SHELL.md created
 
 ## Success Criteria
 
 - [ ] Old shell code removed or archived
 - [ ] Documentation complete
 - [ ] All tests pass
+- [ ] Golden log tests pass
 - [ ] Clean handoff to future teams

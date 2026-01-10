@@ -39,7 +39,7 @@ brush uses the `nix` crate for POSIX APIs. Eyra provides Linux-compatible syscal
 ### Q5: Init Integration
 **Question:** How does init spawn the new shell?
 
-**Answer:** Spawn "brush" binary (or symlink "shell" → "brush").
+**Answer:** ✅ Spawn **`brush`** binary (use upstream name).
 
 ---
 
@@ -47,11 +47,13 @@ brush uses the `nix` crate for POSIX APIs. Eyra provides Linux-compatible syscal
 
 ```
 crates/userspace/eyra/
-├── brush/                  ← brush Shell (Eyra-adapted)
+├── brush/                  ← brush shell (Eyra-adapted)
 │   ├── Cargo.toml
 │   ├── build.rs           ← -nostartfiles for Eyra
 │   └── src/
 │       └── main.rs        ← Wrapper around brush-shell crate
+
+Binary name: brush
 ```
 
 Or vendor the brush crates if modifications needed.

@@ -1,7 +1,9 @@
-// TEAM_351: Tell the linker not to use the system startup code.
-// Eyra provides its own _start implementation via Origin.
+// TEAM_351: Build script for eyra-hello
+//
+// NOTE: -nostartfiles is now configured at workspace level in .cargo/config.toml
+// Individual binaries no longer need to specify it in build.rs
 fn main() {
-    println!("cargo:rustc-link-arg=-nostartfiles");
+    // -nostartfiles moved to workspace config
 
     // TEAM_357: Create empty libgcc_eh.a stub for aarch64 cross-compilation.
     // The Fedora aarch64 cross-compiler doesn't ship libgcc_eh.a, but Rust's

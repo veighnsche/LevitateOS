@@ -7,12 +7,12 @@ Integrate brush shell into LevitateOS and verify it works correctly.
 ## Integration Tasks
 
 ### Step 1: Init Integration
-- [ ] Update init to spawn brush instead of lsh
+- [ ] Update init to spawn `brush` instead of lsh
 - [ ] Verify shell starts on boot
 - [ ] Handle shell crash gracefully
 
 ### Step 2: Initramfs Integration
-- [ ] Add brush binary to initramfs
+- [ ] Add `brush` binary to initramfs
 - [ ] Remove old lsh binary (or keep as fallback)
 - [ ] Update build scripts
 
@@ -77,6 +77,12 @@ fi
 echo "All tests complete"
 ```
 
+### Step 4: Golden Log Updates
+- [ ] Run boot test with new shell
+- [ ] Update `tests/golden_boot.txt` if shell output changes
+- [ ] Update `tests/golden_boot_x86_64.txt` for x86_64
+- [ ] Verify golden log tests pass
+
 ## Success Criteria
 
 - [ ] Shell boots and is usable
@@ -85,3 +91,4 @@ echo "All tests complete"
 - [ ] Coreutils integration tests pass
 - [ ] No regressions in existing functionality
 - [ ] Can run existing Linux bash scripts
+- [ ] Golden log tests pass

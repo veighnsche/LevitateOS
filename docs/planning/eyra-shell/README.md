@@ -1,6 +1,14 @@
 # Eyra Shell with Scripting Support
 
-**TEAM_379** | Created: 2026-01-10
+**TEAM_379** | Created: 2026-01-10 | **Reviewed: TEAM_391**
+
+## ✅ Prerequisite: epoll Syscalls
+
+brush uses **tokio** async runtime which requires epoll syscalls.
+
+**Resolution**: Implement epoll syscalls in kernel (Phase 0) before brush integration.
+
+**See:** [Questions](../../questions/TEAM_391_brush_shell_questions.md) for details.
 
 ## Problem Summary
 
@@ -46,17 +54,18 @@ This blocks testing and usability improvements.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| [Phase 1](phase-1.md) | Discovery — Analyze Ion Shell & requirements | Pending |
+| [Phase 0](phase-0.md) | **Prerequisite** — Implement epoll syscalls in kernel | Pending |
+| [Phase 1](phase-1.md) | Discovery — Analyze brush shell & requirements | Pending |
 | [Phase 2](phase-2.md) | Design — Eyra adaptation strategy | Pending |
-| [Phase 3](phase-3.md) | Implementation — Port Ion to Eyra | Pending |
+| [Phase 3](phase-3.md) | Implementation — Port brush to Eyra | Pending |
 | [Phase 4](phase-4.md) | Integration & Testing | Pending |
 | [Phase 5](phase-5.md) | Polish & Documentation | Pending |
 
 ## Success Criteria
 
 - [ ] Shell runs on LevitateOS via Eyra
-- [ ] Can execute script files (`ion script.ion`)
-- [ ] Variables, loops, conditionals work
+- [ ] Can execute script files (`bash script.sh` or `./script.sh`)
+- [ ] Variables, loops, conditionals work (Bash syntax)
 - [ ] Tab completion works
 - [ ] History works
 - [ ] All existing coreutils callable from shell
@@ -70,7 +79,8 @@ This blocks testing and usability improvements.
 | Syscall backend? | ✅ **Eyra std directly** — no shims |
 | Line editor? | ✅ **reedline** — brush already uses it |
 | Build integration? | ✅ **Eyra workspace** — like other coreutils |
-| Init integration? | Spawn "brush" or keep "shell" name |
+| Binary name? | ✅ **`brush`** — use upstream name |
+| Tokio/epoll resolution? | ✅ **Implement epoll** — Phase 0 prerequisite |
 
 ## References
 
