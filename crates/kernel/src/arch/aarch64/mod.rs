@@ -59,6 +59,7 @@ pub enum SyscallNumber {
     SetTidAddress = 96,
     // TEAM: Pipe and dup syscalls for std support
     Dup = 23,
+    Dup2 = 1033, // TEAM_406: Not in aarch64 Linux, use custom number for compat
     Dup3 = 24,
     Pipe2 = 59,
     // TEAM_350: Eyra prerequisites
@@ -75,6 +76,7 @@ pub enum SyscallNumber {
     // TEAM_358: Extended file stat
     Statx = 291,
     // TEAM_360: Eyra syscalls
+    Poll = 1007, // TEAM_406: Not in aarch64, use custom number
     Ppoll = 73,
     Tkill = 130,
     PkeyAlloc = 289,
@@ -98,9 +100,13 @@ pub enum SyscallNumber {
     Ftruncate = 46,
     Chdir = 49,
     Fchdir = 50,
-    // TEAM_406: System identification
+    // TEAM_406: System identification and permissions
     Uname = 160,
     Umask = 166,
+    Chmod = 1090,   // TEAM_406: Not in aarch64 Linux, use custom
+    Fchmod = 52,    // aarch64 fchmod
+    Chown = 1092,   // TEAM_406: Not in aarch64 Linux, use custom  
+    Fchown = 55,    // aarch64 fchown
 
     // === Custom LevitateOS syscalls (temporary, until clone/execve work) ===
     /// TEAM: Spawn process (custom, will be replaced by clone+execve)
@@ -166,6 +172,7 @@ impl SyscallNumber {
             23 => Some(Self::Dup),
             24 => Some(Self::Dup3),
             59 => Some(Self::Pipe2),
+            1033 => Some(Self::Dup2), // TEAM_406: compat mapping
             // TEAM_350: Eyra prerequisites
             178 => Some(Self::Gettid),
             94 => Some(Self::ExitGroup),
@@ -179,6 +186,7 @@ impl SyscallNumber {
             48 => Some(Self::Faccessat),
             291 => Some(Self::Statx),
             // TEAM_360: Eyra syscalls
+            1007 => Some(Self::Poll),  // TEAM_406
             73 => Some(Self::Ppoll),
             130 => Some(Self::Tkill),
             289 => Some(Self::PkeyAlloc),
@@ -194,6 +202,20 @@ impl SyscallNumber {
             155 => Some(Self::Getpgid),
             157 => Some(Self::Setsid),
             25 => Some(Self::Fcntl),
+            // TEAM_404: File positioning and fd syscalls
+            62 => Some(Self::Lseek),
+            67 => Some(Self::Pread64),
+            68 => Some(Self::Pwrite64),
+            46 => Some(Self::Ftruncate),
+            49 => Some(Self::Chdir),
+            50 => Some(Self::Fchdir),
+            // TEAM_406: System identification and permissions
+            160 => Some(Self::Uname),
+            166 => Some(Self::Umask),
+            1090 => Some(Self::Chmod),
+            52 => Some(Self::Fchmod),
+            1092 => Some(Self::Chown),
+            55 => Some(Self::Fchown),
             // Custom LevitateOS
             1000 => Some(Self::Spawn),
             1001 => Some(Self::SpawnArgs),

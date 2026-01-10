@@ -276,6 +276,34 @@ impl<'a> Elf<'a> {
         self.header.e_phoff as usize
     }
 
+    /// TEAM_408: Get the virtual address where program headers are mapped in memory.
+    /// This is NOT the file offset - it's the actual memory address where Origin
+    /// and other runtimes expect to find the PHDRs when they read AT_PHDR.
+    pub fn program_headers_vaddr(&self) -> usize {
+        let e_phoff = self.header.e_phoff as usize;
+        let load_base = self.load_base();
+
+        // Find the PT_LOAD segment that contains the program headers
+        for phdr in self.program_headers() {
+            if !phdr.is_loadable() {
+                continue;
+            }
+            let seg_offset = phdr.offset();
+            let seg_filesz = phdr.filesz();
+            let seg_vaddr = phdr.vaddr();
+
+            // Check if e_phoff falls within this segment's file range
+            if e_phoff >= seg_offset && e_phoff < seg_offset + seg_filesz {
+                // PHDRs are in this segment
+                // VA = load_base + segment_vaddr + (e_phoff - segment_file_offset)
+                return load_base + seg_vaddr + (e_phoff - seg_offset);
+            }
+        }
+
+        // Fallback: assume PHDRs are at load_base + e_phoff (common for PIE with vaddr=0)
+        load_base + e_phoff
+    }
+
     /// TEAM_217: Get the number of program headers.
     pub fn program_headers_count(&self) -> usize {
         self.header.e_phnum as usize

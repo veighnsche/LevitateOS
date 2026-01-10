@@ -35,6 +35,7 @@ pub enum SyscallNumber {
     Write = 1,
     Close = 3,
     Fstat = 5,
+    Poll = 7,       // TEAM_406: I/O multiplexing
     Lseek = 8,      // TEAM_404: File positioning
     Mmap = 9,
     Mprotect = 10,
@@ -60,6 +61,10 @@ pub enum SyscallNumber {
     Waitpid = 61, // x86: wait4=61
     Kill = 62,
     Uname = 63,     // TEAM_406: System identification
+    Chmod = 90,     // TEAM_406: Change file permissions
+    Fchmod = 91,    // TEAM_406: Change permissions by fd
+    Chown = 92,     // TEAM_406: Change file owner
+    Fchown = 93,    // TEAM_406: Change owner by fd
     Umask = 95,     // TEAM_406: File creation mask
     Ftruncate = 77, // TEAM_404: Truncate file
     Getdents = 78,
@@ -131,6 +136,7 @@ impl SyscallNumber {
             1 => Some(Self::Write),
             3 => Some(Self::Close),
             5 => Some(Self::Fstat),
+            7 => Some(Self::Poll),       // TEAM_406
             8 => Some(Self::Lseek),      // TEAM_404
             9 => Some(Self::Mmap),
             10 => Some(Self::Mprotect),
@@ -156,6 +162,10 @@ impl SyscallNumber {
             61 => Some(Self::Waitpid),
             62 => Some(Self::Kill),
             63 => Some(Self::Uname),     // TEAM_406
+            90 => Some(Self::Chmod),     // TEAM_406
+            91 => Some(Self::Fchmod),    // TEAM_406
+            92 => Some(Self::Chown),     // TEAM_406
+            93 => Some(Self::Fchown),    // TEAM_406
             95 => Some(Self::Umask),     // TEAM_406
             77 => Some(Self::Ftruncate), // TEAM_404
             78 => Some(Self::Getdents),

@@ -467,3 +467,96 @@ pub fn sys_pwrite64(_fd: usize, _buf_ptr: usize, _count: usize, _offset: i64) ->
     // TODO: Implement when File has write_at method
     errno::ENOSYS
 }
+
+// ============================================================================
+// TEAM_406: chmod/chown syscalls (no-op for single-user OS per Q6)
+// ============================================================================
+
+/// TEAM_406: sys_chmod - Change file permissions.
+///
+/// No-op implementation for single-user OS (per design decision Q6).
+/// Just validates pathname is readable, doesn't check file exists.
+pub fn sys_chmod(pathname: usize, _mode: u32) -> i64 {
+    let task = current_task();
+    let mut buf = [0u8; 256];
+    
+    // Validate pathname is readable
+    if crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut buf).is_err() {
+        return errno::EFAULT;
+    }
+    
+    0 // Success - no actual mode change (single-user OS)
+}
+
+/// TEAM_406: sys_fchmod - Change file permissions by file descriptor.
+///
+/// No-op implementation for single-user OS (per design decision Q6).
+pub fn sys_fchmod(fd: usize, _mode: u32) -> i64 {
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+    
+    if fd_table.get(fd).is_none() {
+        return errno::EBADF;
+    }
+    
+    0 // Success - no actual mode change (single-user OS)
+}
+
+/// TEAM_406: sys_chown - Change file owner and group.
+///
+/// No-op implementation for single-user OS (per design decision Q6).
+pub fn sys_chown(pathname: usize, _owner: u32, _group: u32) -> i64 {
+    let task = current_task();
+    let mut buf = [0u8; 256];
+    
+    // Validate pathname is readable
+    if crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut buf).is_err() {
+        return errno::EFAULT;
+    }
+    
+    0 // Success - no actual ownership change (single-user OS)
+}
+
+/// TEAM_406: sys_fchown - Change file owner and group by file descriptor.
+///
+/// No-op implementation for single-user OS (per design decision Q6).
+pub fn sys_fchown(fd: usize, _owner: u32, _group: u32) -> i64 {
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+    
+    if fd_table.get(fd).is_none() {
+        return errno::EBADF;
+    }
+    
+    0 // Success - no actual ownership change (single-user OS)
+}
+
+/// TEAM_406: sys_fchmodat - Change file permissions at path relative to directory fd.
+///
+/// No-op implementation for single-user OS (per design decision Q6).
+pub fn sys_fchmodat(_dirfd: i32, pathname: usize, _mode: u32, _flags: i32) -> i64 {
+    let task = current_task();
+    let mut buf = [0u8; 256];
+    
+    // Validate pathname is readable
+    if crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut buf).is_err() {
+        return errno::EFAULT;
+    }
+    
+    0 // Success - no actual mode change (single-user OS)
+}
+
+/// TEAM_406: sys_fchownat - Change file owner at path relative to directory fd.
+///
+/// No-op implementation for single-user OS (per design decision Q6).
+pub fn sys_fchownat(_dirfd: i32, pathname: usize, _owner: u32, _group: u32, _flags: i32) -> i64 {
+    let task = current_task();
+    let mut buf = [0u8; 256];
+    
+    // Validate pathname is readable
+    if crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut buf).is_err() {
+        return errno::EFAULT;
+    }
+    
+    0 // Success - no actual ownership change (single-user OS)
+}

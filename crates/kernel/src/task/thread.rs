@@ -132,6 +132,8 @@ pub fn create_thread(
         // TEAM_394: Threads inherit parent's process group and session
         pgid: AtomicUsize::new(crate::task::current_task().pgid.load(Ordering::Acquire)),
         sid: AtomicUsize::new(crate::task::current_task().sid.load(Ordering::Acquire)),
+        // TEAM_406: Threads inherit parent's umask
+        umask: AtomicU32::new(crate::task::current_task().umask.load(Ordering::Acquire)),
     };
 
     Ok(Arc::new(tcb))

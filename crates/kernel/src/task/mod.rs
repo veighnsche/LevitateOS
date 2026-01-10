@@ -238,6 +238,8 @@ pub struct TaskControlBlock {
     pub pgid: AtomicUsize,
     /// TEAM_394: Session ID for job control
     pub sid: AtomicUsize,
+    /// TEAM_406: File creation mask for umask syscall
+    pub umask: AtomicU32,
 }
 
 /// TEAM_220: Global tracking of the foreground process for shell control.
@@ -295,6 +297,8 @@ impl Default for TaskControlBlock {
             // TEAM_394: Process group defaults to PID (own process group)
             pgid: AtomicUsize::new(0),
             sid: AtomicUsize::new(0),
+            // TEAM_406: Default umask is 0o022 (standard Unix default)
+            umask: AtomicU32::new(0o022),
         }
     }
 }
@@ -339,11 +343,13 @@ impl From<UserTask> for TaskControlBlock {
             clear_child_tid: AtomicUsize::new(0),
             // TEAM_238: New user processes start with empty VMA list
             vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
-            // TEAM_350: TLS base starts at 0
-            tls: AtomicUsize::new(0),
+            // TEAM_408: TLS base from UserTask (allocated during spawn)
+            tls: AtomicUsize::new(user.tls),
             // TEAM_394: New processes inherit parent's pgid/sid or use own PID
             pgid: AtomicUsize::new(user.pid.0 as usize),
             sid: AtomicUsize::new(user.pid.0 as usize),
+            // TEAM_406: Default umask for new processes
+            umask: AtomicU32::new(0o022),
         }
     }
 }
@@ -361,6 +367,16 @@ pub fn user_task_entry_wrapper() -> ! {
     unsafe {
         // Switch TTBR0 (AArch64) or CR3 (x86_64)
         crate::arch::switch_mmu_config(task.ttbr0);
+
+        // TEAM_408: Set TLS pointer before entering userspace
+        // On AArch64, TPIDR_EL0 must be set before eret or userspace TLS access will fault
+        #[cfg(target_arch = "aarch64")]
+        {
+            let tls = task.tls.load(core::sync::atomic::Ordering::Acquire);
+            crate::println!("[TASK] TEAM_408: Setting TPIDR_EL0 = 0x{:x} for PID={}", tls, task.id.0);
+            core::arch::asm!("msr tpidr_el0, {}", in(reg) tls);
+        }
+
         // Enter EL0 (AArch64) or Ring 3 (x86_64)
         crate::task::user::enter_user_mode(task.user_entry, task.user_sp);
     }

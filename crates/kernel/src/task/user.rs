@@ -135,6 +135,9 @@ pub struct UserTask {
     /// Top of kernel stack
     #[allow(dead_code)]
     pub kernel_stack_top: usize,
+
+    /// TEAM_408: TLS base address (TPIDR_EL0 on AArch64, FS base on x86_64)
+    pub tls: usize,
 }
 
 impl UserTask {
@@ -146,12 +149,14 @@ impl UserTask {
     /// * `ttbr0` - Physical address of user page table L0
     /// * `brk` - Initial program break (end of loaded segments)
     /// * `fd_table` - File descriptor table (inherited or new)
+    /// * `tls` - TEAM_408: TLS base address (TPIDR_EL0 on AArch64)
     pub fn new(
         entry_point: usize,
         user_sp: usize,
         ttbr0: usize,
         brk: usize,
         fd_table: SharedFdTable,
+        tls: usize,
     ) -> Self {
         // Allocate kernel stack for syscall handling
         let kernel_stack_size = 16384; // 16KB kernel stack
@@ -180,6 +185,7 @@ impl UserTask {
             exit_code: 0,
             kernel_stack,
             kernel_stack_top,
+            tls, // TEAM_408: TLS base
         }
     }
 

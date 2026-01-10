@@ -85,15 +85,23 @@ pub fn spawn_from_elf_with_args(
     let stack_top =
         unsafe { mm_user::setup_user_stack(ttbr0_phys, stack_pages).map_err(SpawnError::Stack)? };
 
+    // TEAM_408: Set up TLS area for AArch64 (TPIDR_EL0)
+    #[cfg(target_arch = "aarch64")]
+    let tls_base = unsafe { mm_user::setup_user_tls(ttbr0_phys).map_err(SpawnError::Stack)? };
+    #[cfg(not(target_arch = "aarch64"))]
+    let tls_base = 0usize;
+
     // TEAM_216: Always set up argc/argv/envp on stack.
     // Even if empty, this ensures SP is moved into a mapped page (Rule 4).
     log::debug!("[SPAWN] Setting up stack arguments...");
 
     // TEAM_217: Collect ELF info for auxv
+    // TEAM_408: Use program_headers_vaddr() which correctly calculates the
+    // memory address where PHDRs are mapped, not just file_offset + load_base
     let mut auxv = alloc::vec::Vec::new();
     auxv.push(crate::memory::user::AuxEntry {
         a_type: crate::memory::user::AT_PHDR,
-        a_val: elf.program_headers_offset() + elf.load_base(),
+        a_val: elf.program_headers_vaddr(),
     });
     auxv.push(crate::memory::user::AuxEntry {
         a_type: crate::memory::user::AT_PHENT,
@@ -117,7 +125,7 @@ pub fn spawn_from_elf_with_args(
         .map_err(SpawnError::Stack)?;
 
     // 5. Create UserTask
-    let task = UserTask::new(entry_point, user_sp, ttbr0_phys, brk, fd_table);
+    let task = UserTask::new(entry_point, user_sp, ttbr0_phys, brk, fd_table, tls_base);
 
     log::debug!(
         "[SPAWN] Success: PID={} entry=0x{:x} sp=0x{:x}",

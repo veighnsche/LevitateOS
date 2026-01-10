@@ -221,6 +221,21 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         ),
         // TEAM_216: Signal Handling syscalls
         Some(SyscallNumber::Kill) => signal::sys_kill(frame.arg0() as i32, frame.arg1() as i32),
+        // TEAM_406: System identification and permissions
+        Some(SyscallNumber::Uname) => process::sys_uname(frame.arg0() as usize),
+        Some(SyscallNumber::Umask) => process::sys_umask(frame.arg0() as u32),
+        Some(SyscallNumber::Chmod) => fs::sys_chmod(frame.arg0() as usize, frame.arg1() as u32),
+        Some(SyscallNumber::Fchmod) => fs::sys_fchmod(frame.arg0() as usize, frame.arg1() as u32),
+        Some(SyscallNumber::Chown) => fs::sys_chown(
+            frame.arg0() as usize,
+            frame.arg1() as u32,
+            frame.arg2() as u32,
+        ),
+        Some(SyscallNumber::Fchown) => fs::sys_fchown(
+            frame.arg0() as usize,
+            frame.arg1() as u32,
+            frame.arg2() as u32,
+        ),
         Some(SyscallNumber::Pause) => signal::sys_pause(),
         Some(SyscallNumber::SigAction) => signal::sys_sigaction(
             frame.arg0() as i32,
@@ -315,7 +330,12 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg3() as u32,
             frame.arg4() as usize,
         ),
-        // TEAM_360: Eyra syscalls
+        // TEAM_360/406: Poll syscalls
+        Some(SyscallNumber::Poll) => sync::sys_poll(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as i32,
+        ),
         Some(SyscallNumber::Ppoll) => sync::sys_ppoll(
             frame.arg0() as usize,
             frame.arg1() as usize,

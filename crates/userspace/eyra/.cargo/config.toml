@@ -27,4 +27,5 @@ rustflags = [
     "-C", "link-arg=--sysroot=/usr/aarch64-redhat-linux/sys-root/fc43",
     "-C", "target-feature=-outline-atomics",
     "-C", "link-arg=-nostartfiles",
+    "-C", "link-arg=-L/home/vince/Projects/LevitateOS/crates/userspace/eyra/coreutils/empty-libs",
 ]

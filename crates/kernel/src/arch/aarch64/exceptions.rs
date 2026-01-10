@@ -43,9 +43,9 @@ pub extern "C" fn handle_sync_lower_el(frame: *mut crate::arch::SyscallFrame) {
 
         crate::println!("Terminating user process.\n");
 
-        loop {
-            aarch64_cpu::asm::wfi();
-        }
+        // TEAM_408: Halt system on user exception for debugging (prevents VM hang)
+        crate::println!("[HALT] Stopping system due to user exception.");
+        crate::arch::power::system_off();
     }
 }
 

@@ -21,6 +21,13 @@ pub mod layout {
 
     /// End of user address space (bit 47 clear = TTBR0)
     pub const USER_SPACE_END: usize = 0x0000_8000_0000_0000;
+
+    /// TEAM_408: TLS area base address (below stack)
+    /// On AArch64, TPIDR_EL0 points to the TLS block
+    pub const TLS_BASE: usize = 0x0000_7FFF_FFFE_0000;
+
+    /// TEAM_408: TLS area size (one page is enough for basic TLS)
+    pub const TLS_SIZE: usize = 4096;
 }
 
 /// TEAM_073: Create a new user page table.
@@ -184,6 +191,37 @@ pub unsafe fn setup_user_stack(ttbr0_phys: usize, stack_pages: usize) -> Result<
 
     // Return stack pointer (top of stack, stack grows down)
     Ok(layout::STACK_TOP)
+}
+
+/// TEAM_408: Allocate and map TLS area for user process.
+///
+/// On AArch64, TPIDR_EL0 points to this area. Userspace runtimes like
+/// Origin/Eyra expect a valid TLS pointer on entry.
+///
+/// # Arguments
+/// * `ttbr0_phys` - Physical address of user L0 page table
+///
+/// # Returns
+/// Virtual address of TLS area (to set in TPIDR_EL0) on success.
+pub unsafe fn setup_user_tls(ttbr0_phys: usize) -> Result<usize, MmuError> {
+    // Allocate physical page for TLS
+    let phys = FRAME_ALLOCATOR
+        .alloc_page()
+        .ok_or(MmuError::AllocationFailed)?;
+
+    // Zero the TLS page
+    let page_ptr = mmu::phys_to_virt(phys) as *mut u8;
+    unsafe {
+        core::ptr::write_bytes(page_ptr, 0, PAGE_SIZE);
+    }
+
+    // Map into user address space at TLS_BASE
+    unsafe {
+        map_user_page(ttbr0_phys, layout::TLS_BASE, phys, PageFlags::USER_DATA)?;
+    }
+
+    log::debug!("[TLS] TEAM_408: Allocated TLS at 0x{:x}", layout::TLS_BASE);
+    Ok(layout::TLS_BASE)
 }
 
 /// TEAM_217: Auxiliary Vector entry type.

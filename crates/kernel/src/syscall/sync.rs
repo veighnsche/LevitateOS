@@ -318,3 +318,25 @@ fn poll_fd_type(fd_type: &crate::task::fd_table::FdType, events: i16) -> i16 {
 
     revents
 }
+
+// ============================================================================
+// TEAM_406: poll syscall (wrapper around ppoll)
+// ============================================================================
+
+/// TEAM_406: sys_poll - Wait for events on file descriptors.
+///
+/// This is a wrapper around ppoll with simpler timeout handling.
+/// poll() is the older interface, ppoll() is the modern one.
+///
+/// # Arguments
+/// * `fds_ptr` - User pointer to array of pollfd structs
+/// * `nfds` - Number of file descriptors
+/// * `timeout_ms` - Timeout in milliseconds (-1 = infinite, 0 = non-blocking)
+///
+/// # Returns
+/// Number of fds with events, 0 on timeout, or negative error
+pub fn sys_poll(fds_ptr: usize, nfds: usize, _timeout_ms: i32) -> i64 {
+    // poll() is essentially ppoll() with simpler timeout
+    // Current ppoll ignores timeout anyway, so just delegate
+    sys_ppoll(fds_ptr, nfds, 0, 0)
+}
