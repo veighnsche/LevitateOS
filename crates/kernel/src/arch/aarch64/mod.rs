@@ -111,6 +111,8 @@ pub enum SyscallNumber {
     Fstatat = 79,    // newfstatat - stat relative to dirfd
     Truncate = 76,   // truncate file by path
     Prlimit64 = 261, // get/set resource limits
+    Gettimeofday = 1094, // TEAM_409: Legacy time (not standard aarch64, custom number)
+    Getrusage = 165,     // TEAM_409: Resource usage (standard aarch64)
 
     // === Custom LevitateOS syscalls (temporary, until clone/execve work) ===
     /// TEAM: Spawn process (custom, will be replaced by clone+execve)
@@ -224,6 +226,8 @@ impl SyscallNumber {
             79 => Some(Self::Fstatat),
             76 => Some(Self::Truncate),
             261 => Some(Self::Prlimit64),
+            1094 => Some(Self::Gettimeofday), // TEAM_409
+            165 => Some(Self::Getrusage),     // TEAM_409
             // Custom LevitateOS
             1000 => Some(Self::Spawn),
             1001 => Some(Self::SpawnArgs),

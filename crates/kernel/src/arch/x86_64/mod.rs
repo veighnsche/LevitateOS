@@ -66,6 +66,8 @@ pub enum SyscallNumber {
     Chown = 92,     // TEAM_406: Change file owner
     Fchown = 93,    // TEAM_406: Change owner by fd
     Umask = 95,     // TEAM_406: File creation mask
+    Gettimeofday = 96, // TEAM_409: Legacy time syscall
+    Getrusage = 98,    // TEAM_409: Resource usage
     Truncate = 76,  // TEAM_409: Truncate file by path
     Ftruncate = 77, // TEAM_404: Truncate file by fd
     Getdents = 78,
@@ -171,6 +173,8 @@ impl SyscallNumber {
             92 => Some(Self::Chown),     // TEAM_406
             93 => Some(Self::Fchown),    // TEAM_406
             95 => Some(Self::Umask),     // TEAM_406
+            96 => Some(Self::Gettimeofday), // TEAM_409
+            98 => Some(Self::Getrusage),    // TEAM_409
             76 => Some(Self::Truncate),  // TEAM_409
             77 => Some(Self::Ftruncate), // TEAM_404
             78 => Some(Self::Getdents),

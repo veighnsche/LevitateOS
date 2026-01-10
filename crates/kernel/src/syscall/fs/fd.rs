@@ -527,20 +527,142 @@ pub fn sys_ftruncate(fd: usize, length: i64) -> i64 {
     }
 }
 
-/// TEAM_404: sys_pread64 - Read from fd at offset without changing file position.
+/// TEAM_409: sys_pread64 - Read from fd at offset without changing file position.
 ///
-/// Stub: returns ENOSYS - full impl needs positioned read support.
-pub fn sys_pread64(_fd: usize, _buf_ptr: usize, _count: usize, _offset: i64) -> i64 {
-    // TODO: Implement when File has read_at method
-    errno::ENOSYS
+/// Reads up to `count` bytes from file descriptor `fd` at offset `offset`
+/// into the buffer at `buf_ptr`. The file offset is not changed.
+///
+/// # Arguments
+/// * `fd` - File descriptor to read from
+/// * `buf_ptr` - User buffer to read into
+/// * `count` - Maximum bytes to read
+/// * `offset` - File offset to read from
+///
+/// # Returns
+/// Number of bytes read on success, negative errno on failure.
+pub fn sys_pread64(fd: usize, buf_ptr: usize, count: usize, offset: i64) -> i64 {
+    use crate::memory::user as mm_user;
+    use crate::fs::vfs::error::VfsError;
+
+    if count == 0 {
+        return 0;
+    }
+    if offset < 0 {
+        return errno::EINVAL;
+    }
+
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+
+    let entry = match fd_table.get(fd) {
+        Some(e) => e.clone(),
+        None => return errno::EBADF,
+    };
+    drop(fd_table);
+
+    match &entry.fd_type {
+        FdType::VfsFile(file) => {
+            // Check readable
+            if !file.flags.is_readable() {
+                return errno::EBADF;
+            }
+
+            // Validate user buffer
+            if mm_user::validate_user_buffer(task.ttbr0, buf_ptr, count, true).is_err() {
+                return errno::EFAULT;
+            }
+
+            // Read directly from inode at specified offset (without changing file.offset)
+            let mut kbuf = alloc::vec![0u8; count];
+            match file.inode.read(offset as u64, &mut kbuf) {
+                Ok(n) => {
+                    // Copy to user space
+                    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf_ptr).unwrap();
+                    unsafe {
+                        core::ptr::copy_nonoverlapping(kbuf.as_ptr(), dest, n);
+                    }
+                    file.inode.touch_atime();
+                    n as i64
+                }
+                Err(VfsError::BadFd) => errno::EBADF,
+                Err(_) => errno::EIO,
+            }
+        }
+        // Pipes and special files don't support positioned I/O
+        FdType::PipeRead(_) | FdType::PipeWrite(_) => errno::ESPIPE,
+        FdType::Stdin | FdType::Stdout | FdType::Stderr => errno::ESPIPE,
+        _ => errno::EINVAL,
+    }
 }
 
-/// TEAM_404: sys_pwrite64 - Write to fd at offset without changing file position.
+/// TEAM_409: sys_pwrite64 - Write to fd at offset without changing file position.
 ///
-/// Stub: returns ENOSYS - full impl needs positioned write support.
-pub fn sys_pwrite64(_fd: usize, _buf_ptr: usize, _count: usize, _offset: i64) -> i64 {
-    // TODO: Implement when File has write_at method
-    errno::ENOSYS
+/// Writes up to `count` bytes from the buffer at `buf_ptr` to file descriptor `fd`
+/// at offset `offset`. The file offset is not changed.
+///
+/// # Arguments
+/// * `fd` - File descriptor to write to
+/// * `buf_ptr` - User buffer to write from
+/// * `count` - Maximum bytes to write
+/// * `offset` - File offset to write at
+///
+/// # Returns
+/// Number of bytes written on success, negative errno on failure.
+pub fn sys_pwrite64(fd: usize, buf_ptr: usize, count: usize, offset: i64) -> i64 {
+    use crate::memory::user as mm_user;
+    use crate::fs::vfs::error::VfsError;
+
+    if count == 0 {
+        return 0;
+    }
+    if offset < 0 {
+        return errno::EINVAL;
+    }
+
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+
+    let entry = match fd_table.get(fd) {
+        Some(e) => e.clone(),
+        None => return errno::EBADF,
+    };
+    drop(fd_table);
+
+    match &entry.fd_type {
+        FdType::VfsFile(file) => {
+            // Check writable
+            if !file.flags.is_writable() {
+                return errno::EBADF;
+            }
+
+            // Validate user buffer
+            if mm_user::validate_user_buffer(task.ttbr0, buf_ptr, count, false).is_err() {
+                return errno::EFAULT;
+            }
+
+            // Copy from user space
+            let mut kbuf = alloc::vec![0u8; count];
+            let src = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf_ptr).unwrap();
+            unsafe {
+                core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), count);
+            }
+
+            // Write directly to inode at specified offset (without changing file.offset)
+            match file.inode.write(offset as u64, &kbuf) {
+                Ok(n) => {
+                    file.inode.touch_mtime();
+                    n as i64
+                }
+                Err(VfsError::BadFd) => errno::EBADF,
+                Err(VfsError::NotSupported) => errno::EROFS,
+                Err(_) => errno::EIO,
+            }
+        }
+        // Pipes and special files don't support positioned I/O
+        FdType::PipeRead(_) | FdType::PipeWrite(_) => errno::ESPIPE,
+        FdType::Stdin | FdType::Stdout | FdType::Stderr => errno::ESPIPE,
+        _ => errno::EINVAL,
+    }
 }
 
 // ============================================================================

@@ -964,6 +964,88 @@ pub fn sys_umask(mask: u32) -> i64 {
 }
 
 // ============================================================================
+// TEAM_409: Resource usage syscalls
+// ============================================================================
+
+/// TEAM_409: rusage structure for getrusage syscall.
+#[repr(C)]
+#[derive(Default)]
+pub struct Rusage {
+    pub ru_utime: Timeval,     // User time used
+    pub ru_stime: Timeval,     // System time used
+    pub ru_maxrss: i64,        // Maximum resident set size
+    pub ru_ixrss: i64,         // Integral shared memory size
+    pub ru_idrss: i64,         // Integral unshared data size
+    pub ru_isrss: i64,         // Integral unshared stack size
+    pub ru_minflt: i64,        // Page reclaims (soft page faults)
+    pub ru_majflt: i64,        // Page faults (hard page faults)
+    pub ru_nswap: i64,         // Swaps
+    pub ru_inblock: i64,       // Block input operations
+    pub ru_oublock: i64,       // Block output operations
+    pub ru_msgsnd: i64,        // IPC messages sent
+    pub ru_msgrcv: i64,        // IPC messages received
+    pub ru_nsignals: i64,      // Signals received
+    pub ru_nvcsw: i64,         // Voluntary context switches
+    pub ru_nivcsw: i64,        // Involuntary context switches
+}
+
+/// TEAM_409: timeval structure for rusage.
+#[repr(C)]
+#[derive(Default)]
+pub struct Timeval {
+    pub tv_sec: i64,
+    pub tv_usec: i64,
+}
+
+/// TEAM_409: sys_getrusage - Get resource usage.
+///
+/// Returns resource usage statistics for the calling process.
+/// Currently returns zeros for most fields (simplified implementation).
+///
+/// # Arguments
+/// * `who` - RUSAGE_SELF (0), RUSAGE_CHILDREN (1), or RUSAGE_THREAD (1)
+/// * `usage` - User pointer to rusage struct
+///
+/// # Returns
+/// 0 on success, negative errno on failure.
+pub fn sys_getrusage(who: i32, usage: usize) -> i64 {
+    const RUSAGE_SELF: i32 = 0;
+    const RUSAGE_CHILDREN: i32 = -1;
+    const RUSAGE_THREAD: i32 = 1;
+
+    // Validate who argument
+    if who != RUSAGE_SELF && who != RUSAGE_CHILDREN && who != RUSAGE_THREAD {
+        return errno::EINVAL;
+    }
+
+    if usage == 0 {
+        return errno::EFAULT;
+    }
+
+    let task = crate::task::current_task();
+    let rusage_size = core::mem::size_of::<Rusage>();
+
+    if mm_user::validate_user_buffer(task.ttbr0, usage, rusage_size, true).is_err() {
+        return errno::EFAULT;
+    }
+
+    // Create a zeroed rusage struct (simplified - we don't track these metrics yet)
+    let rusage = Rusage::default();
+
+    // Copy to user space
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, usage).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            &rusage as *const Rusage as *const u8,
+            dest,
+            rusage_size,
+        );
+    }
+
+    0
+}
+
+// ============================================================================
 // TEAM_409: Resource limit syscalls
 // ============================================================================
 

@@ -55,11 +55,11 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | openat | 257 | 56 | ✅ | Open file at path |
 | close | 3 | 57 | ✅ | Close fd |
 | lseek | 8 | 62 | ✅ | Seek in file |
-| pread64 | 17 | 67 | 🔨 | Positioned read (stub) |
-| pwrite64 | 18 | 68 | 🔨 | Positioned write (stub) |
+| pread64 | 17 | 67 | ✅ | Positioned read |
+| pwrite64 | 18 | 68 | ✅ | Positioned write |
 | readv | 19 | 65 | ✅ | Vectored read |
 | writev | 20 | 66 | ✅ | Vectored write |
-| ftruncate | 77 | 46 | 🔨 | Truncate file (stub) |
+| ftruncate | 77 | 46 | ✅ | Truncate file |
 
 ### File Descriptor Operations
 
@@ -276,7 +276,7 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | nanosleep | 35 | 101 | ✅ | Sleep |
 | clock_gettime | 228 | 113 | ✅ | Get time |
 | clock_getres | 229 | 114 | ✅ | Get clock resolution |
-| gettimeofday | 96 | - | ⏳ | Get time (legacy) |
+| gettimeofday | 96 | 1094 | ✅ | Get time (legacy) |
 | clock_nanosleep | 230 | 115 | ⏳ | Sleep with clock |
 
 ---
@@ -501,19 +501,18 @@ This section maps syscalls to their kernel implementation files.
 
 This section provides a detailed analysis of syscalls that are mapped but not fully implemented, categorized by type.
 
-### Category 1: Returns ENOSYS (6 syscalls)
+### Category 1: Returns ENOSYS (3 syscalls)
 
 These syscalls are mapped to handlers that explicitly return `-ENOSYS`:
 
 | Syscall | Location | Work Required |
 |---------|----------|---------------|
 | fchdir | syscall/fs/fd.rs | Implement fd-to-path lookup, validate is directory |
-| pread64 | syscall/fs/fd.rs | Add positioned read using lseek + read atomically |
-| pwrite64 | syscall/fs/fd.rs | Add positioned write using lseek + write atomically |
 | pkey_alloc | syscall/mm.rs | Memory protection keys (hardware-specific) |
 | pkey_mprotect | syscall/mm.rs | Memory protection keys (hardware-specific) |
 
 **Note**: `pkey_*` syscalls require Intel MPK or ARM MTE support.
+**Note**: `pread64` and `pwrite64` are now fully implemented (TEAM_409).
 
 ### Category 2: No-Op by Design (6 syscalls)
 
@@ -530,7 +529,7 @@ These return success but deliberately do nothing (single-user OS, root runs ever
 
 **Rationale**: LevitateOS currently runs as single-user root. Permissions will be needed for Epic 5 (Users & Permissions).
 
-### Category 3: Stubs Returning Success (10 syscalls)
+### Category 3: Stubs Returning Success (8 syscalls)
 
 These accept calls and return success, but ignore some or all parameters:
 
@@ -542,9 +541,10 @@ These accept calls and return success, but ignore some or all parameters:
 | fcntl F_GETFD | syscall/fs/fd.rs | Returns 0 always | Return actual FD flags |
 | ioctl TIOCSCTTY | syscall/fs/fd.rs | Controlling terminal | Implement session/ctty tracking |
 | ioctl TIOCGWINSZ | syscall/fs/fd.rs | Returns fixed 80x24 | Query real terminal size |
-| ftruncate | syscall/fs/fd.rs | All parameters | Implement in VFS File trait |
 | sigaltstack | syscall/signal.rs | All parameters | Allocate/track alt stack per thread |
 | madvise | syscall/mm.rs | All hints | Implement MADV_DONTNEED, WILLNEED |
+
+**Note**: `ftruncate` is now fully implemented (TEAM_410).
 
 ### Category 4: Partial Implementations (11 syscalls)
 
@@ -595,19 +595,21 @@ These syscalls have no handler mapped at all:
 | vfork | Medium | Use clone with CLONE_VFORK |
 | clone3 | Medium | Extended clone interface |
 | execveat | Low | execve relative to fd |
-| gettimeofday | Medium | Legacy time interface |
 | prctl | Medium | Process control ops |
+
+**Note**: `gettimeofday` is now implemented (TEAM_409).
 
 ### Summary by Priority
 
 **High Priority** (blocking coreutils/shells):
-1. `pread64` / `pwrite64` - Many tools use positioned I/O
-2. `ftruncate` - File editing tools
+1. ~~`pread64` / `pwrite64`~~ ✅ Implemented (TEAM_409)
+2. ~~`ftruncate`~~ ✅ Implemented (TEAM_410)
 3. `fcntl` flags - Proper O_NONBLOCK support
 4. `dirfd` support in `*at` syscalls
+5. `fchdir` - Change directory by fd
 
 **Medium Priority** (full Unix compat):
-1. Permission syscalls (chmod, chown family)
+1. Permission syscalls (chmod, chown family) - no-op ok for now
 2. sigaltstack proper implementation
 3. Controlling terminal (TIOCSCTTY)
 
@@ -615,5 +617,12 @@ These syscalls have no handler mapped at all:
 1. Memory protection keys (pkey_*)
 2. madvise hints
 3. File-backed mmap
+
+### Recently Implemented (TEAM_409)
+
+- `pread64` - Positioned read without changing file offset
+- `pwrite64` - Positioned write without changing file offset
+- `gettimeofday` - Legacy time syscall (x86_64: 96, aarch64: custom 1094)
+- `getrusage` - Resource usage statistics (returns zeroed struct)
 
 ---

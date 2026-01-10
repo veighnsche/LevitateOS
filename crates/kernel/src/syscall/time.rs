@@ -96,6 +96,65 @@ pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
     0
 }
 
+/// TEAM_409: sys_gettimeofday - Get time of day (legacy interface).
+///
+/// Returns the current time as seconds and microseconds since epoch.
+/// This is the legacy POSIX interface; clock_gettime is preferred.
+///
+/// # Arguments
+/// * `tv` - User pointer to timeval struct {tv_sec: i64, tv_usec: i64}
+/// * `tz` - User pointer to timezone struct (ignored, can be NULL)
+///
+/// # Returns
+/// 0 on success, negative errno on failure.
+pub fn sys_gettimeofday(tv: usize, _tz: usize) -> i64 {
+    // timeval structure: { tv_sec: i64, tv_usec: i64 } = 16 bytes
+    #[repr(C)]
+    struct Timeval {
+        tv_sec: i64,
+        tv_usec: i64,
+    }
+
+    // If tv is NULL, just return success (allowed by POSIX)
+    if tv == 0 {
+        return 0;
+    }
+
+    let task = crate::task::current_task();
+    let tv_size = core::mem::size_of::<Timeval>();
+    if mm_user::validate_user_buffer(task.ttbr0, tv, tv_size, true).is_err() {
+        return errno::EFAULT;
+    }
+
+    let freq = read_timer_frequency();
+    let counter = read_timer_counter();
+
+    let timeval = if freq > 0 {
+        let seconds = counter / freq;
+        let remainder = counter % freq;
+        // Convert remainder to microseconds
+        let microseconds = (remainder * 1_000_000) / freq;
+        Timeval {
+            tv_sec: seconds as i64,
+            tv_usec: microseconds as i64,
+        }
+    } else {
+        Timeval { tv_sec: 0, tv_usec: 0 }
+    };
+
+    // Copy to user space
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, tv).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            &timeval as *const Timeval as *const u8,
+            dest,
+            tv_size,
+        );
+    }
+
+    0
+}
+
 /// TEAM_170: sys_clock_gettime - Get current monotonic time.
 /// TEAM_360: Fixed to accept clockid as first argument (Linux ABI).
 ///

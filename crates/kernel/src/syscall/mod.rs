@@ -126,6 +126,11 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         Some(SyscallNumber::Nanosleep) => {
             time::sys_nanosleep(frame.arg0() as u64, frame.arg1() as u64)
         }
+        // TEAM_409: Legacy time syscall
+        Some(SyscallNumber::Gettimeofday) => time::sys_gettimeofday(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+        ),
         Some(SyscallNumber::ClockGettime) => time::sys_clock_gettime(
             frame.arg0() as i32,
             frame.arg1() as usize,
@@ -409,6 +414,11 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as u32,
             frame.arg2() as usize,
             frame.arg3() as usize,
+        ),
+        // TEAM_409: getrusage - resource usage statistics
+        Some(SyscallNumber::Getrusage) => process::sys_getrusage(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
         ),
         // TEAM_409: truncate - truncate file by path
         Some(SyscallNumber::Truncate) => fs::sys_truncate(
