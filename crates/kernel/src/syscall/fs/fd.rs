@@ -154,18 +154,12 @@ pub fn sys_pipe2(pipefd_ptr: usize, _flags: u32) -> i64 {
     };
 
     // Write fds to user space
-    if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, pipefd_ptr) {
-        unsafe {
-            let fds = ptr as *mut [i32; 2];
-            (*fds)[0] = read_fd as i32;
-            (*fds)[1] = write_fd as i32;
-        }
-    } else {
-        // Should not happen after validate_user_buffer, but handle it
-        let mut fd_table = task.fd_table.lock();
-        fd_table.close(read_fd);
-        fd_table.close(write_fd);
-        return errno::EFAULT;
+    // SAFETY: validate_user_buffer confirmed buffer is accessible
+    let ptr = mm_user::user_va_to_kernel_ptr(task.ttbr0, pipefd_ptr).unwrap();
+    unsafe {
+        let fds = ptr as *mut [i32; 2];
+        (*fds)[0] = read_fd as i32;
+        (*fds)[1] = write_fd as i32;
     }
 
     log::trace!(

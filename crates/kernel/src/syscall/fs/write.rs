@@ -87,12 +87,10 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
-            for i in 0..len {
-                if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, buf + i) {
-                    kbuf[i] = unsafe { *ptr };
-                } else {
-                    return errno::EFAULT;
-                }
+            // SAFETY: validate_user_buffer confirmed buffer is accessible
+            let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            unsafe {
+                core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
 
             for &byte in &kbuf {
@@ -113,12 +111,10 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
-            for i in 0..len {
-                if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, buf + i) {
-                    kbuf[i] = unsafe { *ptr };
-                } else {
-                    return errno::EFAULT;
-                }
+            // SAFETY: validate_user_buffer confirmed buffer is accessible
+            let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            unsafe {
+                core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
             match vfs_write(file, &kbuf) {
                 Ok(n) => n as i64,
@@ -133,12 +129,10 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
                 return errno::EFAULT;
             }
             let mut kbuf = alloc::vec![0u8; len];
-            for i in 0..len {
-                if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, buf + i) {
-                    kbuf[i] = unsafe { *ptr };
-                } else {
-                    return errno::EFAULT;
-                }
+            // SAFETY: validate_user_buffer confirmed buffer is accessible
+            let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            unsafe {
+                core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
             let result = pipe.write(&kbuf);
             if result < 0 {
@@ -165,12 +159,10 @@ fn write_to_tty(
     }
 
     let mut kbuf = alloc::vec![0u8; len];
-    for i in 0..len {
-        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, buf + i) {
-            kbuf[i] = unsafe { *ptr };
-        } else {
-            return errno::EFAULT;
-        }
+    // SAFETY: validate_user_buffer confirmed buffer is accessible
+    let src = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
     }
 
     loop {

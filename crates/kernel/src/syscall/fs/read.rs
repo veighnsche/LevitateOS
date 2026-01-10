@@ -96,10 +96,10 @@ pub fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
             let mut kbuf = alloc::vec![0u8; len];
             match vfs_read(file, &mut kbuf) {
                 Ok(n) => {
-                    for i in 0..n {
-                        if !write_to_user_buf(ttbr0, buf, i, kbuf[i]) {
-                            return errno::EFAULT;
-                        }
+                    // SAFETY: validate_user_buffer confirmed buffer is accessible
+                    let dest = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+                    unsafe {
+                        core::ptr::copy_nonoverlapping(kbuf.as_ptr(), dest, n);
                     }
                     n as i64
                 }
@@ -119,10 +119,10 @@ pub fn sys_read(fd: usize, buf: usize, len: usize) -> i64 {
                 return result as i64;
             }
             let n = result as usize;
-            for i in 0..n {
-                if !write_to_user_buf(ttbr0, buf, i, kbuf[i]) {
-                    return errno::EFAULT;
-                }
+            // SAFETY: validate_user_buffer confirmed buffer is accessible
+            let dest = mm_user::user_va_to_kernel_ptr(ttbr0, buf).unwrap();
+            unsafe {
+                core::ptr::copy_nonoverlapping(kbuf.as_ptr(), dest, n);
             }
             n as i64
         }

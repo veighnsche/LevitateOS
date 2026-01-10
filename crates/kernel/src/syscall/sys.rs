@@ -125,6 +125,9 @@ pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
     // Initialize PRNG if needed
     let _ = get_prng_state();
 
+    // SAFETY: validate_user_buffer confirmed buffer is accessible
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf).unwrap();
+
     // Fill buffer with random bytes
     let mut written = 0usize;
     while written < buflen {
@@ -135,15 +138,10 @@ pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
             if written >= buflen {
                 break;
             }
-            if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf + written) {
-                // SAFETY: validate_user_buffer confirmed this address is writable
-                unsafe {
-                    *ptr = byte;
-                }
-                written += 1;
-            } else {
-                return crate::syscall::errno::EFAULT;
+            unsafe {
+                *dest.add(written) = byte;
             }
+            written += 1;
         }
     }
 

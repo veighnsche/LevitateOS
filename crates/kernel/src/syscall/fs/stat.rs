@@ -42,15 +42,10 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
         }
     };
 
-    let stat_bytes =
-        unsafe { core::slice::from_raw_parts(&stat as *const Stat as *const u8, stat_size) };
-
-    for (i, &byte) in stat_bytes.iter().enumerate() {
-        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, stat_buf + i) {
-            unsafe { *ptr = byte };
-        } else {
-            return errno::EFAULT;
-        }
+    // SAFETY: validate_user_buffer already confirmed the entire buffer is accessible
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, stat_buf).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(&stat as *const Stat as *const u8, dest, stat_size);
     }
 
     0

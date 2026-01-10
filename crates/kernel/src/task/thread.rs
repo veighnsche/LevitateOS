@@ -73,10 +73,6 @@ pub fn create_thread(
     if child_stack != 0 {
         child_frame.set_sp(child_stack as u64);
     }
-    // Set TLS
-    if child_tls != 0 {
-        // Child TLS is set in Context.tpidr_el0 below.
-    }
 
     // Copy frame to new stack
     unsafe {

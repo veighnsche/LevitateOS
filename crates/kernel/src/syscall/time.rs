@@ -87,15 +87,10 @@ pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
         tv_nsec: 1,
     };
 
-    let ts_bytes =
-        unsafe { core::slice::from_raw_parts(&ts as *const Timespec as *const u8, ts_size) };
-
-    for (i, &byte) in ts_bytes.iter().enumerate() {
-        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, res_buf + i) {
-            unsafe { *ptr = byte };
-        } else {
-            return errno::EFAULT;
-        }
+    // SAFETY: validate_user_buffer confirmed buffer is accessible
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, res_buf).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(&ts as *const Timespec as *const u8, dest, ts_size);
     }
 
     0
@@ -131,15 +126,10 @@ pub fn sys_clock_gettime(clockid: i32, timespec_buf: usize) -> i64 {
         Timespec::default()
     };
 
-    let ts_bytes =
-        unsafe { core::slice::from_raw_parts(&ts as *const Timespec as *const u8, ts_size) };
-
-    for (i, &byte) in ts_bytes.iter().enumerate() {
-        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, timespec_buf + i) {
-            unsafe { *ptr = byte };
-        } else {
-            return errno::EFAULT;
-        }
+    // SAFETY: validate_user_buffer confirmed buffer is accessible
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, timespec_buf).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(&ts as *const Timespec as *const u8, dest, ts_size);
     }
 
     0

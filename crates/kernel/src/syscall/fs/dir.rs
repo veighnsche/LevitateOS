@@ -113,13 +113,11 @@ pub fn sys_getcwd(buf: usize, size: usize) -> i64 {
         return errno::ERANGE;
     }
 
-    for (i, &byte) in path.as_bytes().iter().enumerate() {
-        if !write_to_user_buf(task.ttbr0, buf, i, byte) {
-            return errno::EFAULT;
-        }
-    }
-    if !write_to_user_buf(task.ttbr0, buf, path_len, 0) {
-        return errno::EFAULT;
+    // SAFETY: validate_user_buffer confirmed buffer is accessible
+    let dest = mm_user::user_va_to_kernel_ptr(task.ttbr0, buf).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(path.as_bytes().as_ptr(), dest, path_len);
+        *dest.add(path_len) = 0; // null terminator
     }
 
     (path_len + 1) as i64

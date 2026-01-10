@@ -175,17 +175,16 @@ fn stat_to_statx(stat: &crate::arch::Stat) -> Statx {
 }
 
 /// Copy Statx struct to user buffer
+///
+/// # Safety
+/// Caller must have validated the user buffer with `validate_user_buffer` first.
 fn copy_statx_to_user(ttbr0: usize, statxbuf: usize, statx: &Statx) -> i64 {
     let statx_size = core::mem::size_of::<Statx>();
-    let statx_bytes =
-        unsafe { core::slice::from_raw_parts(statx as *const Statx as *const u8, statx_size) };
 
-    for (i, &byte) in statx_bytes.iter().enumerate() {
-        if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, statxbuf + i) {
-            unsafe { *ptr = byte };
-        } else {
-            return errno::EFAULT;
-        }
+    // SAFETY: Caller (sys_statx) validates buffer before calling this function
+    let dest = mm_user::user_va_to_kernel_ptr(ttbr0, statxbuf).unwrap();
+    unsafe {
+        core::ptr::copy_nonoverlapping(statx as *const Statx as *const u8, dest, statx_size);
     }
 
     0
