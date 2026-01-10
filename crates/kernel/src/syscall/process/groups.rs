@@ -3,7 +3,9 @@
 //! TEAM_394: Process group and session management.
 //! TEAM_417: Extracted from process.rs.
 
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+// TEAM_420: Direct linux_raw_sys imports, no shims
+use linux_raw_sys::errno::{EPERM, ESRCH};
 use core::sync::atomic::Ordering;
 
 /// TEAM_394: sys_setpgid - Set process group ID.
@@ -14,7 +16,7 @@ use core::sync::atomic::Ordering;
 ///
 /// # Returns
 /// 0 on success, negative errno on failure
-pub fn sys_setpgid(pid: i32, pgid: i32) -> i64 {
+pub fn sys_setpgid(pid: i32, pgid: i32) -> SyscallResult {
     let task = crate::task::current_task();
     let current_pid = task.id.0;
 
@@ -36,12 +38,12 @@ pub fn sys_setpgid(pid: i32, pgid: i32) -> i64 {
     if target_pid != current_pid {
         // Would need to look up target process in process table
         // For now, only support setting own pgid
-        return errno::ESRCH;
+        return Err(ESRCH);
     }
 
     task.pgid.store(new_pgid, Ordering::Release);
     log::trace!("[SYSCALL] setpgid({}, {}) -> 0", pid, pgid);
-    0
+    Ok(0)
 }
 
 /// TEAM_394: sys_getpgid - Get process group ID.
@@ -51,7 +53,7 @@ pub fn sys_setpgid(pid: i32, pgid: i32) -> i64 {
 ///
 /// # Returns
 /// Process group ID on success, negative errno on failure
-pub fn sys_getpgid(pid: i32) -> i64 {
+pub fn sys_getpgid(pid: i32) -> SyscallResult {
     let task = crate::task::current_task();
     let current_pid = task.id.0;
 
@@ -63,20 +65,20 @@ pub fn sys_getpgid(pid: i32) -> i64 {
 
     // For simplicity, only support querying own pgid
     if target_pid != current_pid {
-        return errno::ESRCH;
+        return Err(ESRCH);
     }
 
     let pgid = task.pgid.load(Ordering::Acquire);
     // If pgid is 0, return current pid (process is its own group leader)
     let result = if pgid == 0 { current_pid } else { pgid };
     log::trace!("[SYSCALL] getpgid({}) -> {}", pid, result);
-    result as i64
+    Ok(result as i64)
 }
 
 /// TEAM_394: sys_getpgrp - Get process group of calling process.
 ///
 /// Equivalent to getpgid(0).
-pub fn sys_getpgrp() -> i64 {
+pub fn sys_getpgrp() -> SyscallResult {
     sys_getpgid(0)
 }
 
@@ -87,7 +89,7 @@ pub fn sys_getpgrp() -> i64 {
 ///
 /// # Returns
 /// New session ID (= pid) on success, negative errno on failure
-pub fn sys_setsid() -> i64 {
+pub fn sys_setsid() -> SyscallResult {
     let task = crate::task::current_task();
     let pid = task.id.0;
     let current_pgid = task.pgid.load(Ordering::Acquire);
@@ -95,7 +97,7 @@ pub fn sys_setsid() -> i64 {
     // Cannot create new session if already a process group leader
     // (pgid == pid means we're the leader of our group)
     if current_pgid == pid {
-        return errno::EPERM;
+        return Err(EPERM);
     }
 
     // Create new session: pid becomes both pgid and sid
@@ -103,5 +105,5 @@ pub fn sys_setsid() -> i64 {
     task.sid.store(pid, Ordering::Release);
 
     log::trace!("[SYSCALL] setsid() -> {}", pid);
-    pid as i64
+    Ok(pid as i64)
 }

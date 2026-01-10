@@ -1,7 +1,7 @@
 //! Process management syscalls.
 //!
 //! TEAM_417: Refactored from monolithic process.rs for maintainability.
-//! TEAM_419: Clone flags from linux-raw-sys.
+//! TEAM_420: Uses linux_raw_sys directly, no shims
 //! See `docs/planning/refactor-process-syscalls/` for refactor details.
 
 mod arch_prctl;
@@ -28,13 +28,4 @@ pub use thread::{sys_clone, sys_set_tid_address};
 pub use identity::Utsname;
 pub use resources::{Rusage, Timeval};
 
-// TEAM_419: Clone flags from linux-raw-sys (cast to u64 for syscall ABI)
-pub const CLONE_VM: u64 = linux_raw_sys::general::CLONE_VM as u64;
-pub const CLONE_FS: u64 = linux_raw_sys::general::CLONE_FS as u64;
-pub const CLONE_FILES: u64 = linux_raw_sys::general::CLONE_FILES as u64;
-pub const CLONE_SIGHAND: u64 = linux_raw_sys::general::CLONE_SIGHAND as u64;
-pub const CLONE_THREAD: u64 = linux_raw_sys::general::CLONE_THREAD as u64;
-pub const CLONE_SETTLS: u64 = linux_raw_sys::general::CLONE_SETTLS as u64;
-pub const CLONE_PARENT_SETTID: u64 = linux_raw_sys::general::CLONE_PARENT_SETTID as u64;
-pub const CLONE_CHILD_CLEARTID: u64 = linux_raw_sys::general::CLONE_CHILD_CLEARTID as u64;
-pub const CLONE_CHILD_SETTID: u64 = linux_raw_sys::general::CLONE_CHILD_SETTID as u64;
+// TEAM_420: No shims - use linux_raw_sys::general::CLONE_* directly at callsites

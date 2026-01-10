@@ -1,7 +1,11 @@
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
 use crate::memory::user as mm_user;
-use crate::syscall::{errno, fcntl, read_user_cstring, write_to_user_buf};
+// TEAM_420: Direct linux_raw_sys imports, no shims
+// TEAM_421: Import SyscallResult
+use crate::syscall::{read_user_cstring, write_to_user_buf, SyscallResult};
+use linux_raw_sys::errno::{EBADF, EEXIST, EFAULT, EINVAL, EIO, ENOENT, ENOTDIR};
+use linux_raw_sys::general::AT_FDCWD;
 
 /// TEAM_198: UTIME_NOW constant - set time to current time
 const UTIME_NOW: u64 = 0x3FFFFFFF;
@@ -9,23 +13,21 @@ const UTIME_NOW: u64 = 0x3FFFFFFF;
 const UTIME_OMIT: u64 = 0x3FFFFFFE;
 
 /// TEAM_345: sys_utimensat - Linux ABI compatible.
+/// TEAM_421: Updated to return SyscallResult.
 /// Signature: utimensat(dirfd, pathname, times, flags)
 ///
 /// TEAM_198: Original implementation.
-pub fn sys_utimensat(dirfd: i32, pathname: usize, times: usize, _flags: u32) -> i64 {
+pub fn sys_utimensat(dirfd: i32, pathname: usize, times: usize, _flags: u32) -> SyscallResult {
     let task = crate::task::current_task();
-    
+
     // TEAM_418: Use PATH_MAX from SSOT
     let mut path_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
-    let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
-    
+    let path_str = read_user_cstring(task.ttbr0, pathname, &mut path_buf)?;
+
     // TEAM_345: Handle dirfd
-    if dirfd != fcntl::AT_FDCWD && !path_str.starts_with('/') {
+    if dirfd != AT_FDCWD && !path_str.starts_with('/') {
         log::warn!("[SYSCALL] utimensat: dirfd {} not yet supported", dirfd);
-        return errno::EBADF;
+        return Err(EBADF);
     }
 
     // Get current time
@@ -45,7 +47,7 @@ pub fn sys_utimensat(dirfd: i32, pathname: usize, times: usize, _flags: u32) -> 
                 {
                     val |= (unsafe { *ptr } as u64) << (j * 8);
                 } else {
-                    return errno::EFAULT;
+                    return Err(EFAULT);
                 }
             }
             times_data[i] = val;
@@ -69,11 +71,12 @@ pub fn sys_utimensat(dirfd: i32, pathname: usize, times: usize, _flags: u32) -> 
     };
 
     vfs_utimes(path_str, atime, mtime)
-        .map(|_| 0)
-        .unwrap_or_else(|e| e.to_errno())
+        .map(|_| Ok(0))
+        .unwrap_or_else(|e| Err(e.to_errno()))
 }
 
 /// TEAM_345: sys_linkat - Linux ABI compatible.
+/// TEAM_421: Updated to return SyscallResult.
 /// Signature: linkat(olddirfd, oldpath, newdirfd, newpath, flags)
 pub fn sys_linkat(
     olddirfd: i32,
@@ -81,92 +84,79 @@ pub fn sys_linkat(
     newdirfd: i32,
     newpath: usize,
     _flags: u32,
-) -> i64 {
+) -> SyscallResult {
     let task = crate::task::current_task();
-    
+
     // TEAM_418: Use PATH_MAX from SSOT
     let mut old_path_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
-    let old_path_str = match read_user_cstring(task.ttbr0, oldpath, &mut old_path_buf) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
-    
+    let old_path_str = read_user_cstring(task.ttbr0, oldpath, &mut old_path_buf)?;
+
     // TEAM_418: Use PATH_MAX from SSOT
     let mut new_path_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
-    let new_path_str = match read_user_cstring(task.ttbr0, newpath, &mut new_path_buf) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
-    
+    let new_path_str = read_user_cstring(task.ttbr0, newpath, &mut new_path_buf)?;
+
     // TEAM_345: Handle dirfd
-    if (olddirfd != fcntl::AT_FDCWD && !old_path_str.starts_with('/'))
-        || (newdirfd != fcntl::AT_FDCWD && !new_path_str.starts_with('/')) {
+    if (olddirfd != AT_FDCWD && !old_path_str.starts_with('/'))
+        || (newdirfd != AT_FDCWD && !new_path_str.starts_with('/')) {
         log::warn!("[SYSCALL] linkat: dirfd not yet supported");
-        return errno::EBADF;
+        return Err(EBADF);
     }
 
     match vfs_link(old_path_str, new_path_str) {
-        Ok(()) => 0,
-        Err(e) => e.to_errno() as i64,
+        Ok(()) => Ok(0),
+        Err(e) => Err(e.to_errno()),
     }
 }
 
 /// TEAM_345: sys_symlinkat - Linux ABI compatible.
+/// TEAM_421: Updated to return SyscallResult.
 /// Signature: symlinkat(target, newdirfd, linkpath)
 pub fn sys_symlinkat(
     target: usize,
     newdirfd: i32,
     linkpath: usize,
-) -> i64 {
+) -> SyscallResult {
     let task = crate::task::current_task();
-    
+
     // TEAM_418: Use PATH_MAX from SSOT
     let mut target_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
-    let target_str = match read_user_cstring(task.ttbr0, target, &mut target_buf) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
-    
+    let target_str = read_user_cstring(task.ttbr0, target, &mut target_buf)?;
+
     // TEAM_418: Use PATH_MAX from SSOT
     let mut linkpath_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
-    let linkpath_str = match read_user_cstring(task.ttbr0, linkpath, &mut linkpath_buf) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
-    
+    let linkpath_str = read_user_cstring(task.ttbr0, linkpath, &mut linkpath_buf)?;
+
     // TEAM_345: Handle dirfd
-    if newdirfd != fcntl::AT_FDCWD && !linkpath_str.starts_with('/') {
+    if newdirfd != AT_FDCWD && !linkpath_str.starts_with('/') {
         log::warn!("[SYSCALL] symlinkat: dirfd {} not yet supported", newdirfd);
-        return errno::EBADF;
+        return Err(EBADF);
     }
 
     match vfs_symlink(target_str, linkpath_str) {
-        Ok(()) => 0,
-        Err(VfsError::AlreadyExists) => errno::EEXIST,
-        Err(VfsError::NotFound) => errno::ENOENT,
-        Err(VfsError::NotADirectory) => errno::ENOTDIR,
-        Err(_) => errno::EINVAL,
+        Ok(()) => Ok(0),
+        Err(VfsError::AlreadyExists) => Err(EEXIST),
+        Err(VfsError::NotFound) => Err(ENOENT),
+        Err(VfsError::NotADirectory) => Err(ENOTDIR),
+        Err(_) => Err(EINVAL),
     }
 }
 
 /// TEAM_345: sys_readlinkat - Linux ABI compatible.
+/// TEAM_421: Updated to return SyscallResult.
 /// Signature: readlinkat(dirfd, pathname, buf, bufsiz)
-pub fn sys_readlinkat(dirfd: i32, pathname: usize, buf: usize, bufsiz: usize) -> i64 {
+pub fn sys_readlinkat(dirfd: i32, pathname: usize, buf: usize, bufsiz: usize) -> SyscallResult {
     let task = crate::task::current_task();
-    
+
     // TEAM_418: Use PATH_MAX from SSOT
     let mut path_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
-    let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
-    
+    let path_str = read_user_cstring(task.ttbr0, pathname, &mut path_buf)?;
+
     // TEAM_345: Handle dirfd
-    if dirfd != fcntl::AT_FDCWD && !path_str.starts_with('/') {
+    if dirfd != AT_FDCWD && !path_str.starts_with('/') {
         log::warn!("[SYSCALL] readlinkat: dirfd {} not yet supported", dirfd);
-        return errno::EBADF;
+        return Err(EBADF);
     }
-    
+
     let buf_len = bufsiz;
 
     match vfs_readlink(path_str) {
@@ -175,12 +165,12 @@ pub fn sys_readlinkat(dirfd: i32, pathname: usize, buf: usize, bufsiz: usize) ->
             let target_bytes = target.as_bytes();
             for i in 0..n {
                 if !write_to_user_buf(task.ttbr0, buf, i, target_bytes[i]) {
-                    return errno::EFAULT;
+                    return Err(EFAULT);
                 }
             }
-            n as i64
+            Ok(n as i64)
         }
-        Err(VfsError::NotFound) => errno::ENOENT,
-        Err(_) => errno::EIO,
+        Err(VfsError::NotFound) => Err(ENOENT),
+        Err(_) => Err(EIO),
     }
 }

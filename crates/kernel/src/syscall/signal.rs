@@ -1,7 +1,10 @@
 //! TEAM_216: Signal-related syscalls for LevitateOS.
+//! TEAM_420: Uses linux_raw_sys::errno directly, no shims
+//! TEAM_421: Returns SyscallResult, no scattered casts
 
 use crate::arch::SyscallFrame;
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+use linux_raw_sys::errno::{EFAULT, EINVAL, ENOENT, ESRCH};
 use crate::task::{TaskState, current_task, scheduler};
 use core::sync::atomic::Ordering;
 
@@ -12,9 +15,10 @@ pub const SIGCHLD: i32 = 17;
 pub const SIGCONT: i32 = 18;
 
 /// TEAM_216: Send a signal to a process.
-pub fn sys_kill(pid: i32, sig: i32) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_kill(pid: i32, sig: i32) -> SyscallResult {
     if sig < 0 || sig >= 32 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let task_id = pid as usize;
@@ -28,10 +32,10 @@ pub fn sys_kill(pid: i32, sig: i32) -> i64 {
                 task.set_state(TaskState::Ready);
                 scheduler::SCHEDULER.add_task(task.clone());
             }
-            return 0;
+            return Ok(0);
         }
     }
-    errno::ENOENT
+    Err(ENOENT)
 }
 
 /// TEAM_220: Send a signal to the current foreground process.
@@ -40,14 +44,15 @@ pub fn signal_foreground_process(sig: i32) {
     log::debug!("signal_foreground_process: sig={} fg_pid={}", sig, fg_pid);
     if fg_pid != 0 {
         let res = sys_kill(fg_pid as i32, sig);
-        log::debug!("sys_kill result: {}", res);
+        log::debug!("sys_kill result: {:?}", res);
     } else {
         log::debug!("No foreground process to signal");
     }
 }
 
 /// TEAM_216: Wait for any signal to arrive.
-pub fn sys_pause() -> i64 {
+/// TEAM_421: Returns SyscallResult (always returns -EINTR when interrupted)
+pub fn sys_pause() -> SyscallResult {
     let task = current_task();
     log::trace!("[SIGNAL] pause() for PID={}", task.id.0);
 
@@ -57,13 +62,14 @@ pub fn sys_pause() -> i64 {
     scheduler::SCHEDULER.schedule();
 
     // pause() returns only when interrupted by a signal, and always returns -1/EINTR
-    -4 // EINTR (Linux standard for pause)
+    Err(4) // EINTR (Linux standard for pause)
 }
 
 /// TEAM_216: Register a signal handler.
-pub fn sys_sigaction(sig: i32, handler_addr: usize, restorer_addr: usize) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_sigaction(sig: i32, handler_addr: usize, restorer_addr: usize) -> SyscallResult {
     if sig < 0 || sig >= 32 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let task = current_task();
@@ -76,11 +82,12 @@ pub fn sys_sigaction(sig: i32, handler_addr: usize, restorer_addr: usize) -> i64
             .store(restorer_addr, Ordering::Release);
     }
 
-    0
+    Ok(0)
 }
 
 /// TEAM_216: Restore context after signal handler execution.
-pub fn sys_sigreturn(frame: &mut SyscallFrame) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_sigreturn(frame: &mut SyscallFrame) -> SyscallResult {
     let task = current_task();
     let ttbr0 = task.ttbr0;
     let user_sp = frame.sp;
@@ -109,10 +116,11 @@ pub fn sys_sigreturn(frame: &mut SyscallFrame) -> i64 {
 
     // The return value will be placed in frame.regs[0] by syscall_dispatch.
     // We want x0 to be the original x0.
-    frame.regs[0] as i64
+    Ok(frame.regs[0] as i64)
 }
 
 /// TEAM_360: sys_sigaltstack - Set/get signal stack.
+/// TEAM_421: Returns SyscallResult
 ///
 /// This is a stub that returns success without actually managing
 /// an alternate signal stack. Most programs can function without it.
@@ -122,16 +130,17 @@ pub fn sys_sigreturn(frame: &mut SyscallFrame) -> i64 {
 /// * `old_ss` - User pointer to store old signal stack (or NULL)
 ///
 /// # Returns
-/// 0 on success
+/// Ok(0) on success
 #[allow(unused_variables)]
-pub fn sys_sigaltstack(ss: usize, old_ss: usize) -> i64 {
+pub fn sys_sigaltstack(ss: usize, old_ss: usize) -> SyscallResult {
     log::trace!("[SYSCALL] sigaltstack(ss=0x{:x}, old_ss=0x{:x}) -> 0", ss, old_ss);
     // TEAM_360: Stub - alternate signal stack not implemented
     // Return success so programs that call this can continue
-    0
+    Ok(0)
 }
 
 /// TEAM_360: Send a signal to a specific thread.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Unlike kill() which targets a process, tkill() targets a specific thread
 /// identified by its thread ID (TID).
@@ -141,16 +150,16 @@ pub fn sys_sigaltstack(ss: usize, old_ss: usize) -> i64 {
 /// * `sig` - Signal number (0 = just check if thread exists)
 ///
 /// # Returns
-/// 0 on success, -EINVAL for invalid args, -ESRCH if thread not found
-pub fn sys_tkill(tid: i32, sig: i32) -> i64 {
+/// Ok(0) on success, Err(EINVAL) for invalid args, Err(ESRCH) if thread not found
+pub fn sys_tkill(tid: i32, sig: i32) -> SyscallResult {
     // Validate signal number
     if sig < 0 || sig >= 64 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     // tid must be positive
     if tid <= 0 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let target_tid = tid as usize;
@@ -165,7 +174,7 @@ pub fn sys_tkill(tid: i32, sig: i32) -> i64 {
                 // Found the target thread
                 if sig == 0 {
                     // sig=0 means just check existence
-                    return 0;
+                    return Ok(0);
                 }
 
                 // Deliver the signal
@@ -178,18 +187,19 @@ pub fn sys_tkill(tid: i32, sig: i32) -> i64 {
                 }
 
                 log::trace!("[SYSCALL] tkill(tid={}, sig={}) -> 0", tid, sig);
-                return 0;
+                return Ok(0);
             }
         }
     }
 
     // Thread not found
     log::trace!("[SYSCALL] tkill(tid={}, sig={}) -> ESRCH", tid, sig);
-    errno::ESRCH
+    Err(ESRCH)
 }
 
 /// TEAM_216: Examine and change blocked signals.
-pub fn sys_sigprocmask(how: i32, set_addr: usize, oldset_addr: usize) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_sigprocmask(how: i32, set_addr: usize, oldset_addr: usize) -> SyscallResult {
     let task = current_task();
     let ttbr0 = task.ttbr0;
 
@@ -199,7 +209,7 @@ pub fn sys_sigprocmask(how: i32, set_addr: usize, oldset_addr: usize) -> i64 {
         for i in 0..4 {
             let byte = (current_mask >> (i * 8)) as u8;
             if !crate::syscall::write_to_user_buf(ttbr0, oldset_addr, i, byte) {
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
         }
     }
@@ -212,7 +222,7 @@ pub fn sys_sigprocmask(how: i32, set_addr: usize, oldset_addr: usize) -> i64 {
             if let Some(byte) = crate::syscall::read_from_user(ttbr0, set_addr + i) {
                 mask |= (byte as u32) << (i * 8);
             } else {
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
         }
 
@@ -229,9 +239,9 @@ pub fn sys_sigprocmask(how: i32, set_addr: usize, oldset_addr: usize) -> i64 {
                 // SIG_SETMASK
                 task.blocked_signals.store(mask, Ordering::Release);
             }
-            _ => return errno::EINVAL,
+            _ => return Err(EINVAL),
         }
     }
 
-    0
+    Ok(0)
 }

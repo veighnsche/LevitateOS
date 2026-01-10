@@ -2,8 +2,11 @@ use crate::memory::user as mm_user;
 
 use crate::fs::vfs::dispatch::*;
 use crate::fs::vfs::error::VfsError;
-use crate::syscall::errno;
+// TEAM_420: Direct linux_raw_sys imports, no shims
+// TEAM_421: Return SyscallResult directly - NO ERRNO CASTS
+use crate::syscall::SyscallResult;
 use crate::task::fd_table::FdType;
+use linux_raw_sys::errno::{EBADF, EFAULT, EFBIG, EINVAL, EIO, ENOSPC};
 
 /// TEAM_217: struct iovec for writev/readv
 #[repr(C)]
@@ -14,13 +17,14 @@ struct UserIoVec {
 }
 
 /// TEAM_217: sys_writev - Vectored write.
+/// TEAM_421: Returns SyscallResult directly - NO ERRNO CASTS.
 /// Required for standard Rust println! efficiency.
-pub fn sys_writev(fd: usize, iov_ptr: usize, count: usize) -> i64 {
+pub fn sys_writev(fd: usize, iov_ptr: usize, count: usize) -> SyscallResult {
     if count == 0 {
-        return 0;
+        return Ok(0);
     }
     if count > 1024 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let task = crate::task::current_task();
@@ -29,18 +33,17 @@ pub fn sys_writev(fd: usize, iov_ptr: usize, count: usize) -> i64 {
     // Validate iovec array
     let iov_size = count * core::mem::size_of::<UserIoVec>();
     if mm_user::validate_user_buffer(ttbr0, iov_ptr, iov_size, false).is_err() {
-        return errno::EFAULT;
+        return Err(EFAULT);
     }
 
     let mut total_written: i64 = 0;
 
     for i in 0..count {
         let entry_addr = iov_ptr + i * core::mem::size_of::<UserIoVec>();
-        // TEAM_416: Replace unwrap() with proper error handling for panic safety
         let iov = unsafe {
             let kptr = match mm_user::user_va_to_kernel_ptr(ttbr0, entry_addr) {
                 Some(p) => p,
-                None => return errno::EFAULT,
+                None => return Err(EFAULT),
             };
             *(kptr as *const UserIoVec)
         };
@@ -49,23 +52,28 @@ pub fn sys_writev(fd: usize, iov_ptr: usize, count: usize) -> i64 {
             continue;
         }
 
-        let res = sys_write(fd, iov.base, iov.len);
-        if res < 0 {
-            if total_written == 0 {
-                return res;
-            } else {
-                return total_written;
+        // TEAM_421: Call sys_write which returns SyscallResult directly
+        match sys_write(fd, iov.base, iov.len) {
+            Ok(n) => {
+                total_written += n;
+            }
+            Err(e) => {
+                if total_written == 0 {
+                    return Err(e);
+                } else {
+                    return Ok(total_written);
+                }
             }
         }
-        total_written += res;
     }
 
-    total_written
+    Ok(total_written)
 }
 
 /// TEAM_073: sys_write - Write to a file descriptor.
 /// TEAM_194: Updated to support writing to tmpfs files.
-pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
+/// TEAM_421: Returns SyscallResult directly - NO ERRNO CASTS.
+pub fn sys_write(fd: usize, buf: usize, len: usize) -> SyscallResult {
     let len = len.min(4096);
     let task = crate::task::current_task();
 
@@ -73,28 +81,23 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
     let fd_table = task.fd_table.lock();
     let entry = match fd_table.get(fd) {
         Some(e) => e.clone(),
-        None => return errno::EBADF,
+        None => return Err(EBADF),
     };
     drop(fd_table);
 
     let ttbr0 = task.ttbr0;
     match entry.fd_type {
         FdType::Stdout | FdType::Stderr => {
-            let n = write_to_tty(&crate::fs::tty::CONSOLE_TTY, buf, len, ttbr0, true, None);
-            if n < 0 {
-                los_hal::println!("[SYS_WRITE] FAILED: {}", n);
-            }
-            n
+            write_to_tty(&crate::fs::tty::CONSOLE_TTY, buf, len, ttbr0, true, None)
         }
         FdType::PtyMaster(ref pair) => {
             if mm_user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
             let mut kbuf = alloc::vec![0u8; len];
-            // TEAM_416: Replace unwrap() with proper error handling for panic safety
             let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
                 Some(p) => p,
-                None => return errno::EFAULT,
+                None => return Err(EFAULT),
             };
             unsafe {
                 core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
@@ -103,7 +106,7 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
             for &byte in &kbuf {
                 pair.tty.lock().process_input(byte);
             }
-            len as i64
+            Ok(len as i64)
         }
         FdType::PtySlave(ref pair) => write_to_tty(
             &pair.tty,
@@ -115,48 +118,45 @@ pub fn sys_write(fd: usize, buf: usize, len: usize) -> i64 {
         ),
         FdType::VfsFile(ref file) => {
             if mm_user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
             let mut kbuf = alloc::vec![0u8; len];
-            // TEAM_416: Replace unwrap() with proper error handling for panic safety
             let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
                 Some(p) => p,
-                None => return errno::EFAULT,
+                None => return Err(EFAULT),
             };
             unsafe {
                 core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
             match vfs_write(file, &kbuf) {
-                Ok(n) => n as i64,
-                Err(VfsError::NoSpace) => errno::ENOSPC,
-                Err(VfsError::FileTooLarge) => errno::EFBIG,
-                Err(_) => errno::EIO,
+                Ok(n) => Ok(n as i64),
+                Err(VfsError::NoSpace) => Err(ENOSPC),
+                Err(VfsError::FileTooLarge) => Err(EFBIG),
+                Err(_) => Err(EIO),
             }
         }
         // TEAM_233: Write to pipe
+        // TEAM_421: Pipe now returns Result<usize, u32> directly
         FdType::PipeWrite(ref pipe) => {
             if mm_user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
             let mut kbuf = alloc::vec![0u8; len];
-            // TEAM_416: Replace unwrap() with proper error handling for panic safety
             let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
                 Some(p) => p,
-                None => return errno::EFAULT,
+                None => return Err(EFAULT),
             };
             unsafe {
                 core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
             }
-            let result = pipe.write(&kbuf);
-            if result < 0 {
-                return result as i64;
-            }
-            result as i64
+            let n = pipe.write(&kbuf)?;
+            Ok(n as i64)
         }
-        _ => errno::EBADF,
+        _ => Err(EBADF),
     }
 }
 
+/// TEAM_421: TTY write implementation returning SyscallResult directly.
 fn write_to_tty(
     tty_mutex: &los_utils::Mutex<crate::fs::tty::TtyState>,
     buf: usize,
@@ -164,18 +164,17 @@ fn write_to_tty(
     ttbr0: usize,
     is_console: bool,
     master_buffer: Option<alloc::sync::Arc<los_utils::Mutex<alloc::collections::VecDeque<u8>>>>,
-) -> i64 {
+) -> SyscallResult {
     use crate::fs::tty::{ONLCR, OPOST};
 
     if mm_user::validate_user_buffer(ttbr0, buf, len, false).is_err() {
-        return errno::EFAULT;
+        return Err(EFAULT);
     }
 
     let mut kbuf = alloc::vec![0u8; len];
-    // TEAM_416: Replace unwrap() with proper error handling for panic safety
     let src = match mm_user::user_va_to_kernel_ptr(ttbr0, buf) {
         Some(p) => p,
-        None => return errno::EFAULT,
+        None => return Err(EFAULT),
     };
     unsafe {
         core::ptr::copy_nonoverlapping(src, kbuf.as_mut_ptr(), len);
@@ -216,5 +215,5 @@ fn write_to_tty(
         }
     }
 
-    len as i64
+    Ok(len as i64)
 }

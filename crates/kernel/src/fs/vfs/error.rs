@@ -1,13 +1,13 @@
 //! TEAM_202: VFS Error Types
 //!
 //! Defines the error type for all VFS operations.
-//! TEAM_418: Updated to use errno SSOT from syscall module.
+//! TEAM_420: Uses linux_raw_sys::errno directly, no shims.
 
 use core::fmt;
 
 use crate::block::BlockError;
 use crate::fs::FsError;
-use crate::syscall::errno;
+use linux_raw_sys::errno;
 
 /// TEAM_202: VFS Error codes
 ///
@@ -69,9 +69,10 @@ pub enum VfsError {
 }
 
 impl VfsError {
-    /// TEAM_202: Convert to POSIX errno value (negative)
-    /// TEAM_418: Uses errno SSOT from syscall module
-    pub fn to_errno(self) -> i64 {
+    /// TEAM_202: Convert to POSIX errno value
+    /// TEAM_421: Returns u32 errno directly (no negation - matches linux_raw_sys)
+    /// The negation happens at the syscall dispatcher boundary.
+    pub fn to_errno(self) -> u32 {
         match self {
             VfsError::PermissionDenied => errno::EPERM,
             VfsError::NotFound => errno::ENOENT,
@@ -200,10 +201,10 @@ impl From<FsError> for VfsError {
 /// TEAM_202: Result type for VFS operations
 pub type VfsResult<T> = Result<T, VfsError>;
 
-// TEAM_413: Implement From<VfsError> for i64 to allow `Err(e) => e.into()` pattern
-// This enables cleaner error handling in syscalls without explicit match arms.
-impl From<VfsError> for i64 {
-    fn from(e: VfsError) -> i64 {
+// TEAM_421: Implement From<VfsError> for u32 to allow `Err(e) => Err(e.into())` pattern
+// This enables cleaner error handling with SyscallResult.
+impl From<VfsError> for u32 {
+    fn from(e: VfsError) -> u32 {
         e.to_errno()
     }
 }

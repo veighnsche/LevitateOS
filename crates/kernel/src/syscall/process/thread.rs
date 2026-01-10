@@ -3,23 +3,25 @@
 //! TEAM_228: Threading syscalls for std support.
 //! TEAM_230: sys_clone implementation.
 //! TEAM_417: Extracted from process.rs.
-//! TEAM_419: Clone flags from linux-raw-sys.
+//! TEAM_420: Uses linux_raw_sys directly, no shims
 
 use crate::memory::user as mm_user;
-use crate::syscall::errno;
-// TEAM_419: Clone flags from parent module (typed as u64)
-use super::{
+use crate::syscall::SyscallResult;
+// TEAM_420: Direct imports from linux_raw_sys
+use linux_raw_sys::errno::{ENOMEM, ENOSYS};
+use linux_raw_sys::general::{
     CLONE_CHILD_CLEARTID, CLONE_CHILD_SETTID, CLONE_PARENT_SETTID, CLONE_SETTLS, CLONE_THREAD,
     CLONE_VM,
 };
 
 /// TEAM_230: sys_clone - Create a new thread or process.
+/// TEAM_420: flags is u32 to match linux-raw-sys types
 ///
 /// For std::thread support, we only implement the thread case where
 /// CLONE_VM | CLONE_THREAD are set.
 ///
 /// # Arguments
-/// * `flags` - Clone flags
+/// * `flags` - Clone flags (u32 to match linux-raw-sys types)
 /// * `stack` - New stack pointer for child
 /// * `parent_tid` - Address to write parent TID (if CLONE_PARENT_SETTID)
 /// * `tls` - TLS pointer for child (if CLONE_SETTLS)
@@ -28,13 +30,13 @@ use super::{
 /// # Returns
 /// Child TID to parent, 0 to child, or negative errno.
 pub fn sys_clone(
-    flags: u64,
+    flags: u32,
     stack: usize,
     parent_tid: usize,
     tls: usize,
     child_tid: usize,
     tf: &crate::arch::SyscallFrame,
-) -> i64 {
+) -> SyscallResult {
     log::trace!(
         "[SYSCALL] clone(flags=0x{:x}, stack=0x{:x}, tls=0x{:x})",
         flags,
@@ -47,7 +49,7 @@ pub fn sys_clone(
     if !is_thread {
         // Fork-style not supported yet
         log::warn!("[SYSCALL] clone: fork-style clones not supported");
-        return errno::ENOSYS;
+        return Err(ENOSYS);
     }
 
     // TEAM_230: Get parent task info
@@ -71,7 +73,7 @@ pub fn sys_clone(
             Ok(c) => c,
             Err(e) => {
                 log::warn!("[SYSCALL] clone: create_thread failed: {:?}", e);
-                return errno::ENOMEM;
+                return Err(ENOMEM);
             }
         };
 
@@ -114,7 +116,7 @@ pub fn sys_clone(
     );
 
     // TEAM_230: Return child TID to parent
-    child_tid_value as i64
+    Ok(child_tid_value as i64)
 }
 
 /// TEAM_228: sys_set_tid_address - Set pointer to thread ID.
@@ -124,7 +126,7 @@ pub fn sys_clone(
 ///
 /// # Returns
 /// Current thread ID.
-pub fn sys_set_tid_address(tidptr: usize) -> i64 {
+pub fn sys_set_tid_address(tidptr: usize) -> SyscallResult {
     let task = crate::task::current_task();
 
     // Store the address for clear-on-exit
@@ -132,5 +134,5 @@ pub fn sys_set_tid_address(tidptr: usize) -> i64 {
         .store(tidptr, core::sync::atomic::Ordering::Release);
 
     // Return current TID
-    task.id.0 as i64
+    Ok(task.id.0 as i64)
 }

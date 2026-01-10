@@ -24,56 +24,17 @@ pub use crate::arch::{Stat, SyscallFrame, SyscallNumber, is_svc_exception};
 // TEAM_418: Re-export time types from SSOT module
 pub use types::{Timeval, Timespec};
 
-/// TEAM_419: Error codes from linux-raw-sys, negated for syscall returns.
-/// linux-raw-sys provides positive errno values; syscalls return negative.
-pub mod errno {
-    use linux_raw_sys::errno as raw;
+// TEAM_420: No shims - use linux_raw_sys directly at callsites
+// TEAM_421: Syscall result type - single conversion point for errors
 
-    pub const EPERM: i64 = -(raw::EPERM as i64);
-    pub const ENOENT: i64 = -(raw::ENOENT as i64);
-    pub const ESRCH: i64 = -(raw::ESRCH as i64);
-    pub const EIO: i64 = -(raw::EIO as i64);
-    pub const EBADF: i64 = -(raw::EBADF as i64);
-    pub const EAGAIN: i64 = -(raw::EAGAIN as i64);
-    pub const ENOMEM: i64 = -(raw::ENOMEM as i64);
-    pub const EACCES: i64 = -(raw::EACCES as i64);
-    pub const EFAULT: i64 = -(raw::EFAULT as i64);
-    pub const EBUSY: i64 = -(raw::EBUSY as i64);
-    pub const EEXIST: i64 = -(raw::EEXIST as i64);
-    pub const EXDEV: i64 = -(raw::EXDEV as i64);
-    pub const ENOTDIR: i64 = -(raw::ENOTDIR as i64);
-    pub const EISDIR: i64 = -(raw::EISDIR as i64);
-    pub const EINVAL: i64 = -(raw::EINVAL as i64);
-    pub const ENFILE: i64 = -(raw::ENFILE as i64);
-    pub const EMFILE: i64 = -(raw::EMFILE as i64);
-    pub const ENOTTY: i64 = -(raw::ENOTTY as i64);
-    pub const EFBIG: i64 = -(raw::EFBIG as i64);
-    pub const ENOSPC: i64 = -(raw::ENOSPC as i64);
-    pub const ESPIPE: i64 = -(raw::ESPIPE as i64);
-    pub const EROFS: i64 = -(raw::EROFS as i64);
-    pub const EMLINK: i64 = -(raw::EMLINK as i64);
-    pub const EPIPE: i64 = -(raw::EPIPE as i64);
-    pub const ERANGE: i64 = -(raw::ERANGE as i64);
-    pub const ENAMETOOLONG: i64 = -(raw::ENAMETOOLONG as i64);
-    pub const ENOSYS: i64 = -(raw::ENOSYS as i64);
-    pub const ENOTEMPTY: i64 = -(raw::ENOTEMPTY as i64);
-    pub const ELOOP: i64 = -(raw::ELOOP as i64);
-    pub const ENODATA: i64 = -(raw::ENODATA as i64);
-    pub const EOPNOTSUPP: i64 = -(raw::EOPNOTSUPP as i64);
-    pub const ESTALE: i64 = -(raw::ESTALE as i64);
-}
-
-/// TEAM_419: AT_* constants from linux-raw-sys
-pub mod fcntl {
-    use linux_raw_sys::general as raw;
-
-    pub const AT_FDCWD: i32 = raw::AT_FDCWD;
-    pub const AT_SYMLINK_NOFOLLOW: u32 = raw::AT_SYMLINK_NOFOLLOW;
-    pub const AT_REMOVEDIR: u32 = raw::AT_REMOVEDIR;
-    pub const AT_SYMLINK_FOLLOW: u32 = raw::AT_SYMLINK_FOLLOW;
-    pub const AT_NO_AUTOMOUNT: u32 = raw::AT_NO_AUTOMOUNT;
-    pub const AT_EMPTY_PATH: u32 = raw::AT_EMPTY_PATH;
-}
+/// TEAM_421: Syscall result type
+///
+/// - Ok(i64): Success value (fd, count, address, etc.)
+/// - Err(u32): Error code from linux_raw_sys::errno (positive, raw)
+///
+/// The dispatcher converts Err(e) to -(e as i64) for Linux ABI.
+/// This eliminates scattered `-(ERRNO as i64)` casts throughout syscall code.
+pub type SyscallResult = Result<i64, u32>;
 
 pub fn syscall_dispatch(frame: &mut SyscallFrame) {
     let nr = frame.syscall_number();
@@ -289,9 +250,10 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
             frame.arg1() as usize,
             frame.arg2() as u32,
         ),
-        // TEAM_228: Threading syscalls
+        /// TEAM_228: Threading syscalls
+        // TEAM_420: flags is u32 to match linux-raw-sys types
         Some(SyscallNumber::Clone) => process::sys_clone(
-            frame.arg0() as u64,
+            frame.arg0() as u32,
             frame.arg1() as usize,
             frame.arg2() as usize,
             frame.arg3() as usize,
@@ -385,9 +347,10 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         ),
         // TEAM_394: Epoll syscalls for tokio/brush support
         Some(SyscallNumber::EpollCreate1) => epoll::sys_epoll_create1(frame.arg0() as i32),
+        // TEAM_420: op is u32 to match linux-raw-sys types
         Some(SyscallNumber::EpollCtl) => epoll::sys_epoll_ctl(
             frame.arg0() as i32,
-            frame.arg1() as i32,
+            frame.arg1() as u32,
             frame.arg2() as i32,
             frame.arg3() as usize,
         ),
@@ -440,11 +403,17 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         ),
         None => {
             log::warn!("[SYSCALL] Unknown syscall number: {}", nr);
-            errno::ENOSYS
+            Err(linux_raw_sys::errno::ENOSYS)
         }
     };
 
-    frame.set_return(result);
+    // TEAM_421: Single conversion point - Linux ABI boundary
+    let abi_result = match result {
+        Ok(v) => v,
+        Err(e) => -(e as i64),
+    };
+
+    frame.set_return(abi_result);
 }
 
 pub(crate) fn write_to_user_buf(
@@ -475,6 +444,7 @@ pub(crate) fn read_from_user(ttbr0: usize, user_va: usize) -> Option<u8> {
 }
 
 /// TEAM_226: Copy a string from user space into a kernel buffer.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// Validates the user buffer and copies bytes through kernel-accessible pointers.
 /// This is the safe pattern for reading user memory from syscalls.
@@ -493,23 +463,25 @@ pub fn copy_user_string<'a>(
     user_ptr: usize,
     len: usize,
     buf: &'a mut [u8],
-) -> Result<&'a str, i64> {
+) -> Result<&'a str, u32> {
+    use linux_raw_sys::errno::{EFAULT, EINVAL};
     let len = len.min(buf.len());
     if mm_user::validate_user_buffer(ttbr0, user_ptr, len, false).is_err() {
-        return Err(errno::EFAULT);
+        return Err(EFAULT);
     }
     for i in 0..len {
         if let Some(ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, user_ptr + i) {
             // SAFETY: user_va_to_kernel_ptr ensures the address is mapped and valid.
             buf[i] = unsafe { *ptr };
         } else {
-            return Err(errno::EFAULT);
+            return Err(EFAULT);
         }
     }
-    core::str::from_utf8(&buf[..len]).map_err(|_| errno::EINVAL)
+    core::str::from_utf8(&buf[..len]).map_err(|_| EINVAL)
 }
 
 /// TEAM_345: Read a null-terminated C string from user space into a kernel buffer.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// This is the Linux ABI-compatible version that scans for null terminator.
 /// Used for syscalls that accept `const char *pathname` arguments.
@@ -526,7 +498,8 @@ pub fn read_user_cstring<'a>(
     ttbr0: usize,
     user_ptr: usize,
     buf: &'a mut [u8],
-) -> Result<&'a str, i64> {
+) -> Result<&'a str, u32> {
+    use linux_raw_sys::errno::{EFAULT, EINVAL, ENAMETOOLONG};
     for i in 0..buf.len() {
         match mm_user::user_va_to_kernel_ptr(ttbr0, user_ptr + i) {
             Some(ptr) => {
@@ -534,13 +507,13 @@ pub fn read_user_cstring<'a>(
                 let byte = unsafe { *ptr };
                 if byte == 0 {
                     // Found null terminator - return the string up to this point
-                    return core::str::from_utf8(&buf[..i]).map_err(|_| errno::EINVAL);
+                    return core::str::from_utf8(&buf[..i]).map_err(|_| EINVAL);
                 }
                 buf[i] = byte;
             }
-            None => return Err(errno::EFAULT),
+            None => return Err(EFAULT),
         }
     }
     // Buffer full without finding null terminator
-    Err(errno::ENAMETOOLONG)
+    Err(ENAMETOOLONG)
 }

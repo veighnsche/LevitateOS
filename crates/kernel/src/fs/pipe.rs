@@ -1,7 +1,8 @@
 //! TEAM_233: Pipe implementation for inter-process communication.
 //!
 //! Provides POSIX-like pipes with blocking read/write semantics.
-//! TEAM_418: Use errno SSOT from syscall module.
+//! TEAM_420: Uses linux_raw_sys::errno directly, no shims
+//! TEAM_421: Returns Result<usize, u32> - no negative errno values
 
 extern crate alloc;
 
@@ -9,7 +10,7 @@ use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use los_hal::IrqSafeLock;
 
-use crate::syscall::errno;
+use linux_raw_sys::errno::{EAGAIN, EPIPE};
 
 /// TEAM_233: Pipe buffer size (one page for simplicity).
 pub const PIPE_BUF_SIZE: usize = 4096;
@@ -121,15 +122,16 @@ impl Pipe {
     }
 
     /// Read from pipe. Returns bytes read, or 0 if EOF (write end closed).
+    /// TEAM_421: Returns Result<usize, u32> - no negative errno values.
     ///
-    /// For MVP, this is non-blocking: returns 0 immediately if buffer empty
+    /// For MVP, this is non-blocking: returns Err(EAGAIN) if buffer empty
     /// and write end is still open (caller should retry or wait).
-    pub fn read(&self, buf: &mut [u8]) -> isize {
+    pub fn read(&self, buf: &mut [u8]) -> Result<usize, u32> {
         // Check if write end is closed and buffer is empty = EOF
         if !self.write_open.load(Ordering::Acquire) {
             let ring = self.buffer.lock();
             if ring.is_empty() {
-                return 0; // EOF
+                return Ok(0); // EOF
             }
         }
 
@@ -138,19 +140,20 @@ impl Pipe {
 
         // If we couldn't read anything but write end is open, return EAGAIN
         if n == 0 && self.write_open.load(Ordering::Acquire) {
-            return errno::EAGAIN as isize;
+            return Err(EAGAIN);
         }
 
-        n as isize
+        Ok(n)
     }
 
-    /// Write to pipe. Returns bytes written, or -EPIPE if read end closed.
+    /// Write to pipe. Returns bytes written, or Err(EPIPE) if read end closed.
+    /// TEAM_421: Returns Result<usize, u32> - no negative errno values.
     ///
-    /// For MVP, this is non-blocking: returns -EAGAIN if buffer full.
-    pub fn write(&self, data: &[u8]) -> isize {
+    /// For MVP, this is non-blocking: returns Err(EAGAIN) if buffer full.
+    pub fn write(&self, data: &[u8]) -> Result<usize, u32> {
         // If read end is closed, return EPIPE
         if !self.read_open.load(Ordering::Acquire) {
-            return errno::EPIPE as isize;
+            return Err(EPIPE);
         }
 
         let mut ring = self.buffer.lock();
@@ -158,10 +161,10 @@ impl Pipe {
 
         // If we couldn't write anything, return EAGAIN
         if n == 0 {
-            return errno::EAGAIN as isize;
+            return Err(EAGAIN);
         }
 
-        n as isize
+        Ok(n)
     }
 
     /// Increment reader count (for dup/clone)

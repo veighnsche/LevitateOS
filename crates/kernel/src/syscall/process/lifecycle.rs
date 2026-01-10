@@ -8,7 +8,9 @@
 //! TEAM_417: Extracted from process.rs.
 
 use crate::memory::user as mm_user;
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+// TEAM_420: Direct linux_raw_sys imports, no shims
+use linux_raw_sys::errno::{EBADF, ECHILD, EFAULT, EINVAL, ELOOP, ENOENT, ENOSYS};
 use crate::task::fd_table::FdTable;
 use los_hal::IrqSafeLock;
 use los_utils::cpio::CpioEntryType;
@@ -23,11 +25,11 @@ const MAX_SYMLINK_DEPTH: usize = 8;
 /// TEAM_414: Resolve an executable path from initramfs, following symlinks.
 ///
 /// Returns a copy of the ELF data to avoid holding the INITRAMFS lock.
-fn resolve_initramfs_executable(path: &str) -> Result<alloc::vec::Vec<u8>, i64> {
+fn resolve_initramfs_executable(path: &str) -> Result<alloc::vec::Vec<u8>, u32> {
     let archive_lock = crate::fs::INITRAMFS.lock();
     let archive = match archive_lock.as_ref() {
         Some(a) => a,
-        None => return Err(errno::ENOSYS),
+        None => return Err(ENOSYS),
     };
 
     // Strip leading '/' for initramfs lookup
@@ -60,17 +62,17 @@ fn resolve_initramfs_executable(path: &str) -> Result<alloc::vec::Vec<u8>, i64> 
                             );
                             lookup_name = alloc::string::String::from(target);
                         }
-                        Err(_) => return Err(errno::ENOENT),
+                        Err(_) => return Err(ENOENT),
                     }
                 }
-                _ => return Err(errno::ENOENT),
+                _ => return Err(ENOENT),
             },
-            None => return Err(errno::ENOENT),
+            None => return Err(ENOENT),
         }
     }
 
     // Exceeded max symlink depth
-    Err(errno::ELOOP)
+    Err(ELOOP)
 }
 
 /// TEAM_414: Clone the current task's FD table for a child process.
@@ -95,13 +97,13 @@ fn register_spawned_process(new_task: crate::task::user::UserTask) -> i64 {
 }
 
 /// TEAM_414: Write an exit status to a user-space pointer.
-fn write_exit_status(ttbr0: usize, status_ptr: usize, exit_code: i32) -> Result<(), i64> {
+fn write_exit_status(ttbr0: usize, status_ptr: usize, exit_code: i32) -> Result<(), u32> {
     if status_ptr == 0 {
         return Ok(());
     }
 
     if mm_user::validate_user_buffer(ttbr0, status_ptr, 4, true).is_err() {
-        return Err(errno::EFAULT);
+        return Err(EFAULT);
     }
 
     match mm_user::user_va_to_kernel_ptr(ttbr0, status_ptr) {
@@ -112,7 +114,7 @@ fn write_exit_status(ttbr0: usize, status_ptr: usize, exit_code: i32) -> Result<
             }
             Ok(())
         }
-        None => Err(errno::EFAULT),
+        None => Err(EFAULT),
     }
 }
 
@@ -121,7 +123,7 @@ fn write_exit_status(ttbr0: usize, status_ptr: usize, exit_code: i32) -> Result<
 // ============================================================================
 
 /// TEAM_073: sys_exit - Terminate the process.
-pub fn sys_exit(code: i32) -> i64 {
+pub fn sys_exit(code: i32) -> SyscallResult {
     log::trace!("[SYSCALL] exit({})", code);
 
     // TEAM_188: Wake waiters before exiting
@@ -140,24 +142,24 @@ pub fn sys_exit(code: i32) -> i64 {
 }
 
 /// TEAM_073: sys_getpid - Get process ID.
-pub fn sys_getpid() -> i64 {
-    crate::task::current_task().id.0 as i64
+pub fn sys_getpid() -> SyscallResult {
+    Ok(crate::task::current_task().id.0 as i64)
 }
 
 /// TEAM_217: sys_getppid - Get parent process ID.
-pub fn sys_getppid() -> i64 {
+pub fn sys_getppid() -> SyscallResult {
     let current = crate::task::current_task();
-    crate::task::process_table::PROCESS_TABLE
+    Ok(crate::task::process_table::PROCESS_TABLE
         .lock()
         .get(&current.id.0)
         .map(|e| e.parent_pid as i64)
-        .unwrap_or(0)
+        .unwrap_or(0))
 }
 
 /// TEAM_129: sys_yield - Voluntarily yield CPU to other tasks.
-pub fn sys_yield() -> i64 {
+pub fn sys_yield() -> SyscallResult {
     crate::task::yield_now();
-    0
+    Ok(0)
 }
 
 /// TEAM_350: sys_exit_group - Terminate all threads in the process.
@@ -167,7 +169,7 @@ pub fn sys_yield() -> i64 {
 ///
 /// For now, LevitateOS doesn't have multi-threaded processes with shared
 /// resources, so this behaves the same as sys_exit.
-pub fn sys_exit_group(status: i32) -> i64 {
+pub fn sys_exit_group(status: i32) -> SyscallResult {
     log::trace!("[SYSCALL] exit_group({})", status);
     // TEAM_350: For now, same as exit since we don't track thread groups
     sys_exit(status)
@@ -175,57 +177,46 @@ pub fn sys_exit_group(status: i32) -> i64 {
 
 /// TEAM_120: sys_spawn - Spawn a new process from initramfs.
 /// TEAM_414: Refactored to use helper functions.
-pub fn sys_spawn(path_ptr: usize, path_len: usize) -> i64 {
+pub fn sys_spawn(path_ptr: usize, path_len: usize) -> SyscallResult {
     let path_len = path_len.min(256);
     let task = crate::task::current_task();
 
     // Read path from user space
     let mut path_buf = [0u8; 256];
-    let path =
-        match crate::syscall::copy_user_string(task.ttbr0, path_ptr, path_len, &mut path_buf) {
-            Ok(s) => s,
-            Err(e) => return e,
-        };
+    let path = crate::syscall::copy_user_string(task.ttbr0, path_ptr, path_len, &mut path_buf)?;
 
     log::trace!("[SYSCALL] spawn('{}')", path);
 
     // TEAM_414: Use helper to resolve executable with symlink following
-    let elf_data = match resolve_initramfs_executable(path) {
-        Ok(data) => data,
-        Err(e) => return e,
-    };
+    let elf_data = resolve_initramfs_executable(path)?;
 
     // TEAM_414: Use helper to clone FD table
     let new_fd_table = clone_fd_table_for_child();
 
     match crate::task::process::spawn_from_elf(&elf_data, new_fd_table) {
-        Ok(new_task) => register_spawned_process(new_task),
+        Ok(new_task) => Ok(register_spawned_process(new_task)),
         Err(e) => {
             log::debug!("[SYSCALL] spawn failed: {:?}", e);
-            -1
+            Ok(-1)
         }
     }
 }
 
 /// TEAM_120: sys_exec - Replace current process with one from initramfs.
-pub fn sys_exec(path_ptr: usize, path_len: usize) -> i64 {
+pub fn sys_exec(path_ptr: usize, path_len: usize) -> SyscallResult {
     let path_len = path_len.min(256);
     let task = crate::task::current_task();
 
     // TEAM_226: Use safe copy through kernel pointers
     let mut path_buf = [0u8; 256];
-    let path =
-        match crate::syscall::copy_user_string(task.ttbr0, path_ptr, path_len, &mut path_buf) {
-            Ok(s) => s,
-            Err(e) => return e,
-        };
+    let path = crate::syscall::copy_user_string(task.ttbr0, path_ptr, path_len, &mut path_buf)?;
 
     log::trace!("[SYSCALL] exec('{}')", path);
 
     let archive_lock = crate::fs::INITRAMFS.lock();
     let archive = match archive_lock.as_ref() {
         Some(sb) => sb,
-        None => return errno::ENOSYS,
+        None => return Err(ENOSYS),
     };
 
     let mut elf_data = None;
@@ -238,11 +229,11 @@ pub fn sys_exec(path_ptr: usize, path_len: usize) -> i64 {
 
     let _elf_data = match elf_data {
         Some(d) => d,
-        None => return errno::EBADF,
+        None => return Err(EBADF),
     };
 
     log::warn!("[SYSCALL] exec is currently a stub");
-    errno::ENOSYS
+    Err(ENOSYS)
 }
 
 // ============================================================================
@@ -264,33 +255,30 @@ const MAX_ARG_LEN: usize = 256;
 
 /// TEAM_186: sys_spawn_args - Spawn a new process with arguments.
 /// TEAM_414: Refactored to use helper functions.
-pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: usize) -> i64 {
+pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: usize) -> SyscallResult {
     // 1. Validate argc
     if argc > MAX_ARGC {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     // 2. Validate and read path
     let path_len = path_len.min(256);
     let task = crate::task::current_task();
     let mut path_buf = [0u8; 256];
-    let path =
-        match crate::syscall::copy_user_string(task.ttbr0, path_ptr, path_len, &mut path_buf) {
-            Ok(s) => s,
-            Err(e) => {
-                log::debug!("[SYSCALL] spawn_args: Invalid path: errno={}", e);
-                return e;
-            }
-        };
+    let path = crate::syscall::copy_user_string(task.ttbr0, path_ptr, path_len, &mut path_buf)
+        .map_err(|e| {
+            log::debug!("[SYSCALL] spawn_args: Invalid path: errno={}", e);
+            e
+        })?;
 
     // 3. Validate and read argv entries
     let entry_size = core::mem::size_of::<UserArgvEntry>();
     let argv_size = match argc.checked_mul(entry_size) {
         Some(size) => size,
-        None => return errno::EINVAL,
+        None => return Err(EINVAL),
     };
     if argc > 0 && mm_user::validate_user_buffer(task.ttbr0, argv_ptr, argv_size, false).is_err() {
-        return errno::EFAULT;
+        return Err(EFAULT);
     }
 
     // 4. Parse each argument
@@ -298,26 +286,24 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
     for i in 0..argc {
         let offset = match i.checked_mul(entry_size) {
             Some(o) => o,
-            None => return errno::EINVAL,
+            None => return Err(EINVAL),
         };
         let entry_ptr = match argv_ptr.checked_add(offset) {
             Some(p) => p,
-            None => return errno::EINVAL,
+            None => return Err(EINVAL),
         };
         let entry = unsafe {
             let kernel_ptr = mm_user::user_va_to_kernel_ptr(task.ttbr0, entry_ptr);
             match kernel_ptr {
                 Some(p) => *(p as *const UserArgvEntry),
-                None => return errno::EFAULT,
+                None => return Err(EFAULT),
             }
         };
 
         let arg_len = entry.len.min(MAX_ARG_LEN);
         let mut arg_buf = [0u8; MAX_ARG_LEN];
-        match crate::syscall::copy_user_string(task.ttbr0, entry.ptr, arg_len, &mut arg_buf) {
-            Ok(s) => args.push(alloc::string::String::from(s)),
-            Err(e) => return e,
-        }
+        let arg_str = crate::syscall::copy_user_string(task.ttbr0, entry.ptr, arg_len, &mut arg_buf)?;
+        args.push(alloc::string::String::from(arg_str));
     }
 
     log::trace!("[SYSCALL] spawn_args('{}', argc={})", path, argc);
@@ -326,13 +312,10 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
     }
 
     // 5. TEAM_414: Use helper to resolve executable with symlink following
-    let elf_data = match resolve_initramfs_executable(path) {
-        Ok(data) => data,
-        Err(e) => {
-            log::debug!("[SYSCALL] spawn_args: resolve failed: errno={}", e);
-            return e;
-        }
-    };
+    let elf_data = resolve_initramfs_executable(path).map_err(|e| {
+        log::debug!("[SYSCALL] spawn_args: resolve failed: errno={}", e);
+        e
+    })?;
 
     // 6. Convert args to &str slice
     let arg_refs: alloc::vec::Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -342,10 +325,10 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
 
     // 8. Spawn with args
     match crate::task::process::spawn_from_elf_with_args(&elf_data, &arg_refs, &[], new_fd_table) {
-        Ok(new_task) => register_spawned_process(new_task),
+        Ok(new_task) => Ok(register_spawned_process(new_task)),
         Err(e) => {
             log::debug!("[SYSCALL] spawn_args: spawn failed for '{}': {:?}", path, e);
-            -1
+            Ok(-1)
         }
     }
 }
@@ -354,15 +337,12 @@ pub fn sys_spawn_args(path_ptr: usize, path_len: usize, argv_ptr: usize, argc: u
 // TEAM_188: Waitpid
 // ============================================================================
 
-/// TEAM_188: Error code for waitpid
-const ECHILD: i64 = -10;
-
 /// TEAM_188: sys_waitpid - Wait for a child process to exit.
 /// TEAM_414: Refactored to use write_exit_status helper.
-pub fn sys_waitpid(pid: i32, status_ptr: usize) -> i64 {
+pub fn sys_waitpid(pid: i32, status_ptr: usize) -> SyscallResult {
     if pid <= 0 {
         // For now, only support specific PID
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let pid = pid as usize;
@@ -373,12 +353,12 @@ pub fn sys_waitpid(pid: i32, status_ptr: usize) -> i64 {
         // TEAM_414: Use helper to write exit status (ignores errors for compat)
         let _ = write_exit_status(current.ttbr0, status_ptr, exit_code);
         crate::task::process_table::reap_zombie(pid);
-        return pid as i64;
+        return Ok(pid as i64);
     }
 
     // Child still running - block
     if crate::task::process_table::add_waiter(pid, current.clone()).is_err() {
-        return ECHILD;
+        return Err(ECHILD);
     }
 
     // Block and schedule
@@ -389,19 +369,19 @@ pub fn sys_waitpid(pid: i32, status_ptr: usize) -> i64 {
     if let Some(exit_code) = crate::task::process_table::try_wait(pid) {
         let _ = write_exit_status(current.ttbr0, status_ptr, exit_code);
         crate::task::process_table::reap_zombie(pid);
-        return pid as i64;
+        return Ok(pid as i64);
     }
 
-    ECHILD
+    Err(ECHILD)
 }
 
 /// TEAM_220: sys_set_foreground - Set the foreground process for shell control.
-pub fn sys_set_foreground(pid: usize) -> i64 {
+pub fn sys_set_foreground(pid: usize) -> SyscallResult {
     *crate::task::FOREGROUND_PID.lock() = pid;
-    0
+    Ok(0)
 }
 
 /// TEAM_244: sys_get_foreground - Get the foreground process PID.
-pub fn sys_get_foreground() -> i64 {
-    *crate::task::FOREGROUND_PID.lock() as i64
+pub fn sys_get_foreground() -> SyscallResult {
+    Ok(*crate::task::FOREGROUND_PID.lock() as i64)
 }

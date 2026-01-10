@@ -1,9 +1,11 @@
 //! TEAM_358: statx syscall implementation
+//! TEAM_421: Returns SyscallResult, no scattered casts
 //!
 //! Extended file stat returning struct statx with additional fields.
 
 use crate::memory::user as mm_user;
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+use linux_raw_sys::errno::{EBADF, EFAULT, ENOENT};
 
 /// AT_EMPTY_PATH flag for statx
 const AT_EMPTY_PATH: i32 = 0x1000;
@@ -52,6 +54,7 @@ pub struct Statx {
 const STATX_BASIC_STATS: u32 = 0x07FF;
 
 /// TEAM_358: sys_statx - Get extended file status.
+/// TEAM_421: Returns SyscallResult
 ///
 /// # Arguments
 /// * `dirfd` - Directory file descriptor (or AT_FDCWD)
@@ -59,13 +62,13 @@ const STATX_BASIC_STATS: u32 = 0x07FF;
 /// * `flags` - Flags (AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW, etc.)
 /// * `mask` - What fields to return
 /// * `statxbuf` - User buffer for struct statx
-pub fn sys_statx(dirfd: i32, pathname: usize, flags: i32, _mask: u32, statxbuf: usize) -> i64 {
+pub fn sys_statx(dirfd: i32, pathname: usize, flags: i32, _mask: u32, statxbuf: usize) -> SyscallResult {
     let task = crate::task::current_task();
     let statx_size = core::mem::size_of::<Statx>();
 
     // Validate output buffer
     if mm_user::validate_user_buffer(task.ttbr0, statxbuf, statx_size, true).is_err() {
-        return errno::EFAULT;
+        return Err(EFAULT);
     }
 
     // Handle AT_EMPTY_PATH: use dirfd as the file descriptor
@@ -75,17 +78,14 @@ pub fn sys_statx(dirfd: i32, pathname: usize, flags: i32, _mask: u32, statxbuf: 
 
     // Otherwise, resolve pathname
     let mut path_buf = [0u8; 256];
-    let path = match crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
-        Ok(p) => p,
-        Err(e) => return e,
-    };
+    let path = crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut path_buf)?;
 
     // Use existing VFS stat function
     use crate::fs::vfs::dispatch::vfs_stat;
 
     let stat = match vfs_stat(path) {
         Ok(s) => s,
-        Err(_) => return errno::ENOENT,
+        Err(_) => return Err(ENOENT),
     };
 
     // Convert Stat to Statx
@@ -96,7 +96,8 @@ pub fn sys_statx(dirfd: i32, pathname: usize, flags: i32, _mask: u32, statxbuf: 
 }
 
 /// Get statx by file descriptor
-fn statx_by_fd(fd: usize, statxbuf: usize, ttbr0: usize) -> i64 {
+/// TEAM_421: Returns SyscallResult
+fn statx_by_fd(fd: usize, statxbuf: usize, ttbr0: usize) -> SyscallResult {
     use crate::fs::vfs::dispatch::vfs_fstat;
     use crate::task::fd_table::FdType;
 
@@ -105,7 +106,7 @@ fn statx_by_fd(fd: usize, statxbuf: usize, ttbr0: usize) -> i64 {
 
     let entry = match fd_table.get(fd) {
         Some(e) => e,
-        None => return errno::EBADF,
+        None => return Err(EBADF),
     };
 
     let stat = match entry.fd_type {
@@ -114,7 +115,7 @@ fn statx_by_fd(fd: usize, statxbuf: usize, ttbr0: usize) -> i64 {
         }
         FdType::VfsFile(ref file) => match vfs_fstat(file) {
             Ok(s) => s,
-            Err(_) => return errno::EBADF,
+            Err(_) => return Err(EBADF),
         },
         FdType::PipeRead(_) | FdType::PipeWrite(_) => {
             crate::arch::Stat::new_pipe(crate::fs::pipe::PIPE_BUF_SIZE as i32)
@@ -175,20 +176,21 @@ fn stat_to_statx(stat: &crate::arch::Stat) -> Statx {
 }
 
 /// Copy Statx struct to user buffer
+/// TEAM_421: Returns SyscallResult
 ///
 /// # Safety
 /// Caller must have validated the user buffer with `validate_user_buffer` first.
-fn copy_statx_to_user(ttbr0: usize, statxbuf: usize, statx: &Statx) -> i64 {
+fn copy_statx_to_user(ttbr0: usize, statxbuf: usize, statx: &Statx) -> SyscallResult {
     let statx_size = core::mem::size_of::<Statx>();
 
     // TEAM_416: Replace unwrap() with proper error handling for panic safety
     let dest = match mm_user::user_va_to_kernel_ptr(ttbr0, statxbuf) {
         Some(p) => p,
-        None => return crate::syscall::errno::EFAULT,
+        None => return Err(EFAULT),
     };
     unsafe {
         core::ptr::copy_nonoverlapping(statx as *const Statx as *const u8, dest, statx_size);
     }
 
-    0
+    Ok(0)
 }

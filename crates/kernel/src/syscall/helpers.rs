@@ -18,9 +18,11 @@ use core::marker::PhantomData;
 
 use crate::fs::vfs::file::FileRef;
 use crate::memory::user as mm_user;
-use crate::syscall::{errno, fcntl, read_user_cstring};
+use crate::syscall::read_user_cstring;
 use crate::task::fd_table::{FdEntry, FdType};
 use crate::task::current_task;
+use linux_raw_sys::errno::{EBADF, EFAULT, ENOTDIR};
+use linux_raw_sys::general::AT_FDCWD;
 
 // ============================================================================
 // TEAM_413: UserPtr - Safe wrapper for user-space pointer access
@@ -49,16 +51,17 @@ impl<T: Copy> UserPtr<T> {
     }
 
     /// Read a value from user space.
+    /// TEAM_421: Returns u32 errno directly (no cast needed)
     ///
     /// Returns EFAULT if the memory is not mapped or not readable.
-    pub fn read(&self) -> Result<T, i64> {
+    pub fn read(&self) -> Result<T, u32> {
         let size = core::mem::size_of::<T>();
         if mm_user::validate_user_buffer(self.ttbr0, self.addr, size, false).is_err() {
-            return Err(errno::EFAULT);
+            return Err(EFAULT);
         }
 
         let src = mm_user::user_va_to_kernel_ptr(self.ttbr0, self.addr)
-            .ok_or(errno::EFAULT)?;
+            .ok_or(EFAULT)?;
 
         // SAFETY: validate_user_buffer confirmed the memory is mapped and accessible.
         // We read size_of::<T>() bytes which is the exact size needed.
@@ -70,16 +73,17 @@ impl<T: Copy> UserPtr<T> {
     }
 
     /// Write a value to user space.
+    /// TEAM_421: Returns u32 errno directly (no cast needed)
     ///
     /// Returns EFAULT if the memory is not mapped or not writable.
-    pub fn write(&self, val: T) -> Result<(), i64> {
+    pub fn write(&self, val: T) -> Result<(), u32> {
         let size = core::mem::size_of::<T>();
         if mm_user::validate_user_buffer(self.ttbr0, self.addr, size, true).is_err() {
-            return Err(errno::EFAULT);
+            return Err(EFAULT);
         }
 
         let dest = mm_user::user_va_to_kernel_ptr(self.ttbr0, self.addr)
-            .ok_or(errno::EFAULT)?;
+            .ok_or(EFAULT)?;
 
         // SAFETY: validate_user_buffer confirmed the memory is mapped and writable.
         // We write size_of::<T>() bytes which is the exact size needed.
@@ -136,9 +140,10 @@ impl<T: Copy> UserSlice<T> {
     }
 
     /// Copy data from user space into a kernel buffer.
+    /// TEAM_421: Returns u32 errno directly (no cast needed)
     ///
     /// Returns the number of elements copied, or EFAULT on error.
-    pub fn read_to(&self, buf: &mut [T]) -> Result<usize, i64> {
+    pub fn read_to(&self, buf: &mut [T]) -> Result<usize, u32> {
         let count = self.len.min(buf.len());
         if count == 0 {
             return Ok(0);
@@ -146,11 +151,11 @@ impl<T: Copy> UserSlice<T> {
 
         let byte_len = count * core::mem::size_of::<T>();
         if mm_user::validate_user_buffer(self.ttbr0, self.addr, byte_len, false).is_err() {
-            return Err(errno::EFAULT);
+            return Err(EFAULT);
         }
 
         let src = mm_user::user_va_to_kernel_ptr(self.ttbr0, self.addr)
-            .ok_or(errno::EFAULT)?;
+            .ok_or(EFAULT)?;
 
         // SAFETY: validate_user_buffer confirmed the memory is mapped.
         unsafe {
@@ -165,9 +170,10 @@ impl<T: Copy> UserSlice<T> {
     }
 
     /// Copy data from a kernel buffer to user space.
+    /// TEAM_421: Returns u32 errno directly (no cast needed)
     ///
     /// Returns the number of elements copied, or EFAULT on error.
-    pub fn write_from(&self, buf: &[T]) -> Result<usize, i64> {
+    pub fn write_from(&self, buf: &[T]) -> Result<usize, u32> {
         let count = self.len.min(buf.len());
         if count == 0 {
             return Ok(0);
@@ -175,11 +181,11 @@ impl<T: Copy> UserSlice<T> {
 
         let byte_len = count * core::mem::size_of::<T>();
         if mm_user::validate_user_buffer(self.ttbr0, self.addr, byte_len, true).is_err() {
-            return Err(errno::EFAULT);
+            return Err(EFAULT);
         }
 
         let dest = mm_user::user_va_to_kernel_ptr(self.ttbr0, self.addr)
-            .ok_or(errno::EFAULT)?;
+            .ok_or(EFAULT)?;
 
         // SAFETY: validate_user_buffer confirmed the memory is mapped and writable.
         unsafe {
@@ -207,6 +213,7 @@ impl UserSlice<u8> {
 // ============================================================================
 
 /// TEAM_413: Get a cloned FdEntry for the given fd.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// This eliminates the common pattern of:
 /// ```ignore
@@ -214,27 +221,28 @@ impl UserSlice<u8> {
 /// let fd_table = task.fd_table.lock();
 /// let entry = match fd_table.get(fd) {
 ///     Some(e) => e.clone(),
-///     None => return errno::EBADF,
+///     None => return Err(EBADF),
 /// };
 /// drop(fd_table);
 /// ```
 ///
 /// Returns EBADF if the fd is not valid.
-pub fn get_fd(fd: usize) -> Result<FdEntry, i64> {
+pub fn get_fd(fd: usize) -> Result<FdEntry, u32> {
     let task = current_task();
     let fd_table = task.fd_table.lock();
-    fd_table.get(fd).cloned().ok_or(errno::EBADF)
+    fd_table.get(fd).cloned().ok_or(EBADF)
 }
 
 /// TEAM_413: Get a VfsFile for the given fd.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// This combines fd lookup with type checking, returning EBADF
 /// if the fd is not a VfsFile (e.g., it's a pipe or special fd).
-pub fn get_vfs_file(fd: usize) -> Result<FileRef, i64> {
+pub fn get_vfs_file(fd: usize) -> Result<FileRef, u32> {
     let entry = get_fd(fd)?;
     match &entry.fd_type {
         FdType::VfsFile(f) => Ok(f.clone()),
-        _ => Err(errno::EBADF),
+        _ => Err(EBADF),
     }
 }
 
@@ -250,6 +258,7 @@ pub fn is_valid_fd(fd: usize) -> bool {
 // ============================================================================
 
 /// TEAM_413: Write a struct to user space.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// This is a generic helper for copying kernel structures to userspace.
 /// The struct must be `#[repr(C)]` to ensure correct memory layout.
@@ -268,15 +277,15 @@ pub fn is_valid_fd(fd: usize) -> bool {
 /// let stat = Stat { ... };
 /// write_struct_to_user(task.ttbr0, statbuf, &stat)?;
 /// ```
-pub fn write_struct_to_user<T: Copy>(ttbr0: usize, user_buf: usize, value: &T) -> Result<(), i64> {
+pub fn write_struct_to_user<T: Copy>(ttbr0: usize, user_buf: usize, value: &T) -> Result<(), u32> {
     let size = core::mem::size_of::<T>();
 
     if mm_user::validate_user_buffer(ttbr0, user_buf, size, true).is_err() {
-        return Err(errno::EFAULT);
+        return Err(EFAULT);
     }
 
     let dest = mm_user::user_va_to_kernel_ptr(ttbr0, user_buf)
-        .ok_or(errno::EFAULT)?;
+        .ok_or(EFAULT)?;
 
     // SAFETY: validate_user_buffer confirmed the memory is mapped and writable.
     // We copy exactly size_of::<T>() bytes.
@@ -292,18 +301,19 @@ pub fn write_struct_to_user<T: Copy>(ttbr0: usize, user_buf: usize, value: &T) -
 }
 
 /// TEAM_413: Read a struct from user space.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// This is a generic helper for reading kernel structures from userspace.
 /// The struct must be `#[repr(C)]` to ensure correct memory layout.
-pub fn read_struct_from_user<T: Copy + Default>(ttbr0: usize, user_buf: usize) -> Result<T, i64> {
+pub fn read_struct_from_user<T: Copy + Default>(ttbr0: usize, user_buf: usize) -> Result<T, u32> {
     let size = core::mem::size_of::<T>();
 
     if mm_user::validate_user_buffer(ttbr0, user_buf, size, false).is_err() {
-        return Err(errno::EFAULT);
+        return Err(EFAULT);
     }
 
     let src = mm_user::user_va_to_kernel_ptr(ttbr0, user_buf)
-        .ok_or(errno::EFAULT)?;
+        .ok_or(EFAULT)?;
 
     // SAFETY: validate_user_buffer confirmed the memory is mapped.
     let value = unsafe {
@@ -318,6 +328,7 @@ pub fn read_struct_from_user<T: Copy + Default>(ttbr0: usize, user_buf: usize) -
 // ============================================================================
 
 /// TEAM_413: Resolve a pathname relative to a directory fd.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// This implements proper dirfd resolution for `*at()` syscalls:
 /// - If path is absolute, dirfd is ignored
@@ -335,7 +346,7 @@ pub fn read_struct_from_user<T: Copy + Default>(ttbr0: usize, user_buf: usize) -
 /// # Note
 /// This currently only supports AT_FDCWD. Proper dirfd support requires
 /// storing the path in FdEntry, which is a TODO for future work.
-pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, i64> {
+pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, u32> {
     let task = current_task();
 
     // TEAM_418: Use PATH_MAX from SSOT
@@ -348,7 +359,7 @@ pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, i64> {
     }
 
     // AT_FDCWD means use current working directory
-    if dirfd == fcntl::AT_FDCWD {
+    if dirfd == AT_FDCWD {
         let cwd = task.cwd.lock();
         let base = cwd.trim_end_matches('/');
         if base.is_empty() {
@@ -371,7 +382,7 @@ pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, i64> {
         FdType::VfsFile(file) => {
             // Check if it's a directory
             if !file.inode.is_dir() {
-                return Err(errno::ENOTDIR);
+                return Err(ENOTDIR);
             }
             // For now, we can't get the path from the file
             // Log a warning and fall back to EBADF
@@ -379,17 +390,18 @@ pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, i64> {
                 "[SYSCALL] resolve_at_path: dirfd {} not yet supported for relative paths",
                 dirfd
             );
-            Err(errno::EBADF)
+            Err(EBADF)
         }
-        _ => Err(errno::EBADF),
+        _ => Err(EBADF),
     }
 }
 
 /// TEAM_413: Read a path from userspace and handle AT_FDCWD.
+/// TEAM_421: Returns u32 errno directly (no cast needed)
 ///
 /// Simpler version that just reads the path without full resolution.
 /// Used when you only need the path string and will handle dirfd separately.
-pub fn read_user_path(pathname: usize) -> Result<String, i64> {
+pub fn read_user_path(pathname: usize) -> Result<String, u32> {
     let task = current_task();
     // TEAM_418: Use PATH_MAX from SSOT
     let mut path_buf = [0u8; linux_raw_sys::general::PATH_MAX as usize];
@@ -401,85 +413,88 @@ pub fn read_user_path(pathname: usize) -> Result<String, i64> {
 // TEAM_413: Result Extension for Syscalls
 // ============================================================================
 
-/// TEAM_413: Extension trait for converting VfsResult to syscall return.
+/// TEAM_413: Extension trait for converting VfsResult to SyscallResult.
+/// TEAM_421: Updated to return SyscallResult (Result<i64, u16>)
 ///
-/// This allows writing `vfs_operation().to_syscall_result(|| 0)` instead of
+/// This allows writing `vfs_operation().to_syscall_result(|| Ok(0))` instead of
 /// explicit match blocks.
 pub trait SyscallResultExt<T> {
-    /// Convert a VfsResult to a syscall return value.
+    /// Convert a VfsResult to a SyscallResult.
     ///
     /// On success, calls the provided closure to compute the return value.
-    /// On error, converts the VfsError to negative errno.
-    fn to_syscall_result<F: FnOnce(T) -> i64>(self, on_success: F) -> i64;
+    /// On error, converts the VfsError to u32 errno.
+    fn to_syscall_result<F: FnOnce(T) -> crate::syscall::SyscallResult>(self, on_success: F) -> crate::syscall::SyscallResult;
 }
 
 impl<T> SyscallResultExt<T> for Result<T, crate::fs::vfs::error::VfsError> {
-    fn to_syscall_result<F: FnOnce(T) -> i64>(self, on_success: F) -> i64 {
+    fn to_syscall_result<F: FnOnce(T) -> crate::syscall::SyscallResult>(self, on_success: F) -> crate::syscall::SyscallResult {
         match self {
             Ok(v) => on_success(v),
-            Err(e) => e.into(),
+            Err(e) => Err(e.to_errno()),
         }
     }
 }
 
 // ============================================================================
 // TEAM_415: Ioctl Helpers for FD operations
+// TEAM_421: Updated to return SyscallResult and Result<T, u32>
 // ============================================================================
 
 use crate::fs::tty::Termios;
+use crate::syscall::SyscallResult;
 
 /// TEAM_415: Write a termios struct to user space.
+/// TEAM_421: Returns SyscallResult
 ///
 /// This helper encapsulates the common pattern in TCGETS ioctl handlers.
-pub fn ioctl_get_termios(ttbr0: usize, arg: usize, termios: &Termios) -> i64 {
-    match write_struct_to_user(ttbr0, arg, termios) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+pub fn ioctl_get_termios(ttbr0: usize, arg: usize, termios: &Termios) -> SyscallResult {
+    write_struct_to_user(ttbr0, arg, termios)?;
+    Ok(0)
 }
 
 /// TEAM_415: Read a termios struct from user space.
+/// TEAM_421: Returns u32 errno directly
 ///
 /// This helper encapsulates the common pattern in TCSETS ioctl handlers.
-/// Returns the Termios on success, or negative errno on failure.
-pub fn ioctl_read_termios(ttbr0: usize, arg: usize) -> Result<Termios, i64> {
+/// Returns the Termios on success, or u32 errno on failure.
+pub fn ioctl_read_termios(ttbr0: usize, arg: usize) -> Result<Termios, u32> {
     read_struct_from_user(ttbr0, arg)
 }
 
 /// TEAM_415: Write an i32 value to user space for ioctl.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Used for TIOCGPGRP and similar ioctls that return an integer.
-pub fn ioctl_write_i32(ttbr0: usize, arg: usize, value: i32) -> i64 {
+pub fn ioctl_write_i32(ttbr0: usize, arg: usize, value: i32) -> SyscallResult {
     let ptr = UserPtr::<i32>::new(ttbr0, arg);
-    match ptr.write(value) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    ptr.write(value)?;
+    Ok(0)
 }
 
 /// TEAM_415: Read an i32 value from user space for ioctl.
+/// TEAM_421: Returns u32 errno directly
 ///
 /// Used for TIOCSPGRP and similar ioctls that take an integer.
-pub fn ioctl_read_i32(ttbr0: usize, arg: usize) -> Result<i32, i64> {
+pub fn ioctl_read_i32(ttbr0: usize, arg: usize) -> Result<i32, u32> {
     let ptr = UserPtr::<i32>::new(ttbr0, arg);
     ptr.read()
 }
 
 /// TEAM_415: Write a u32 value to user space for ioctl.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Used for TIOCGPTN and similar ioctls that return an unsigned integer.
-pub fn ioctl_write_u32(ttbr0: usize, arg: usize, value: u32) -> i64 {
+pub fn ioctl_write_u32(ttbr0: usize, arg: usize, value: u32) -> SyscallResult {
     let ptr = UserPtr::<u32>::new(ttbr0, arg);
-    match ptr.write(value) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    ptr.write(value)?;
+    Ok(0)
 }
 
 /// TEAM_415: Read a u32 value from user space for ioctl.
+/// TEAM_421: Returns u32 errno directly
 ///
 /// Used for TIOCSPTLCK and similar ioctls that take an unsigned integer.
-pub fn ioctl_read_u32(ttbr0: usize, arg: usize) -> Result<u32, i64> {
+pub fn ioctl_read_u32(ttbr0: usize, arg: usize) -> Result<u32, u32> {
     let ptr = UserPtr::<u32>::new(ttbr0, arg);
     ptr.read()
 }

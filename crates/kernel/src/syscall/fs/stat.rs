@@ -1,19 +1,18 @@
 use crate::fs::vfs::dispatch::*;
 // TEAM_413: Use new syscall helpers
-use crate::syscall::{Stat, get_fd, write_struct_to_user};
+// TEAM_421: Import SyscallResult
+use crate::syscall::{Stat, get_fd, write_struct_to_user, SyscallResult};
 use crate::task::fd_table::FdType;
 
 /// TEAM_168: sys_fstat - Get file status.
 /// TEAM_258: Updated to use Stat constructors for architecture independence.
 /// TEAM_413: Updated to use write_struct_to_user helper.
-pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
+/// TEAM_421: Updated to return SyscallResult.
+pub fn sys_fstat(fd: usize, stat_buf: usize) -> SyscallResult {
     let task = crate::task::current_task();
 
     // TEAM_413: Use get_fd helper
-    let entry = match get_fd(fd) {
-        Ok(e) => e,
-        Err(e) => return e,
-    };
+    let entry = get_fd(fd)?;
 
     let stat = match &entry.fd_type {
         // TEAM_258: Use constructor for architecture independence
@@ -22,7 +21,7 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
         }
         FdType::VfsFile(file) => match vfs_fstat(file) {
             Ok(s) => s,
-            Err(e) => return e.into(), // TEAM_413: Use From<VfsError> for i64
+            Err(e) => return Err(e.to_errno()),
         },
         // TEAM_258: Use constructor for architecture independence
         FdType::PipeRead(_) | FdType::PipeWrite(_) => {
@@ -39,37 +38,31 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
     };
 
     // TEAM_413: Use write_struct_to_user helper
-    match write_struct_to_user(task.ttbr0, stat_buf, &stat) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    write_struct_to_user(task.ttbr0, stat_buf, &stat)?;
+    Ok(0)
 }
 
 /// TEAM_409: sys_fstatat - Get file status relative to directory fd.
+/// TEAM_421: Updated to return SyscallResult.
 /// Signature: fstatat(dirfd, pathname, statbuf, flags)
 ///
 /// This is the "at" variant of stat, supporting AT_FDCWD for current directory.
 /// TEAM_413: Updated to use resolve_at_path and write_struct_to_user helpers.
-pub fn sys_fstatat(dirfd: i32, pathname: usize, stat_buf: usize, _flags: i32) -> i64 {
-    use crate::syscall::{resolve_at_path, write_struct_to_user};
+pub fn sys_fstatat(dirfd: i32, pathname: usize, stat_buf: usize, _flags: i32) -> SyscallResult {
+    use crate::syscall::resolve_at_path;
 
     let task = crate::task::current_task();
 
     // TEAM_413: Use resolve_at_path helper for pathname resolution
-    let path_str = match resolve_at_path(dirfd, pathname) {
-        Ok(s) => s,
-        Err(e) => return e,
-    };
+    let path_str = resolve_at_path(dirfd, pathname)?;
 
     // Get file status via VFS
     let stat = match vfs_stat(&path_str) {
         Ok(s) => s,
-        Err(e) => return e.into(), // TEAM_413: Use From<VfsError> for i64
+        Err(e) => return Err(e.to_errno()),
     };
 
     // TEAM_413: Use write_struct_to_user helper
-    match write_struct_to_user(task.ttbr0, stat_buf, &stat) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    write_struct_to_user(task.ttbr0, stat_buf, &stat)?;
+    Ok(0)
 }

@@ -1,4 +1,9 @@
+// TEAM_142: System syscalls
+// TEAM_421: Returns SyscallResult, no scattered casts
+
 use crate::memory::user as mm_user;
+use crate::syscall::SyscallResult;
+use linux_raw_sys::errno::EFAULT;
 
 /// TEAM_142: Shutdown flags for verbose mode
 pub mod shutdown_flags {
@@ -6,7 +11,8 @@ pub mod shutdown_flags {
 }
 
 /// TEAM_142: sys_shutdown - Graceful system shutdown.
-pub fn sys_shutdown(flags: u32) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_shutdown(flags: u32) -> SyscallResult {
     let verbose = flags & shutdown_flags::VERBOSE != 0;
     log::info!("[SHUTDOWN] Initiating graceful shutdown...");
 
@@ -92,6 +98,7 @@ fn next_random() -> u64 {
 }
 
 /// TEAM_350: sys_getrandom - Get random bytes.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Fills a buffer with random bytes. Uses hardware RNG if available,
 /// falls back to PRNG seeded from timer.
@@ -102,8 +109,8 @@ fn next_random() -> u64 {
 /// * `flags` - GRND_RANDOM (1) or GRND_NONBLOCK (2), currently ignored
 ///
 /// # Returns
-/// Number of bytes written on success, negative errno on failure.
-pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
+/// Number of bytes written on success, Err(errno) on failure.
+pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> SyscallResult {
     log::trace!(
         "[SYSCALL] getrandom(buf=0x{:x}, len={}, flags=0x{:x})",
         buf,
@@ -112,14 +119,14 @@ pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
     );
 
     if buflen == 0 {
-        return 0;
+        return Ok(0);
     }
 
     let task = crate::task::current_task();
 
     // Validate user buffer
     if mm_user::validate_user_buffer(task.ttbr0, buf, buflen, true).is_err() {
-        return crate::syscall::errno::EFAULT;
+        return Err(EFAULT);
     }
 
     // Initialize PRNG if needed
@@ -128,7 +135,7 @@ pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
     // TEAM_416: Replace unwrap() with proper error handling for panic safety
     let dest = match mm_user::user_va_to_kernel_ptr(task.ttbr0, buf) {
         Some(ptr) => ptr,
-        None => return crate::syscall::errno::EFAULT,
+        None => return Err(EFAULT),
     };
 
     // Fill buffer with random bytes
@@ -148,7 +155,7 @@ pub fn sys_getrandom(buf: usize, buflen: usize, flags: u32) -> i64 {
         }
     }
 
-    written as i64
+    Ok(written as i64)
 }
 
 /// TEAM_206: Read null-terminated string from user memory

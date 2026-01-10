@@ -1,11 +1,14 @@
 //! TEAM_228: Memory management syscalls.
 //! TEAM_415: Refactored with helper functions.
 //! TEAM_419: Use linux-raw-sys for mmap constants.
+//! TEAM_420: Direct linux_raw_sys imports, no shims
+//! TEAM_421: Return SyscallResult, no scattered casts
 
 use crate::memory::FRAME_ALLOCATOR;
 use crate::memory::user as mm_user;
 use crate::memory::vma::VmaFlags;
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+use linux_raw_sys::errno::{EINVAL, ENOSYS, ENOMEM};
 use linux_raw_sys::general::{
     PROT_NONE, PROT_READ, PROT_WRITE, PROT_EXEC,
     MAP_SHARED, MAP_PRIVATE, MAP_FIXED, MAP_ANONYMOUS,
@@ -104,7 +107,8 @@ impl Drop for MmapGuard {
 }
 
 /// TEAM_166: sys_sbrk - Adjust program break (heap allocation).
-pub fn sys_sbrk(increment: isize) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_sbrk(increment: isize) -> SyscallResult {
     let task = crate::task::current_task();
     let mut heap = task.heap.lock();
 
@@ -118,7 +122,7 @@ pub fn sys_sbrk(increment: isize) -> i64 {
                     Some(n) => n / los_hal::mmu::PAGE_SIZE,
                     None => {
                         heap.current = old_break;
-                        return 0; // Overflow
+                        return Ok(0); // Overflow - return current break
                     }
                 };
 
@@ -129,22 +133,23 @@ pub fn sys_sbrk(increment: isize) -> i64 {
                             // TEAM_389: Log OOM for debugging (Rule 4: Silence is Golden - use debug level)
                             log::debug!("[OOM] sys_sbrk: failed to allocate page at VA 0x{:x}", va);
                             heap.current = old_break;
-                            return errno::ENOMEM; // TEAM_389: Return error, not null
+                            return Err(ENOMEM); // TEAM_389: Return error, not null
                         }
                     }
                 }
             }
-            old_break as i64
+            Ok(old_break as i64)
         }
         Err(()) => {
             // TEAM_389: Log heap bounds exceeded for debugging
             log::debug!("[OOM] sys_sbrk: heap bounds exceeded (increment={})", increment);
-            errno::ENOMEM // TEAM_389: Return error on heap bounds exceeded
+            Err(ENOMEM) // TEAM_389: Return error on heap bounds exceeded
         }
     }
 }
 
 /// TEAM_228: sys_mmap - Map memory into process address space.
+/// TEAM_421: Returns SyscallResult
 ///
 /// For std allocator support, we implement anonymous private mappings.
 /// File-backed mappings are not yet supported.
@@ -158,11 +163,11 @@ pub fn sys_sbrk(increment: isize) -> i64 {
 /// * `offset` - File offset (must be 0 for MAP_ANONYMOUS)
 ///
 /// # Returns
-/// Virtual address of mapping, or negative error code.
-pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset: usize) -> i64 {
+/// Ok(virtual_address) on success, Err(errno) on failure.
+pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset: usize) -> SyscallResult {
     // TEAM_228: Validate arguments
     if len == 0 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     // For MVP, only support MAP_ANONYMOUS | MAP_PRIVATE
@@ -171,11 +176,11 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
             "[MMAP] Only MAP_ANONYMOUS supported, got flags=0x{:x}",
             flags
         );
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
     if fd != -1 || offset != 0 {
         log::warn!("[MMAP] File-backed mappings not supported");
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let task = crate::task::current_task();
@@ -193,7 +198,7 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
     let base_addr = if addr != 0 && flags & MAP_FIXED != 0 {
         // MAP_FIXED: use exact address (must be page-aligned)
         if addr & (PAGE_SIZE - 1) != 0 {
-            return errno::EINVAL;
+            return Err(EINVAL);
         }
         addr
     } else {
@@ -204,7 +209,7 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
 
     if base_addr == 0 {
         log::debug!("[OOM] sys_mmap: no free region for {} bytes", alloc_len);
-        return errno::ENOMEM;
+        return Err(ENOMEM);
     }
 
     // Convert prot to PageFlags
@@ -221,7 +226,7 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
                 // TEAM_389: Log OOM for debugging
                 log::debug!("[OOM] sys_mmap: failed to allocate frame for page {}/{}", i + 1, pages_needed);
                 // TEAM_238: Guard will clean up on drop
-                return errno::ENOMEM;
+                return Err(ENOMEM);
             }
         };
 
@@ -235,7 +240,7 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
         if unsafe { mm_user::map_user_page(ttbr0, va, phys, page_flags) }.is_err() {
             // TEAM_238: Free this page (not tracked yet) and let guard clean up rest
             FRAME_ALLOCATOR.free_page(phys);
-            return errno::ENOMEM;
+            return Err(ENOMEM);
         }
 
         // TEAM_238: Track successful allocation
@@ -261,22 +266,23 @@ pub fn sys_mmap(addr: usize, len: usize, prot: u32, flags: u32, fd: i32, offset:
         prot
     );
 
-    base_addr as i64
+    Ok(base_addr as i64)
 }
 
 /// TEAM_228: sys_munmap - Unmap memory from process address space.
 /// TEAM_238: Implemented proper VMA tracking and page unmapping.
 /// TEAM_415: Refactored to use helper functions.
-pub fn sys_munmap(addr: usize, len: usize) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_munmap(addr: usize, len: usize) -> SyscallResult {
     // Validate alignment
     if addr & 0xFFF != 0 || len == 0 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let aligned_len = page_align_up(len);
     let end = match addr.checked_add(aligned_len) {
         Some(e) => e,
-        None => return errno::EINVAL,
+        None => return Err(EINVAL),
     };
 
     let task = crate::task::current_task();
@@ -309,21 +315,22 @@ pub fn sys_munmap(addr: usize, len: usize) -> i64 {
     }
 
     log::trace!("[MUNMAP] Unmapped 0x{:x}-0x{:x}", addr, end);
-    0
+    Ok(0)
 }
 
 /// TEAM_239: sys_mprotect - Change protection on memory region.
 /// TEAM_415: Refactored to use helper functions.
-pub fn sys_mprotect(addr: usize, len: usize, prot: u32) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_mprotect(addr: usize, len: usize, prot: u32) -> SyscallResult {
     // Validate alignment
     if addr & (PAGE_SIZE - 1) != 0 || len == 0 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let aligned_len = page_align_up(len);
     let end = match addr.checked_add(aligned_len) {
         Some(e) => e,
-        None => return errno::EINVAL,
+        None => return Err(EINVAL),
     };
 
     let task = crate::task::current_task();
@@ -357,7 +364,7 @@ pub fn sys_mprotect(addr: usize, len: usize, prot: u32) -> i64 {
         modified_count, addr, end, prot
     );
 
-    0
+    Ok(0)
 }
 
 /// TEAM_228: Find a free region in user address space for mmap.
@@ -410,6 +417,7 @@ fn prot_to_page_flags(prot: u32) -> PageFlags {
 }
 
 /// TEAM_350: sys_madvise - Give advice about use of memory.
+/// TEAM_421: Returns SyscallResult
 ///
 /// This is a stub that ignores all advice and returns success.
 /// Allocators call madvise but can tolerate it failing or being ignored.
@@ -420,9 +428,9 @@ fn prot_to_page_flags(prot: u32) -> PageFlags {
 /// * `advice` - Advice hint (MADV_DONTNEED, MADV_WILLNEED, etc.)
 ///
 /// # Returns
-/// 0 on success (we always succeed by ignoring the advice)
+/// Ok(0) on success (we always succeed by ignoring the advice)
 #[allow(unused_variables)]
-pub fn sys_madvise(addr: usize, len: usize, advice: i32) -> i64 {
+pub fn sys_madvise(addr: usize, len: usize, advice: i32) -> SyscallResult {
     // TEAM_350: Stub - ignore advice, return success
     // Common advice values:
     // MADV_NORMAL = 0, MADV_RANDOM = 1, MADV_SEQUENTIAL = 2
@@ -433,35 +441,37 @@ pub fn sys_madvise(addr: usize, len: usize, advice: i32) -> i64 {
         len,
         advice
     );
-    0
+    Ok(0)
 }
 
 /// TEAM_360: sys_pkey_alloc - Allocate a memory protection key.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Memory protection keys (Intel MPK) are not supported.
-/// This syscall returns -ENOSYS to indicate the feature is unavailable.
+/// This syscall returns Err(ENOSYS) to indicate the feature is unavailable.
 ///
 /// # Arguments
 /// * `flags` - Must be 0
 /// * `access_rights` - PKEY_DISABLE_ACCESS or PKEY_DISABLE_WRITE
 ///
 /// # Returns
-/// -ENOSYS (syscall not implemented)
+/// Err(ENOSYS) (syscall not implemented)
 #[allow(unused_variables)]
-pub fn sys_pkey_alloc(flags: u32, access_rights: u32) -> i64 {
+pub fn sys_pkey_alloc(flags: u32, access_rights: u32) -> SyscallResult {
     log::trace!(
         "[SYSCALL] pkey_alloc(flags={}, access_rights={}) -> ENOSYS",
         flags,
         access_rights
     );
     // TEAM_360: Memory protection keys not supported
-    -38 // ENOSYS
+    Err(ENOSYS)
 }
 
 /// TEAM_360: sys_pkey_mprotect - Set memory protection with protection key.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Memory protection keys (Intel MPK) are not supported.
-/// This syscall returns -ENOSYS to indicate the feature is unavailable.
+/// This syscall returns Err(ENOSYS) to indicate the feature is unavailable.
 ///
 /// # Arguments
 /// * `addr` - Start address of memory region
@@ -470,9 +480,9 @@ pub fn sys_pkey_alloc(flags: u32, access_rights: u32) -> i64 {
 /// * `pkey` - Protection key
 ///
 /// # Returns
-/// -ENOSYS (syscall not implemented)
+/// Err(ENOSYS) (syscall not implemented)
 #[allow(unused_variables)]
-pub fn sys_pkey_mprotect(addr: usize, len: usize, prot: u32, pkey: i32) -> i64 {
+pub fn sys_pkey_mprotect(addr: usize, len: usize, prot: u32, pkey: i32) -> SyscallResult {
     log::trace!(
         "[SYSCALL] pkey_mprotect(addr=0x{:x}, len=0x{:x}, prot={}, pkey={}) -> ENOSYS",
         addr,
@@ -481,5 +491,5 @@ pub fn sys_pkey_mprotect(addr: usize, len: usize, prot: u32, pkey: i32) -> i64 {
         pkey
     );
     // TEAM_360: Memory protection keys not supported
-    -38 // ENOSYS
+    Err(ENOSYS)
 }

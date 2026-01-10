@@ -1,5 +1,6 @@
 //! TEAM_208: Synchronization syscalls (futex)
 //! TEAM_360: Added ppoll syscall for Eyra/std support
+//! TEAM_421: Return SyscallResult, no scattered casts
 //!
 //! Futex (Fast Userspace Mutex) enables efficient blocking synchronization
 //! in userspace. Tasks wait for a memory location's value to change without
@@ -12,7 +13,9 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use los_hal::IrqSafeLock;
 
 use crate::memory::user as mm_user;
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+// TEAM_420: Direct linux_raw_sys imports, no shims
+use linux_raw_sys::errno::{EAGAIN, EFAULT, EINVAL};
 use crate::task::scheduler::SCHEDULER;
 use crate::task::{TaskControlBlock, TaskState, current_task, yield_now};
 
@@ -48,6 +51,7 @@ static FUTEX_WAITERS: IrqSafeLock<BTreeMap<usize, Vec<FutexWaiter>>> =
     IrqSafeLock::new(BTreeMap::new());
 
 /// TEAM_208: sys_futex - Fast userspace mutex operations
+/// TEAM_421: Returns SyscallResult
 ///
 /// # Arguments
 /// - `addr`: User virtual address of the futex word (must be 4-byte aligned)
@@ -57,21 +61,22 @@ static FUTEX_WAITERS: IrqSafeLock<BTreeMap<usize, Vec<FutexWaiter>>> =
 /// - `_addr2`: Second address (for REQUEUE, currently ignored)
 ///
 /// # Returns
-/// - FUTEX_WAIT: 0 on success, EAGAIN if value mismatch, EFAULT if bad address
-/// - FUTEX_WAKE: Number of tasks woken
-pub fn sys_futex(addr: usize, op: usize, val: usize, _timeout: usize, _addr2: usize) -> i64 {
+/// - FUTEX_WAIT: Ok(0) on success, Err(EAGAIN) if value mismatch, Err(EFAULT) if bad address
+/// - FUTEX_WAKE: Ok(number of tasks woken)
+pub fn sys_futex(addr: usize, op: usize, val: usize, _timeout: usize, _addr2: usize) -> SyscallResult {
     match op {
         FUTEX_WAIT => futex_wait(addr, val as u32),
         FUTEX_WAKE => futex_wake(addr, val),
-        _ => errno::EINVAL,
+        _ => Err(EINVAL),
     }
 }
 
 /// TEAM_208: Block the current task if *addr == expected
-fn futex_wait(addr: usize, expected: u32) -> i64 {
+/// TEAM_421: Returns SyscallResult
+fn futex_wait(addr: usize, expected: u32) -> SyscallResult {
     // Must be 4-byte aligned
     if addr % 4 != 0 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     let task = current_task();
@@ -79,7 +84,7 @@ fn futex_wait(addr: usize, expected: u32) -> i64 {
 
     // Read the current value at the user address
     let Some(kernel_ptr) = mm_user::user_va_to_kernel_ptr(ttbr0, addr) else {
-        return errno::EFAULT;
+        return Err(EFAULT);
     };
 
     // Read atomically
@@ -91,7 +96,7 @@ fn futex_wait(addr: usize, expected: u32) -> i64 {
 
     // If value doesn't match, return immediately
     if current_val != expected {
-        return errno::EAGAIN;
+        return Err(EAGAIN);
     }
 
     // Add to wait list and block
@@ -109,12 +114,13 @@ fn futex_wait(addr: usize, expected: u32) -> i64 {
     // Yield to scheduler - we won't be picked up again until unblocked
     yield_now();
 
-    0
+    Ok(0)
 }
 
 /// TEAM_208: Wake up to `count` tasks waiting on addr
 /// TEAM_230: Made public for CLONE_CHILD_CLEARTID thread exit handling
-pub fn futex_wake(addr: usize, count: usize) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn futex_wake(addr: usize, count: usize) -> SyscallResult {
     let mut woken = 0usize;
 
     let mut waiters = FUTEX_WAITERS.lock();
@@ -134,10 +140,11 @@ pub fn futex_wake(addr: usize, count: usize) -> i64 {
         }
     }
 
-    woken as i64
+    Ok(woken as i64)
 }
 
 /// TEAM_360: sys_ppoll - Wait for events on file descriptors.
+/// TEAM_421: Returns SyscallResult
 ///
 /// This implements the ppoll syscall for Eyra/std support.
 /// Currently implements non-blocking poll that checks fd state immediately.
@@ -149,18 +156,18 @@ pub fn futex_wake(addr: usize, count: usize) -> i64 {
 /// * `sigmask_ptr` - Signal mask (currently ignored)
 ///
 /// # Returns
-/// Number of fds with events, 0 on timeout, or negative error
-pub fn sys_ppoll(fds_ptr: usize, nfds: usize, _tmo_ptr: usize, _sigmask_ptr: usize) -> i64 {
+/// Ok(number of fds with events), Ok(0) on timeout, or Err(errno)
+pub fn sys_ppoll(fds_ptr: usize, nfds: usize, _tmo_ptr: usize, _sigmask_ptr: usize) -> SyscallResult {
     let task = current_task();
     let ttbr0 = task.ttbr0;
 
     // Validate nfds (reasonable limit)
     if nfds > 1024 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     if nfds == 0 {
-        return 0;
+        return Ok(0);
     }
 
     let pollfd_size = core::mem::size_of::<Pollfd>();
@@ -168,7 +175,7 @@ pub fn sys_ppoll(fds_ptr: usize, nfds: usize, _tmo_ptr: usize, _sigmask_ptr: usi
 
     // Validate buffer
     if mm_user::validate_user_buffer(ttbr0, fds_ptr, buf_size, true).is_err() {
-        return errno::EFAULT;
+        return Err(EFAULT);
     }
 
     let fd_table = task.fd_table.lock();
@@ -180,7 +187,7 @@ pub fn sys_ppoll(fds_ptr: usize, nfds: usize, _tmo_ptr: usize, _sigmask_ptr: usi
         // Read pollfd from user space
         let pfd = match read_pollfd(ttbr0, pfd_addr) {
             Some(p) => p,
-            None => return errno::EFAULT,
+            None => return Err(EFAULT),
         };
 
         // Determine revents based on fd type
@@ -201,7 +208,7 @@ pub fn sys_ppoll(fds_ptr: usize, nfds: usize, _tmo_ptr: usize, _sigmask_ptr: usi
 
         // Write revents back to user space
         if !write_pollfd_revents(ttbr0, pfd_addr, revents) {
-            return errno::EFAULT;
+            return Err(EFAULT);
         }
 
         if revents != 0 {
@@ -215,7 +222,7 @@ pub fn sys_ppoll(fds_ptr: usize, nfds: usize, _tmo_ptr: usize, _sigmask_ptr: usi
         ready_count
     );
 
-    ready_count
+    Ok(ready_count)
 }
 
 /// TEAM_360: Read a pollfd struct from user space
@@ -322,6 +329,7 @@ fn poll_fd_type(fd_type: &crate::task::fd_table::FdType, events: i16) -> i16 {
 // ============================================================================
 
 /// TEAM_406: sys_poll - Wait for events on file descriptors.
+/// TEAM_421: Returns SyscallResult
 ///
 /// This is a wrapper around ppoll with simpler timeout handling.
 /// poll() is the older interface, ppoll() is the modern one.
@@ -332,8 +340,8 @@ fn poll_fd_type(fd_type: &crate::task::fd_table::FdType, events: i16) -> i16 {
 /// * `timeout_ms` - Timeout in milliseconds (-1 = infinite, 0 = non-blocking)
 ///
 /// # Returns
-/// Number of fds with events, 0 on timeout, or negative error
-pub fn sys_poll(fds_ptr: usize, nfds: usize, _timeout_ms: i32) -> i64 {
+/// Ok(number of fds with events), Ok(0) on timeout, or Err(errno)
+pub fn sys_poll(fds_ptr: usize, nfds: usize, _timeout_ms: i32) -> SyscallResult {
     // poll() is essentially ppoll() with simpler timeout
     // Current ppoll ignores timeout anyway, so just delegate
     sys_ppoll(fds_ptr, nfds, 0, 0)

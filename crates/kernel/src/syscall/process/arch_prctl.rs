@@ -2,9 +2,11 @@
 //!
 //! TEAM_350: arch_prctl for x86_64 TLS/GS handling.
 //! TEAM_417: Extracted from process.rs.
+//! TEAM_421: Returns SyscallResult, no scattered casts.
 
 use crate::memory::user as mm_user;
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+use linux_raw_sys::errno::{EFAULT, EINVAL, ENOSYS};
 
 // ============================================================================
 // TEAM_350: arch_prctl (x86_64 only) - Set architecture-specific thread state
@@ -20,6 +22,7 @@ pub mod arch_prctl_codes {
 }
 
 /// TEAM_350: sys_arch_prctl - Set architecture-specific thread state (x86_64).
+/// TEAM_421: Returns SyscallResult
 ///
 /// Used primarily for setting the FS base register for TLS (Thread Local Storage).
 ///
@@ -28,9 +31,9 @@ pub mod arch_prctl_codes {
 /// * `addr` - Address to set/get
 ///
 /// # Returns
-/// 0 on success, negative errno on failure.
+/// Ok(0) on success, Err(errno) on failure.
 #[cfg(target_arch = "x86_64")]
-pub fn sys_arch_prctl(code: i32, addr: usize) -> i64 {
+pub fn sys_arch_prctl(code: i32, addr: usize) -> SyscallResult {
     use arch_prctl_codes::*;
 
     log::trace!("[SYSCALL] arch_prctl(code=0x{:x}, addr=0x{:x})", code, addr);
@@ -59,7 +62,7 @@ pub fn sys_arch_prctl(code: i32, addr: usize) -> i64 {
                 let ctx_ptr = &task.context as *const _ as *mut crate::arch::Context;
                 (*ctx_ptr).set_tls(addr as u64);
             }
-            0
+            Ok(0)
         }
         ARCH_GET_FS => {
             // TEAM_350: Get FS base register
@@ -72,12 +75,12 @@ pub fn sys_arch_prctl(code: i32, addr: usize) -> i64 {
                         unsafe {
                             *(ptr as *mut u64) = fs_base as u64;
                         }
-                        return 0;
+                        return Ok(0);
                     }
                 }
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
-            0
+            Ok(0)
         }
         ARCH_SET_GS => {
             // TEAM_350: Set GS base register (less commonly used)
@@ -91,7 +94,7 @@ pub fn sys_arch_prctl(code: i32, addr: usize) -> i64 {
                     options(nostack, preserves_flags)
                 );
             }
-            0
+            Ok(0)
         }
         ARCH_GET_GS => {
             // TEAM_350: Get GS base - read from MSR
@@ -113,20 +116,21 @@ pub fn sys_arch_prctl(code: i32, addr: usize) -> i64 {
                             gs_base = ((hi as u64) << 32) | (lo as u64);
                             *(ptr as *mut u64) = gs_base;
                         }
-                        return 0;
+                        return Ok(0);
                     }
                 }
-                return errno::EFAULT;
+                return Err(EFAULT);
             }
-            0
+            Ok(0)
         }
-        _ => errno::EINVAL,
+        _ => Err(EINVAL),
     }
 }
 
 /// TEAM_350: sys_arch_prctl stub for non-x86_64 architectures.
+/// TEAM_421: Returns SyscallResult
 #[cfg(not(target_arch = "x86_64"))]
-pub fn sys_arch_prctl(_code: i32, _addr: usize) -> i64 {
+pub fn sys_arch_prctl(_code: i32, _addr: usize) -> SyscallResult {
     // arch_prctl is x86_64-specific
-    errno::ENOSYS
+    Err(ENOSYS)
 }

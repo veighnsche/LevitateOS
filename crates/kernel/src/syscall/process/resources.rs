@@ -4,7 +4,9 @@
 //! TEAM_417: Extracted from process.rs.
 //! TEAM_418: Use Timeval from SSOT (syscall/types.rs).
 
-use crate::syscall::errno;
+use crate::syscall::SyscallResult;
+// TEAM_420: Direct linux_raw_sys imports, no shims
+use linux_raw_sys::errno::{EFAULT, EINVAL, ESRCH};
 // TEAM_418: Import Timeval from SSOT
 pub use crate::syscall::types::Timeval;
 
@@ -45,18 +47,18 @@ pub struct Rusage {
 ///
 /// # Returns
 /// 0 on success, negative errno on failure.
-pub fn sys_getrusage(who: i32, usage: usize) -> i64 {
+pub fn sys_getrusage(who: i32, usage: usize) -> SyscallResult {
     const RUSAGE_SELF: i32 = 0;
     const RUSAGE_CHILDREN: i32 = -1;
     const RUSAGE_THREAD: i32 = 1;
 
     // Validate who argument
     if who != RUSAGE_SELF && who != RUSAGE_CHILDREN && who != RUSAGE_THREAD {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     if usage == 0 {
-        return errno::EFAULT;
+        return Err(EFAULT);
     }
 
     let task = crate::task::current_task();
@@ -65,10 +67,8 @@ pub fn sys_getrusage(who: i32, usage: usize) -> i64 {
     let rusage = Rusage::default();
 
     // TEAM_416: Use write_struct_to_user helper instead of unwrap() for panic safety
-    match crate::syscall::helpers::write_struct_to_user(task.ttbr0, usage, &rusage) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    crate::syscall::helpers::write_struct_to_user(task.ttbr0, usage, &rusage)?;
+    Ok(0)
 }
 
 // ============================================================================
@@ -105,7 +105,7 @@ struct Rlimit64 {
 ///
 /// # Returns
 /// 0 on success, negative errno on failure.
-pub fn sys_prlimit64(pid: i32, resource: u32, new_limit: usize, old_limit: usize) -> i64 {
+pub fn sys_prlimit64(pid: i32, resource: u32, new_limit: usize, old_limit: usize) -> SyscallResult {
     let task = crate::task::current_task();
 
     // Only support current process for now
@@ -114,7 +114,7 @@ pub fn sys_prlimit64(pid: i32, resource: u32, new_limit: usize, old_limit: usize
             "[SYSCALL] prlimit64: pid {} not supported (only current process)",
             pid
         );
-        return errno::ESRCH;
+        return Err(ESRCH);
     }
 
     // Default limits (sensible values for a simple OS)
@@ -161,18 +161,14 @@ pub fn sys_prlimit64(pid: i32, resource: u32, new_limit: usize, old_limit: usize
         },
         _ => {
             log::warn!("[SYSCALL] prlimit64: unknown resource {}", resource);
-            return errno::EINVAL;
+            return Err(EINVAL);
         }
     };
 
     // Return old limit if requested
     if old_limit != 0 {
         // TEAM_416: Use write_struct_to_user helper instead of unwrap() for panic safety
-        if let Err(e) =
-            crate::syscall::helpers::write_struct_to_user(task.ttbr0, old_limit, &default_limit)
-        {
-            return e;
-        }
+        crate::syscall::helpers::write_struct_to_user(task.ttbr0, old_limit, &default_limit)?;
     }
 
     // Setting new limit is a no-op for now (we don't enforce limits)
@@ -183,5 +179,5 @@ pub fn sys_prlimit64(pid: i32, resource: u32, new_limit: usize, old_limit: usize
         );
     }
 
-    0
+    Ok(0)
 }

@@ -1,6 +1,9 @@
 // TEAM_413: Use new syscall helpers
 // TEAM_418: Import time types from SSOT
-use crate::syscall::{Timespec, Timeval, errno, write_struct_to_user};
+// TEAM_420: Direct linux_raw_sys imports, no shims
+// TEAM_421: Return SyscallResult, no scattered casts
+use crate::syscall::{SyscallResult, Timespec, Timeval, write_struct_to_user};
+use linux_raw_sys::errno::EINVAL;
 
 /// TEAM_198: Get uptime in seconds (for tmpfs timestamps).
 pub fn uptime_seconds() -> u64 {
@@ -24,7 +27,8 @@ fn read_timer_frequency() -> u64 {
 }
 
 /// TEAM_170: sys_nanosleep - Sleep for specified duration.
-pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> i64 {
+/// TEAM_421: Returns SyscallResult
+pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> SyscallResult {
     // TEAM_186: Normalize nanoseconds if > 1e9
     let extra_secs = nanoseconds / 1_000_000_000;
     let norm_nanos = nanoseconds % 1_000_000_000;
@@ -39,7 +43,7 @@ pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> i64 {
         for _ in 0..(millis.min(u64::MAX as u64) as usize).min(1_000_000) {
             crate::task::yield_now();
         }
-        return 0;
+        return Ok(0);
     }
 
     let start = read_timer_counter();
@@ -57,23 +61,24 @@ pub fn sys_nanosleep(seconds: u64, nanoseconds: u64) -> i64 {
         crate::task::yield_now();
     }
 
-    0
+    Ok(0)
 }
 
 /// TEAM_350: sys_clock_getres - Get clock resolution.
+/// TEAM_421: Returns SyscallResult
 ///
 /// Returns the resolution (precision) of the specified clock.
 /// For CLOCK_MONOTONIC and CLOCK_REALTIME, we report 1 nanosecond.
 /// TEAM_413: Updated to use write_struct_to_user helper.
-pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
+pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> SyscallResult {
     // clockid: 0 = CLOCK_REALTIME, 1 = CLOCK_MONOTONIC
     if clockid != 0 && clockid != 1 {
-        return errno::EINVAL;
+        return Err(EINVAL);
     }
 
     // If res_buf is NULL, just return success (allowed by POSIX)
     if res_buf == 0 {
-        return 0;
+        return Ok(0);
     }
 
     let task = crate::task::current_task();
@@ -85,13 +90,12 @@ pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
     };
 
     // TEAM_413: Use write_struct_to_user helper
-    match write_struct_to_user(task.ttbr0, res_buf, &ts) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    write_struct_to_user(task.ttbr0, res_buf, &ts)?;
+    Ok(0)
 }
 
 /// TEAM_409: sys_gettimeofday - Get time of day (legacy interface).
+/// TEAM_421: Returns SyscallResult
 ///
 /// Returns the current time as seconds and microseconds since epoch.
 /// This is the legacy POSIX interface; clock_gettime is preferred.
@@ -102,12 +106,12 @@ pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
 /// * `tz` - User pointer to timezone struct (ignored, can be NULL)
 ///
 /// # Returns
-/// 0 on success, negative errno on failure.
-pub fn sys_gettimeofday(tv: usize, _tz: usize) -> i64 {
+/// Ok(0) on success, Err(errno) on failure.
+pub fn sys_gettimeofday(tv: usize, _tz: usize) -> SyscallResult {
     // TEAM_418: Use Timeval from SSOT (syscall/types.rs)
     // If tv is NULL, just return success (allowed by POSIX)
     if tv == 0 {
-        return 0;
+        return Ok(0);
     }
 
     let task = crate::task::current_task();
@@ -128,20 +132,19 @@ pub fn sys_gettimeofday(tv: usize, _tz: usize) -> i64 {
     };
 
     // TEAM_413: Use write_struct_to_user helper
-    match write_struct_to_user(task.ttbr0, tv, &timeval) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    write_struct_to_user(task.ttbr0, tv, &timeval)?;
+    Ok(0)
 }
 
 /// TEAM_170: sys_clock_gettime - Get current monotonic time.
 /// TEAM_360: Fixed to accept clockid as first argument (Linux ABI).
 /// TEAM_413: Updated to use write_struct_to_user helper.
+/// TEAM_421: Returns SyscallResult
 ///
 /// # Arguments
 /// * `clockid` - Clock to query (CLOCK_REALTIME=0, CLOCK_MONOTONIC=1, etc.)
 /// * `timespec_buf` - User pointer to store result
-pub fn sys_clock_gettime(clockid: i32, timespec_buf: usize) -> i64 {
+pub fn sys_clock_gettime(clockid: i32, timespec_buf: usize) -> SyscallResult {
     // TEAM_360: We ignore clockid and always return monotonic time
     let _ = clockid;
     let task = crate::task::current_task();
@@ -161,8 +164,6 @@ pub fn sys_clock_gettime(clockid: i32, timespec_buf: usize) -> i64 {
     };
 
     // TEAM_413: Use write_struct_to_user helper
-    match write_struct_to_user(task.ttbr0, timespec_buf, &ts) {
-        Ok(()) => 0,
-        Err(e) => e,
-    }
+    write_struct_to_user(task.ttbr0, timespec_buf, &ts)?;
+    Ok(0)
 }
