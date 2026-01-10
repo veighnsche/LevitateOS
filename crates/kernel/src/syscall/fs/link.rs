@@ -15,8 +15,8 @@ const UTIME_OMIT: u64 = 0x3FFFFFFE;
 pub fn sys_utimensat(dirfd: i32, pathname: usize, times: usize, _flags: u32) -> i64 {
     let task = crate::task::current_task();
     
-    // TEAM_345: Read null-terminated pathname (Linux ABI)
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,
@@ -84,15 +84,15 @@ pub fn sys_linkat(
 ) -> i64 {
     let task = crate::task::current_task();
     
-    // TEAM_345: Read null-terminated oldpath
-    let mut old_path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut old_path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let old_path_str = match read_user_cstring(task.ttbr0, oldpath, &mut old_path_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
     
-    // TEAM_345: Read null-terminated newpath
-    let mut new_path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut new_path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let new_path_str = match read_user_cstring(task.ttbr0, newpath, &mut new_path_buf) {
         Ok(s) => s,
         Err(e) => return e,
@@ -120,15 +120,15 @@ pub fn sys_symlinkat(
 ) -> i64 {
     let task = crate::task::current_task();
     
-    // TEAM_345: Read null-terminated target
-    let mut target_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut target_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let target_str = match read_user_cstring(task.ttbr0, target, &mut target_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
     
-    // TEAM_345: Read null-terminated linkpath
-    let mut linkpath_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut linkpath_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let linkpath_str = match read_user_cstring(task.ttbr0, linkpath, &mut linkpath_buf) {
         Ok(s) => s,
         Err(e) => return e,
@@ -154,8 +154,8 @@ pub fn sys_symlinkat(
 pub fn sys_readlinkat(dirfd: i32, pathname: usize, buf: usize, bufsiz: usize) -> i64 {
     let task = crate::task::current_task();
     
-    // TEAM_345: Read null-terminated pathname
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,

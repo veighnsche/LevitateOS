@@ -14,7 +14,7 @@ pub fn sys_openat(dirfd: i32, pathname: usize, flags: u32, _mode: u32) -> i64 {
     let task = crate::task::current_task();
 
     // TEAM_345: Read null-terminated pathname (Linux ABI)
-    let mut path_buf = [0u8; 4096]; // PATH_MAX
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,
@@ -116,8 +116,8 @@ pub fn sys_faccessat(dirfd: i32, pathname: usize, mode: i32, flags: i32) -> i64 
 
     let task = crate::task::current_task();
 
-    // Read null-terminated pathname
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = match read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,

@@ -131,8 +131,8 @@ pub fn sys_getcwd(buf: usize, size: usize) -> i64 {
 pub fn sys_mkdirat(dirfd: i32, pathname: usize, mode: u32) -> i64 {
     let task = crate::task::current_task();
     
-    // TEAM_345: Read null-terminated pathname (Linux ABI)
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = match crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,
@@ -158,8 +158,8 @@ pub fn sys_mkdirat(dirfd: i32, pathname: usize, mode: u32) -> i64 {
 pub fn sys_unlinkat(dirfd: i32, pathname: usize, flags: u32) -> i64 {
     let task = crate::task::current_task();
     
-    // TEAM_345: Read null-terminated pathname (Linux ABI)
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = match crate::syscall::read_user_cstring(task.ttbr0, pathname, &mut path_buf) {
         Ok(s) => s,
         Err(e) => return e,
@@ -196,15 +196,15 @@ pub fn sys_renameat(
 ) -> i64 {
     let task = crate::task::current_task();
 
-    // TEAM_345: Read null-terminated oldpath
-    let mut old_path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut old_path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let old_path_str = match crate::syscall::read_user_cstring(task.ttbr0, oldpath, &mut old_path_buf) {
         Ok(s) => s,
         Err(e) => return e,
     };
 
-    // TEAM_345: Read null-terminated newpath
-    let mut new_path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut new_path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let new_path_str = match crate::syscall::read_user_cstring(task.ttbr0, newpath, &mut new_path_buf) {
         Ok(s) => s,
         Err(e) => return e,

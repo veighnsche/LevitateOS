@@ -9,6 +9,8 @@ pub mod signal;
 pub mod sync;
 pub mod sys;
 pub mod time;
+pub mod types; // TEAM_418: SSOT for common syscall types (Timeval, Timespec)
+pub mod constants; // TEAM_418: SSOT for syscall constants (CLONE_*, PATH_MAX, RLIMIT_*)
 
 // TEAM_413: Re-export commonly used helpers
 // TEAM_415: Added ioctl helpers
@@ -19,7 +21,9 @@ pub use helpers::{
     ioctl_write_u32, ioctl_read_u32,
 };
 
-pub use crate::arch::{Stat, SyscallFrame, SyscallNumber, Timespec, is_svc_exception};
+pub use crate::arch::{Stat, SyscallFrame, SyscallNumber, is_svc_exception};
+// TEAM_418: Re-export time types from SSOT module
+pub use types::{Timeval, Timespec};
 
 /// TEAM_345: Linux file system constants for *at() syscalls.
 pub mod fcntl {

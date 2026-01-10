@@ -1,5 +1,6 @@
 // TEAM_413: Use new syscall helpers
-use crate::syscall::{Timespec, errno, write_struct_to_user};
+// TEAM_418: Import time types from SSOT
+use crate::syscall::{Timespec, Timeval, errno, write_struct_to_user};
 
 /// TEAM_198: Get uptime in seconds (for tmpfs timestamps).
 pub fn uptime_seconds() -> u64 {
@@ -103,14 +104,7 @@ pub fn sys_clock_getres(clockid: i32, res_buf: usize) -> i64 {
 /// # Returns
 /// 0 on success, negative errno on failure.
 pub fn sys_gettimeofday(tv: usize, _tz: usize) -> i64 {
-    // timeval structure: { tv_sec: i64, tv_usec: i64 } = 16 bytes
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct Timeval {
-        tv_sec: i64,
-        tv_usec: i64,
-    }
-
+    // TEAM_418: Use Timeval from SSOT (syscall/types.rs)
     // If tv is NULL, just return success (allowed by POSIX)
     if tv == 0 {
         return 0;

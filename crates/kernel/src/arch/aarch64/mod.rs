@@ -415,13 +415,8 @@ pub fn is_svc_exception(esr: u64) -> bool {
     esr_exception_class(esr) == EC_SVC_AARCH64
 }
 
-/// TEAM: Linux-compatible Timespec.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Timespec {
-    pub tv_sec: i64,
-    pub tv_nsec: i64,
-}
+// TEAM_418: Re-export Timespec from SSOT (syscall/types.rs)
+pub use crate::syscall::types::Timespec;
 
 /// TEAM: Number of control characters in termios.
 pub const NCCS: usize = 32;

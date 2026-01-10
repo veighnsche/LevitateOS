@@ -338,8 +338,8 @@ pub fn read_struct_from_user<T: Copy + Default>(ttbr0: usize, user_buf: usize) -
 pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, i64> {
     let task = current_task();
 
-    // Read pathname from user space
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = read_user_cstring(task.ttbr0, pathname, &mut path_buf)?;
 
     // Absolute paths ignore dirfd
@@ -391,7 +391,8 @@ pub fn resolve_at_path(dirfd: i32, pathname: usize) -> Result<String, i64> {
 /// Used when you only need the path string and will handle dirfd separately.
 pub fn read_user_path(pathname: usize) -> Result<String, i64> {
     let task = current_task();
-    let mut path_buf = [0u8; 4096];
+    // TEAM_418: Use PATH_MAX from SSOT
+    let mut path_buf = [0u8; crate::syscall::constants::PATH_MAX];
     let path_str = read_user_cstring(task.ttbr0, pathname, &mut path_buf)?;
     Ok(String::from(path_str))
 }

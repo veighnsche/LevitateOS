@@ -2,20 +2,15 @@
 //!
 //! TEAM_409: Resource usage (getrusage) and limits (prlimit64).
 //! TEAM_417: Extracted from process.rs.
+//! TEAM_418: Use Timeval from SSOT (syscall/types.rs).
 
 use crate::syscall::errno;
+// TEAM_418: Import Timeval from SSOT
+pub use crate::syscall::types::Timeval;
 
 // ============================================================================
 // TEAM_409: Resource usage syscalls
 // ============================================================================
-
-/// TEAM_409: timeval structure for rusage.
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub struct Timeval {
-    pub tv_sec: i64,
-    pub tv_usec: i64,
-}
 
 /// TEAM_409: rusage structure for getrusage syscall.
 #[repr(C)]
@@ -78,21 +73,14 @@ pub fn sys_getrusage(who: i32, usage: usize) -> i64 {
 
 // ============================================================================
 // TEAM_409: Resource limit syscalls
+// TEAM_418: Use RLIMIT_* constants from SSOT
 // ============================================================================
 
-/// Resource limit constants
-const RLIMIT_CPU: u32 = 0;      // CPU time limit
-const RLIMIT_FSIZE: u32 = 1;    // Max file size
-const RLIMIT_DATA: u32 = 2;     // Max data segment size
-const RLIMIT_STACK: u32 = 3;    // Max stack size
-const RLIMIT_CORE: u32 = 4;     // Max core file size
-const RLIMIT_RSS: u32 = 5;      // Max resident set size
-const RLIMIT_NPROC: u32 = 6;    // Max processes
-const RLIMIT_NOFILE: u32 = 7;   // Max open files
-const RLIMIT_MEMLOCK: u32 = 8;  // Max locked memory
-const RLIMIT_AS: u32 = 9;       // Address space limit
-
-const RLIM_INFINITY: u64 = u64::MAX;
+use crate::syscall::constants::{
+    RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_DATA, RLIMIT_STACK, RLIMIT_CORE,
+    RLIMIT_RSS, RLIMIT_NPROC, RLIMIT_NOFILE, RLIMIT_MEMLOCK, RLIMIT_AS,
+    RLIM_INFINITY,
+};
 
 /// rlimit64 struct: { rlim_cur: u64, rlim_max: u64 }
 #[repr(C)]

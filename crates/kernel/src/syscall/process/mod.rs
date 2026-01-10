@@ -1,6 +1,7 @@
 //! Process management syscalls.
 //!
 //! TEAM_417: Refactored from monolithic process.rs for maintainability.
+//! TEAM_418: Clone flags moved to SSOT (syscall/constants.rs).
 //! See `docs/planning/refactor-process-syscalls/` for refactor details.
 
 mod arch_prctl;
@@ -27,16 +28,8 @@ pub use thread::{sys_clone, sys_set_tid_address};
 pub use identity::Utsname;
 pub use resources::{Rusage, Timeval};
 
-// ============================================================================
-// TEAM_228: Clone flags (Linux ABI)
-// ============================================================================
-
-pub const CLONE_VM: u64 = 0x00000100;
-pub const CLONE_FS: u64 = 0x00000200;
-pub const CLONE_FILES: u64 = 0x00000400;
-pub const CLONE_SIGHAND: u64 = 0x00000800;
-pub const CLONE_THREAD: u64 = 0x00010000;
-pub const CLONE_SETTLS: u64 = 0x00080000;
-pub const CLONE_PARENT_SETTID: u64 = 0x00100000;
-pub const CLONE_CHILD_CLEARTID: u64 = 0x00200000;
-pub const CLONE_CHILD_SETTID: u64 = 0x01000000;
+// TEAM_418: Re-export clone flags from SSOT for backward compatibility
+pub use crate::syscall::constants::{
+    CLONE_VM, CLONE_FS, CLONE_FILES, CLONE_SIGHAND, CLONE_THREAD,
+    CLONE_SETTLS, CLONE_PARENT_SETTID, CLONE_CHILD_CLEARTID, CLONE_CHILD_SETTID,
+};

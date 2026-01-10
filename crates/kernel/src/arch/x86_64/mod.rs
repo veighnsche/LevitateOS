@@ -392,12 +392,8 @@ pub fn is_svc_exception(_esr: u64) -> bool {
     false
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Timespec {
-    pub tv_sec: i64,
-    pub tv_nsec: i64,
-}
+// TEAM_418: Re-export Timespec from SSOT (syscall/types.rs)
+pub use crate::syscall::types::Timespec;
 
 /// TEAM_247: Number of control characters in termios.
 pub const NCCS: usize = 32;
