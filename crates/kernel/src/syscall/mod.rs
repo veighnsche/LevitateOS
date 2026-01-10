@@ -1,5 +1,6 @@
 use crate::memory::user as mm_user;
 
+pub mod epoll;
 pub mod fs;
 pub mod mm;
 pub mod process;
@@ -309,6 +310,38 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         Some(SyscallNumber::Sigaltstack) => signal::sys_sigaltstack(
             frame.arg0() as usize,
             frame.arg1() as usize,
+        ),
+        // TEAM_394: Epoll syscalls for tokio/brush support
+        Some(SyscallNumber::EpollCreate1) => epoll::sys_epoll_create1(frame.arg0() as i32),
+        Some(SyscallNumber::EpollCtl) => epoll::sys_epoll_ctl(
+            frame.arg0() as i32,
+            frame.arg1() as i32,
+            frame.arg2() as i32,
+            frame.arg3() as usize,
+        ),
+        Some(SyscallNumber::EpollWait) => epoll::sys_epoll_wait(
+            frame.arg0() as i32,
+            frame.arg1() as usize,
+            frame.arg2() as i32,
+            frame.arg3() as i32,
+        ),
+        Some(SyscallNumber::Eventfd2) => epoll::sys_eventfd2(
+            frame.arg0() as u32,
+            frame.arg1() as u32,
+        ),
+        // TEAM_394: Process group syscalls for brush job control
+        Some(SyscallNumber::Setpgid) => process::sys_setpgid(
+            frame.arg0() as i32,
+            frame.arg1() as i32,
+        ),
+        Some(SyscallNumber::Getpgid) => process::sys_getpgid(frame.arg0() as i32),
+        #[cfg(target_arch = "x86_64")]
+        Some(SyscallNumber::Getpgrp) => process::sys_getpgrp(),
+        Some(SyscallNumber::Setsid) => process::sys_setsid(),
+        Some(SyscallNumber::Fcntl) => fs::sys_fcntl(
+            frame.arg0() as i32,
+            frame.arg1() as i32,
+            frame.arg2() as usize,
         ),
         None => {
             log::warn!("[SYSCALL] Unknown syscall number: {}", nr);

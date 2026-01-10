@@ -234,6 +234,10 @@ pub struct TaskControlBlock {
     pub vmas: IrqSafeLock<crate::memory::vma::VmaList>,
     /// TEAM_350: Thread-local storage base address (FS base on x86_64)
     pub tls: AtomicUsize,
+    /// TEAM_394: Process group ID for job control
+    pub pgid: AtomicUsize,
+    /// TEAM_394: Session ID for job control
+    pub sid: AtomicUsize,
 }
 
 /// TEAM_220: Global tracking of the foreground process for shell control.
@@ -288,6 +292,9 @@ impl Default for TaskControlBlock {
             clear_child_tid: AtomicUsize::new(0),
             vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
             tls: AtomicUsize::new(0),
+            // TEAM_394: Process group defaults to PID (own process group)
+            pgid: AtomicUsize::new(0),
+            sid: AtomicUsize::new(0),
         }
     }
 }
@@ -334,6 +341,9 @@ impl From<UserTask> for TaskControlBlock {
             vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
             // TEAM_350: TLS base starts at 0
             tls: AtomicUsize::new(0),
+            // TEAM_394: New processes inherit parent's pgid/sid or use own PID
+            pgid: AtomicUsize::new(user.pid.0 as usize),
+            sid: AtomicUsize::new(user.pid.0 as usize),
         }
     }
 }

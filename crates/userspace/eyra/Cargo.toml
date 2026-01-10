@@ -3,6 +3,7 @@
 # TEAM_380: Added libsyscall and libsyscall-tests for std support
 [workspace]
 members = [
+    "brush",
     "eyra-hello",
     "eyra-test-runner",
     "libsyscall",

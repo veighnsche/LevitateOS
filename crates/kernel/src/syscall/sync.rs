@@ -303,6 +303,17 @@ fn poll_fd_type(fd_type: &crate::task::fd_table::FdType, events: i16) -> i16 {
                 revents |= POLLOUT;
             }
         }
+        // TEAM_394: Epoll fds are not pollable themselves
+        FdType::Epoll(_) => {}
+        // TEAM_394: EventFd poll support
+        FdType::EventFd(efd) => {
+            if efd.is_readable() && (events & POLLIN != 0) {
+                revents |= POLLIN;
+            }
+            if efd.is_writable() && (events & POLLOUT != 0) {
+                revents |= POLLOUT;
+            }
+        }
     }
 
     revents

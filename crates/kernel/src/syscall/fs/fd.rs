@@ -4,6 +4,76 @@ use crate::syscall::errno;
 use crate::task::current_task;
 use crate::task::fd_table::FdType;
 
+// TEAM_394: Terminal foreground process group ioctls
+const TIOCGPGRP: u64 = 0x540F; // Get foreground process group
+const TIOCSPGRP: u64 = 0x5410; // Set foreground process group
+const TIOCSCTTY: u64 = 0x540E; // Set controlling terminal
+
+// TEAM_394: fcntl commands
+const F_DUPFD: i32 = 0;
+const F_GETFD: i32 = 1;
+const F_SETFD: i32 = 2;
+const F_GETFL: i32 = 3;
+const F_SETFL: i32 = 4;
+const F_SETPIPE_SZ: i32 = 1031;
+const F_GETPIPE_SZ: i32 = 1032;
+
+/// TEAM_394: sys_fcntl - File control operations.
+///
+/// Stub implementation for brush shell compatibility.
+/// Currently supports F_GETFD, F_SETFD, F_GETFL, F_SETFL, F_SETPIPE_SZ, F_GETPIPE_SZ.
+pub fn sys_fcntl(fd: i32, cmd: i32, arg: usize) -> i64 {
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+
+    // Verify fd is valid
+    if fd_table.get(fd as usize).is_none() {
+        return errno::EBADF;
+    }
+    drop(fd_table);
+
+    match cmd {
+        F_DUPFD => {
+            // Duplicate fd to >= arg
+            let mut fd_table = task.fd_table.lock();
+            match fd_table.dup(fd as usize) {
+                Some(new_fd) => new_fd as i64,
+                None => errno::EMFILE,
+            }
+        }
+        F_GETFD => {
+            // Get close-on-exec flag (stub: always return 0)
+            0
+        }
+        F_SETFD => {
+            // Set close-on-exec flag (stub: ignore)
+            0
+        }
+        F_GETFL => {
+            // Get file status flags (stub: return O_RDWR)
+            2 // O_RDWR
+        }
+        F_SETFL => {
+            // Set file status flags (stub: ignore)
+            0
+        }
+        F_SETPIPE_SZ => {
+            // Set pipe buffer size (stub: succeed with requested size)
+            log::trace!("[SYSCALL] fcntl({}, F_SETPIPE_SZ, {})", fd, arg);
+            arg as i64
+        }
+        F_GETPIPE_SZ => {
+            // Get pipe buffer size (stub: return default 64KB)
+            log::trace!("[SYSCALL] fcntl({}, F_GETPIPE_SZ)", fd);
+            65536
+        }
+        _ => {
+            log::warn!("[SYSCALL] fcntl({}, {}, {}) - unsupported cmd", fd, cmd, arg);
+            errno::EINVAL
+        }
+    }
+}
+
 /// TEAM_233: sys_dup - Duplicate a file descriptor to lowest available.
 ///
 /// Returns new fd on success, negative errno on failure.
@@ -176,6 +246,34 @@ pub fn sys_ioctl(fd: usize, request: u64, arg: usize) -> i64 {
                         errno::EFAULT
                     }
                 }
+                // TEAM_394: Get foreground process group
+                TIOCGPGRP => {
+                    if mm_user::validate_user_buffer(task.ttbr0, arg, core::mem::size_of::<i32>(), true).is_err() {
+                        return errno::EFAULT;
+                    }
+                    let fg_pgid = *crate::task::FOREGROUND_PID.lock();
+                    if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, arg) {
+                        unsafe { *(ptr as *mut i32) = fg_pgid as i32; }
+                        0
+                    } else {
+                        errno::EFAULT
+                    }
+                }
+                // TEAM_394: Set foreground process group
+                TIOCSPGRP => {
+                    if mm_user::validate_user_buffer(task.ttbr0, arg, core::mem::size_of::<i32>(), false).is_err() {
+                        return errno::EFAULT;
+                    }
+                    if let Some(ptr) = mm_user::user_va_to_kernel_ptr(task.ttbr0, arg) {
+                        let pgid = unsafe { *(ptr as *const i32) };
+                        *crate::task::FOREGROUND_PID.lock() = pgid as usize;
+                        0
+                    } else {
+                        errno::EFAULT
+                    }
+                }
+                // TEAM_394: Set controlling terminal (stub - just succeed)
+                TIOCSCTTY => 0,
                 _ => errno::EINVAL,
             }
         }

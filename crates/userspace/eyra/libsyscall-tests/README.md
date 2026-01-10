@@ -11,17 +11,16 @@ This binary runs comprehensive integration tests for libsyscall with full std su
 The tests are designed to be cross-compiled for the target architecture:
 
 ```bash
-# For AArch64
+# For AArch64 (LevitateOS primary target)
 cd /home/vince/Projects/LevitateOS/crates/userspace/eyra
 cargo build -p libsyscall-tests --target aarch64-unknown-linux-gnu --release
-
-# For x86_64
-cargo build -p libsyscall-tests --target x86_64-unknown-linux-gnu --release
 ```
 
 **Note**: Cross-compilation requires the appropriate toolchain and sysroot installed:
-- AArch64: `aarch64-linux-gnu-gcc` and `gcc-aarch64-linux-gnu` package
-- x86_64: Standard host toolchain
+- AArch64: `aarch64-linux-gnu-gcc` and `sysroot-aarch64-fc43-glibc` package
+
+**x86_64 Status**: Currently not supported due to std/Eyra integration issues. 
+LevitateOS primarily targets aarch64. x86_64 support for this test binary is not required.
 
 ## Running
 

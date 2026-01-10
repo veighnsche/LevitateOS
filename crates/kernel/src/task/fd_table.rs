@@ -12,6 +12,10 @@ pub const MAX_FDS: usize = 64;
 
 use crate::fs::pipe::PipeRef;
 use crate::fs::vfs::file::FileRef;
+// TEAM_394: Epoll and EventFd types
+use crate::syscall::epoll::{EpollInstance, EventFdState};
+pub type EpollRef = Arc<IrqSafeLock<EpollInstance>>;
+pub type EventFdRef = Arc<EventFdState>;
 
 /// TEAM_168: Type of file descriptor entry.
 /// TEAM_194: Removed Copy derive to support Arc<> for tmpfs nodes.
@@ -35,6 +39,10 @@ pub enum FdType {
     PtyMaster(Arc<crate::fs::tty::pty::PtyPair>),
     /// TEAM_247: PTY Slave side
     PtySlave(Arc<crate::fs::tty::pty::PtyPair>),
+    /// TEAM_394: Epoll instance
+    Epoll(EpollRef),
+    /// TEAM_394: EventFd for inter-thread signaling
+    EventFd(EventFdRef),
 }
 
 impl Clone for FdType {
@@ -54,6 +62,8 @@ impl Clone for FdType {
             }
             FdType::PtyMaster(p) => FdType::PtyMaster(p.clone()),
             FdType::PtySlave(p) => FdType::PtySlave(p.clone()),
+            FdType::Epoll(e) => FdType::Epoll(e.clone()),
+            FdType::EventFd(e) => FdType::EventFd(e.clone()),
         }
     }
 }

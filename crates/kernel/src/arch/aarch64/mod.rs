@@ -80,6 +80,17 @@ pub enum SyscallNumber {
     PkeyAlloc = 289,
     PkeyMprotect = 288,
     Sigaltstack = 132,
+    // TEAM_394: Epoll syscalls for tokio/brush support
+    EpollCreate1 = 20,
+    EpollCtl = 21,
+    EpollWait = 22,
+    Eventfd2 = 19,
+    // TEAM_394: Process group syscalls for brush job control
+    Setpgid = 154,
+    Getpgid = 155,
+    Setsid = 157,
+    // TEAM_394: fcntl for brush (F_SETPIPE_SZ, etc.)
+    Fcntl = 25,
 
     // === Custom LevitateOS syscalls (temporary, until clone/execve work) ===
     /// TEAM: Spawn process (custom, will be replaced by clone+execve)
@@ -163,6 +174,16 @@ impl SyscallNumber {
             289 => Some(Self::PkeyAlloc),
             288 => Some(Self::PkeyMprotect),
             132 => Some(Self::Sigaltstack),
+            // TEAM_394: Epoll syscalls
+            20 => Some(Self::EpollCreate1),
+            21 => Some(Self::EpollCtl),
+            22 => Some(Self::EpollWait),
+            19 => Some(Self::Eventfd2),
+            // TEAM_394: Process group syscalls
+            154 => Some(Self::Setpgid),
+            155 => Some(Self::Getpgid),
+            157 => Some(Self::Setsid),
+            25 => Some(Self::Fcntl),
             // Custom LevitateOS
             1000 => Some(Self::Spawn),
             1001 => Some(Self::SpawnArgs),

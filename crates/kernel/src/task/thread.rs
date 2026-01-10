@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use alloc::string::String;
 use alloc::vec;
-use core::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize};
+use core::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 
 use los_hal::IrqSafeLock;
 
@@ -129,6 +129,9 @@ pub fn create_thread(
         vmas: IrqSafeLock::new(crate::memory::vma::VmaList::new()),
         // TEAM_350: Initialize TLS with child_tls from clone flags
         tls: AtomicUsize::new(child_tls),
+        // TEAM_394: Threads inherit parent's process group and session
+        pgid: AtomicUsize::new(crate::task::current_task().pgid.load(Ordering::Acquire)),
+        sid: AtomicUsize::new(crate::task::current_task().sid.load(Ordering::Acquire)),
     };
 
     Ok(Arc::new(tcb))

@@ -36,6 +36,10 @@ pub fn sys_fstat(fd: usize, stat_buf: usize) -> i64 {
         FdType::PtyMaster(_) | FdType::PtySlave(_) => {
             Stat::new_device(crate::fs::mode::S_IFCHR | 0o666, 0)
         }
+        // TEAM_394: Epoll and EventFd are anonymous inodes
+        FdType::Epoll(_) | FdType::EventFd(_) => {
+            Stat::new_device(crate::fs::mode::S_IFCHR | 0o600, 0)
+        }
     };
 
     let stat_bytes =

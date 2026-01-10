@@ -122,6 +122,10 @@ fn statx_by_fd(fd: usize, statxbuf: usize, ttbr0: usize) -> i64 {
         FdType::PtyMaster(_) | FdType::PtySlave(_) => {
             crate::arch::Stat::new_device(crate::fs::mode::S_IFCHR | 0o666, 0)
         }
+        // TEAM_394: Epoll and EventFd are anonymous inodes
+        FdType::Epoll(_) | FdType::EventFd(_) => {
+            crate::arch::Stat::new_device(crate::fs::mode::S_IFCHR | 0o600, 0)
+        }
     };
 
     let statx = stat_to_statx(&stat);

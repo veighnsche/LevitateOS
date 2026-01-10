@@ -66,6 +66,11 @@ TEAM_030: Behavior-driven test inventory
 ### Group 18: XHCI USB Controller
 - `crates/drivers/xhci/src/lib.rs`
 
+### Group 19: Eyra Userspace Integration
+- `crates/userspace/eyra/libsyscall/` — libsyscall with std support
+- `crates/userspace/eyra/libsyscall-tests/` — Integration test binary
+- See: `crates/userspace/eyra/BEHAVIOR_INVENTORY.md`
+
 ---
 
 ## Group 1: Core Primitives — Behavior Inventory

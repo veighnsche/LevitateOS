@@ -1,0 +1,23 @@
+# TEAM_394: Brush shell for LevitateOS
+# POSIX/Bash-compatible shell using Eyra std support
+[package]
+name = "brush"
+version = "0.1.0"
+edition = "2021"
+description = "Brush shell adapted for LevitateOS via Eyra"
+
+# TEAM_394: brush-shell provides the shell implementation
+# We create a thin wrapper that uses Eyra as std
+[dependencies]
+eyra = { version = "0.22", features = ["experimental-relocate"] }
+
+# brush-shell with minimal features for initial port
+# Disable reedline initially to reduce complexity
+brush-shell = { version = "0.3.0", default-features = false, features = ["minimal"] }
+
+# tokio is required by brush - use single-threaded runtime
+tokio = { version = "1.48", default-features = false, features = ["rt", "sync", "io-util", "macros"] }
+
+[[bin]]
+name = "brush"
+path = "src/main.rs"
