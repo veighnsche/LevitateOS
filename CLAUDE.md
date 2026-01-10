@@ -241,6 +241,15 @@ Error code format: `0xSSCC` where `SS` = subsystem, `CC` = code within subsystem
 
 ## Development Guidelines
 
+### Rule 0: Quality Over Speed
+
+**Take the correct architectural path, never the shortcut.**
+
+- Prefer clean designs over quick fixes
+- Avoid wrappers, shims, indirection unless truly necessary
+- Leave the codebase better than you found it
+- Future teams inherit your decisions — choose debt-free solutions
+
 ### Core Rules (from `.agent/rules/kernel-development.md`)
 
 **Rule 4: Silence is Golden**
@@ -271,6 +280,27 @@ Error code format: `0xSSCC` where `SS` = subsystem, `CC` = code within subsystem
 - Implementation simplicity is the highest priority
 - Favor clear Rust code over complex perfect solutions
 - If handling a rare edge case doubles complexity, return an `Err`
+
+### Code Quality Rules
+
+**Breaking Changes > Fragile Compatibility**
+- Favor clean breaks over compatibility hacks
+- Move or rename the type/function, let the compiler fail
+- Fix import sites one by one
+- Remove temporary re-exports or legacy names
+- If writing adapters to "keep old code working," stop — fix the actual call sites
+
+**No Dead Code**
+- Remove unused functions, modules, commented-out code
+- "Kept for reference" logic belongs in git history, not the codebase
+- The repository must contain only living, active code
+
+**Modular Refactoring**
+- When splitting large modules, each module owns its own state
+- Keep fields private — expose intentional APIs
+- Avoid deep relative imports
+- File sizes: < 1000 lines preferred, < 500 ideal
+- Organize by responsibility, not convenience
 
 ### Testing Philosophy (from `.agent/rules/behavior-testing.md`)
 
@@ -309,6 +339,13 @@ When kernel behavior intentionally changes:
 2. Review diff carefully
 3. If correct, update: `cargo xtask test behavior --update`
 4. Commit with explanation
+
+**Silver Mode** (Active Development):
+Golden logs can be marked "silver" in `xtask.toml` during active development:
+- Silver files auto-update when tests fail
+- Use when behavior is still stabilizing
+- Promote to "gold" once behavior is finalized
+- See `docs/development/silver-golden-files.md` for details
 
 ### Code Organization
 
@@ -432,9 +469,60 @@ cargo xtask build eyra --arch aarch64
 | Pixel 6 (aarch64) | 8GB | 8 | cortex-a76 | GICv3 |
 | Default (x86_64) | 32GB | 2+ | i3 | APIC |
 
-## Team Logs
+## Team Workflow
 
-Implementation details and decisions are tracked in `.teams/` with TEAM_XXX identifiers. When making significant changes, reference the relevant TEAM number in comments and commit messages.
+### Team Registration
+
+Every distinct AI conversation = one team. Implementation details and decisions are tracked in `.teams/` with TEAM_XXX identifiers.
+
+**Creating a Team**:
+1. Determine highest existing team number in `.teams/`
+2. Your number = highest + 1
+3. Create log file: `.teams/TEAM_XXX_<summary>.md`
+4. Team ID is permanent for the lifetime of the conversation
+
+**Code Comments**: When modifying code, add traceability:
+```rust
+// TEAM_XXX: Reason for change
+```
+
+### Before Starting Work
+
+Every team must:
+1. Read the main project overview
+2. Read the current active phase in `docs/planning/`
+3. Check recent team logs
+4. Check open questions in `docs/questions/`
+5. Claim a team number and create a team file
+6. Ensure all tests pass before making changes
+7. Only then begin implementation
+
+### Before Finishing
+
+Every team must:
+- Update their team file with progress
+- Ensure project builds (`cargo xtask build all`)
+- Ensure all tests pass (`cargo xtask test`)
+- Document remaining problems or blockers
+- Write handoff notes
+
+**Handoff Checklist**:
+- [ ] Project builds cleanly
+- [ ] All tests pass
+- [ ] Behavioral regression tests pass
+- [ ] Team file updated
+- [ ] Remaining TODOs documented
+
+### Questions
+
+If requirements are ambiguous, decisions conflict, or something feels "off":
+- Create a question file in `docs/questions/TEAM_XXX_*.md`
+- Ask the USER before proceeding
+- Never guess on major decisions
+
+### Planning Documents
+
+Planning documents live in `docs/planning/<feature-name>/`, NOT in `.plans/` or other locations.
 
 ## References
 
