@@ -1,6 +1,7 @@
 # Syscall Requirements for General-Purpose OS
 
 **Created**: 2026-01-10
+**Updated**: 2026-01-10 (TEAM_404 audit)
 **Status**: Reference Document
 
 This document lists all syscalls required for a general-purpose Unix-compatible OS, organized by epic.
@@ -9,8 +10,8 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 
 ## Legend
 
-- ✅ Implemented
-- 🔨 In Progress
+- ✅ Implemented (fully working)
+- 🔨 Stub (mapped but returns ENOSYS or minimal impl)
 - ⏳ Planned
 - ❌ Not Started
 
@@ -22,23 +23,94 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 |---------|--------|---------|--------|-------|
 | fork | 57 | 1071 (clone) | ⏳ | Clone process |
 | vfork | 58 | 1071 (clone) | ⏳ | Lightweight fork |
-| clone | 56 | 220 | ⏳ | General process creation |
+| clone | 56 | 220 | ✅ | General process creation |
 | clone3 | 435 | 435 | ⏳ | Modern clone |
-| execve | 59 | 221 | ⏳ | Execute program |
+| execve | 59 | 221 | ✅ | Execute program |
 | execveat | 322 | 281 | ⏳ | Execute relative to fd |
-| wait4 | 61 | 260 | ⏳ | Wait for child |
+| wait4 | 61 | 260 | ✅ | Wait for child |
 | waitid | 247 | 95 | ⏳ | Wait with options |
 | exit | 60 | 93 | ✅ | Exit thread |
-| exit_group | 231 | 94 | ⏳ | Exit process |
+| exit_group | 231 | 94 | ✅ | Exit process |
 | getpid | 39 | 172 | ✅ | Get process ID |
-| getppid | 110 | 173 | ⏳ | Get parent PID |
-| gettid | 186 | 178 | ⏳ | Get thread ID |
-| set_tid_address | 218 | 96 | ⏳ | Set clear_child_tid |
+| getppid | 110 | 173 | ✅ | Get parent PID |
+| gettid | 186 | 178 | ✅ | Get thread ID |
+| set_tid_address | 218 | 96 | ✅ | Set clear_child_tid |
 | prctl | 157 | 167 | ⏳ | Process control |
+| sched_yield | 24 | 124 | ✅ | Yield CPU |
+| kill | 62 | 129 | ✅ | Send signal |
+| tkill | 200 | 130 | ✅ | Send to thread |
+| pause | 34 | - | ✅ | Wait for signal |
 
 ---
 
-## Epic 2: Filesystem Hierarchy (TEAM_401)
+## Epic 2: Filesystem Operations (TEAM_401)
+
+### Core File Operations
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| read | 0 | 63 | ✅ | Read from fd |
+| write | 1 | 64 | ✅ | Write to fd |
+| open | 2 | - | ✅ | Open file (legacy) |
+| openat | 257 | 56 | ✅ | Open file at path |
+| close | 3 | 57 | ✅ | Close fd |
+| lseek | 8 | 62 | ✅ | Seek in file |
+| pread64 | 17 | 67 | 🔨 | Positioned read (stub) |
+| pwrite64 | 18 | 68 | 🔨 | Positioned write (stub) |
+| readv | 19 | 65 | ✅ | Vectored read |
+| writev | 20 | 66 | ✅ | Vectored write |
+| ftruncate | 77 | 46 | 🔨 | Truncate file (stub) |
+
+### File Descriptor Operations
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| dup | 32 | 23 | ✅ | Duplicate fd |
+| dup2 | 33 | - | ✅ | Duplicate to specific fd |
+| dup3 | 292 | 24 | ✅ | Duplicate with flags |
+| fcntl | 72 | 25 | ✅ | File control |
+| ioctl | 16 | 29 | ✅ | Device control |
+| pipe | 22 | - | ✅ | Create pipe (mapped to pipe2) |
+| pipe2 | 293 | 59 | ✅ | Create pipe with flags |
+
+### File Metadata
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| stat | 4 | - | ✅ | Get file status (legacy) |
+| fstat | 5 | 80 | ✅ | Get status by fd |
+| lstat | 6 | - | ✅ | Get symlink status |
+| newfstatat | 262 | 79 | ✅ | Get status at path |
+| statx | 332 | 291 | ✅ | Extended file status |
+| faccessat | 269 | 48 | ✅ | Check file access |
+| utimensat | 280 | 88 | ✅ | Update timestamps |
+
+### Directory Operations
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| getcwd | 79 | 17 | ✅ | Get current directory |
+| chdir | 80 | 49 | ✅ | Change directory |
+| fchdir | 81 | 50 | 🔨 | Change dir by fd (stub) |
+| mkdir | 83 | - | ✅ | Create directory (legacy) |
+| mkdirat | 258 | 34 | ✅ | Create directory at path |
+| rmdir | 84 | - | ✅ | Remove directory |
+| getdents64 | 217 | 61 | ✅ | Read directory entries |
+
+### Path Operations
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| unlink | 87 | - | ✅ | Remove file (legacy) |
+| unlinkat | 263 | 35 | ✅ | Remove at path |
+| rename | 82 | - | ✅ | Rename file (legacy) |
+| renameat | 264 | 38 | ✅ | Rename at path |
+| link | 86 | - | ✅ | Create hard link (legacy) |
+| linkat | 265 | 37 | ✅ | Create hard link at path |
+| symlink | 88 | - | ✅ | Create symlink (legacy) |
+| symlinkat | 266 | 36 | ✅ | Create symlink at path |
+| readlink | 89 | 78 | ✅ | Read symlink (legacy) |
+| readlinkat | 267 | 78 | ✅ | Read symlink at path |
 
 ### Device Operations
 
@@ -52,19 +124,26 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
 | mount | 165 | 40 | ✅ | Mount filesystem |
-| umount2 | 166 | 39 | ⏳ | Unmount filesystem |
+| umount2 | 166 | 39 | ✅ | Unmount filesystem |
 | pivot_root | 155 | 41 | ⏳ | Change root (TEAM_402) |
-
-### Procfs Support
-
-| Syscall | x86_64 | aarch64 | Status | Notes |
-|---------|--------|---------|--------|-------|
-| readlink | 89 | 78 | ✅ | Read symlink |
-| readlinkat | 267 | 78 | ✅ | Read symlink at path |
 
 ---
 
-## Epic 3: Disk Root (TEAM_402)
+## Epic 3: Memory Management (TEAM_402)
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| brk | 12 | 214 | ✅ | Adjust heap |
+| mmap | 9 | 222 | ✅ | Map memory |
+| munmap | 11 | 215 | ✅ | Unmap memory |
+| mprotect | 10 | 226 | ✅ | Change protection |
+| madvise | 28 | 233 | ✅ | Memory advice |
+| pkey_alloc | 330 | 289 | ✅ | Allocate protection key |
+| pkey_mprotect | 329 | 288 | ✅ | Protect with key |
+
+---
+
+## Epic 4: Disk Root & Sync (TEAM_403)
 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
@@ -72,21 +151,21 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | chroot | 161 | 51 | ⏳ | Change root directory |
 | sync | 162 | 81 | ⏳ | Sync filesystems |
 | syncfs | 306 | 267 | ⏳ | Sync one filesystem |
-| fsync | 74 | 82 | ✅ | Sync file |
+| fsync | 74 | 82 | ⏳ | Sync file |
 | fdatasync | 75 | 83 | ⏳ | Sync file data |
 
 ---
 
-## Epic 4: Users & Permissions (TEAM_405)
+## Epic 5: Users & Permissions (TEAM_405)
 
 ### Identity Query
 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
-| getuid | 102 | 174 | ⏳ | Get real UID |
-| geteuid | 107 | 175 | ⏳ | Get effective UID |
-| getgid | 104 | 176 | ⏳ | Get real GID |
-| getegid | 108 | 177 | ⏳ | Get effective GID |
+| getuid | 102 | 174 | ✅ | Get real UID (returns 0) |
+| geteuid | 107 | 175 | ✅ | Get effective UID (returns 0) |
+| getgid | 104 | 176 | ✅ | Get real GID (returns 0) |
+| getegid | 108 | 177 | ✅ | Get effective GID (returns 0) |
 | getresuid | 118 | 148 | ⏳ | Get real/eff/saved UID |
 | getresgid | 120 | 150 | ⏳ | Get real/eff/saved GID |
 | getgroups | 115 | 80 | ⏳ | Get supplementary groups |
@@ -117,42 +196,43 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | fchownat | 260 | 54 | ⏳ | Change owner at path |
 | lchown | 94 | - | ⏳ | Change symlink owner |
 | access | 21 | - | ⏳ | Check access |
-| faccessat | 269 | 48 | ⏳ | Check access at path |
+| faccessat | 269 | 48 | ✅ | Check access at path |
 | faccessat2 | 439 | 439 | ⏳ | Check access with flags |
 | umask | 95 | 166 | ⏳ | Set file creation mask |
 
 ---
 
-## Epic 5: Signals (Future)
+## Epic 6: Signals (TEAM_406)
 
 ### Signal Handling
 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
-| rt_sigaction | 13 | 134 | ❌ | Set signal handler |
-| rt_sigprocmask | 14 | 135 | ❌ | Block/unblock signals |
-| rt_sigreturn | 15 | 139 | ❌ | Return from handler |
-| rt_sigsuspend | 130 | 133 | ❌ | Wait for signal |
-| rt_sigpending | 127 | 136 | ❌ | Get pending signals |
-| rt_sigtimedwait | 128 | 137 | ❌ | Wait with timeout |
-| rt_sigqueueinfo | 129 | 138 | ❌ | Queue signal |
-| kill | 62 | 129 | ❌ | Send signal |
-| tgkill | 234 | 131 | ❌ | Send to thread |
-| tkill | 200 | 130 | ❌ | Send to thread (old) |
+| rt_sigaction | 13 | 134 | ✅ | Set signal handler |
+| rt_sigprocmask | 14 | 135 | ✅ | Block/unblock signals |
+| rt_sigreturn | 15 | 139 | ✅ | Return from handler |
+| rt_sigsuspend | 130 | 133 | ⏳ | Wait for signal |
+| rt_sigpending | 127 | 136 | ⏳ | Get pending signals |
+| rt_sigtimedwait | 128 | 137 | ⏳ | Wait with timeout |
+| rt_sigqueueinfo | 129 | 138 | ⏳ | Queue signal |
+| sigaltstack | 131 | 132 | ✅ | Set alternate stack |
+| kill | 62 | 129 | ✅ | Send signal |
+| tgkill | 234 | 131 | ⏳ | Send to thread |
+| tkill | 200 | 130 | ✅ | Send to thread (old) |
 
 ### Process Groups & Sessions
 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
-| getpgid | 121 | 155 | ❌ | Get process group |
-| setpgid | 109 | 154 | ❌ | Set process group |
-| getpgrp | 111 | - | ❌ | Get own process group |
-| getsid | 124 | 156 | ❌ | Get session ID |
-| setsid | 112 | 157 | ❌ | Create session |
+| getpgid | 121 | 155 | ✅ | Get process group |
+| setpgid | 109 | 154 | ✅ | Set process group |
+| getpgrp | 111 | - | ✅ | Get own process group |
+| getsid | 124 | 156 | ⏳ | Get session ID |
+| setsid | 112 | 157 | ✅ | Create session |
 
 ---
 
-## Epic 6: Networking (Future)
+## Epic 7: Networking (Future)
 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
@@ -175,70 +255,86 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 
 ---
 
-## Already Implemented (Reference)
+## Epic 8: Event & Poll (TEAM_394)
 
-| Syscall | x86_64 | aarch64 | Notes |
-|---------|--------|---------|-------|
-| read | 0 | 63 | ✅ |
-| write | 1 | 64 | ✅ |
-| open | 2 | - | ✅ |
-| openat | 257 | 56 | ✅ |
-| close | 3 | 57 | ✅ |
-| fstat | 5 | 80 | ✅ |
-| lstat | 6 | - | ✅ |
-| stat | 4 | - | ✅ |
-| newfstatat | 262 | 79 | ✅ |
-| lseek | 8 | 62 | ✅ |
-| mmap | 9 | 222 | ✅ |
-| munmap | 11 | 215 | ✅ |
-| mprotect | 10 | 226 | ✅ |
-| brk | 12 | 214 | ✅ |
-| ioctl | 16 | 29 | ✅ |
-| readv | 19 | 65 | ✅ |
-| writev | 20 | 66 | ✅ |
-| dup | 32 | 23 | ✅ |
-| dup2 | 33 | - | ✅ |
-| dup3 | 292 | 24 | ✅ |
-| fcntl | 72 | 25 | ✅ |
-| getcwd | 79 | 17 | ✅ |
-| chdir | 80 | 49 | ✅ |
-| fchdir | 81 | 50 | ✅ |
-| mkdir | 83 | - | ✅ |
-| mkdirat | 258 | 34 | ✅ |
-| rmdir | 84 | - | ✅ |
-| unlink | 87 | - | ✅ |
-| unlinkat | 263 | 35 | ✅ |
-| rename | 82 | - | ✅ |
-| renameat | 264 | 38 | ✅ |
-| link | 86 | - | ✅ |
-| linkat | 265 | 37 | ✅ |
-| symlink | 88 | - | ✅ |
-| symlinkat | 266 | 36 | ✅ |
-| getdents64 | 217 | 61 | ✅ |
-| pipe | 22 | - | ✅ |
-| pipe2 | 293 | 59 | ✅ |
-| poll | 7 | - | ✅ |
-| ppoll | 271 | 73 | ✅ |
-| nanosleep | 35 | 101 | ✅ |
-| clock_gettime | 228 | 113 | ✅ |
-| arch_prctl | 158 | - | ✅ (x86_64) |
-| set_tls | - | - | ✅ (aarch64) |
-| getrandom | 318 | 278 | ✅ |
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| poll | 7 | - | ✅ | Wait for events |
+| ppoll | 271 | 73 | ✅ | Poll with timeout |
+| epoll_create1 | 291 | 20 | ✅ | Create epoll instance |
+| epoll_ctl | 233 | 21 | ✅ | Control epoll |
+| epoll_wait | 232 | 22 | ✅ | Wait for events |
+| eventfd2 | 290 | 19 | ✅ | Create event fd |
+| futex | 202 | 98 | ✅ | Fast userspace mutex |
+
+---
+
+## Epic 9: Time (TEAM_407)
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| nanosleep | 35 | 101 | ✅ | Sleep |
+| clock_gettime | 228 | 113 | ✅ | Get time |
+| clock_getres | 229 | 114 | ✅ | Get clock resolution |
+| gettimeofday | 96 | - | ⏳ | Get time (legacy) |
+| clock_nanosleep | 230 | 115 | ⏳ | Sleep with clock |
+
+---
+
+## Epic 10: Architecture-Specific
+
+### x86_64
+
+| Syscall | Number | Status | Notes |
+|---------|--------|--------|-------|
+| arch_prctl | 158 | ✅ | Set/get arch state (FS/GS base) |
+
+### aarch64
+
+| Syscall | Number | Status | Notes |
+|---------|--------|--------|-------|
+| (set_tls via msr) | - | ✅ | Thread-local storage |
+
+---
+
+## Epic 11: Miscellaneous
+
+| Syscall | x86_64 | aarch64 | Status | Notes |
+|---------|--------|---------|--------|-------|
+| getrandom | 318 | 278 | ✅ | Get random bytes |
+| reboot | 169 | 142 | ✅ | Reboot/shutdown |
+
+---
+
+## LevitateOS Custom Syscalls
+
+These are non-Linux syscalls specific to LevitateOS:
+
+| Syscall | Number | Status | Notes |
+|---------|--------|--------|-------|
+| spawn | 1000 | ✅ | Spawn process |
+| spawn_args | 1001 | ✅ | Spawn with arguments |
+| set_foreground | 1002 | ✅ | Set foreground process |
+| get_foreground | 1003 | ✅ | Get foreground process |
+| isatty | 1010 | ✅ | Check if fd is TTY |
 
 ---
 
 ## Syscall Count Summary
 
-| Category | Count | Status |
-|----------|-------|--------|
-| Already Implemented | ~50 | ✅ |
-| Epic 1 (Process) | 15 | ⏳ |
-| Epic 2 (FHS) | 5 | ⏳ |
-| Epic 3 (Disk) | 6 | ⏳ |
-| Epic 4 (Users) | 25 | ⏳ |
-| Epic 5 (Signals) | 15 | ❌ |
-| Epic 6 (Networking) | 20 | ❌ |
-| **Total New** | **~85** | |
+| Category | Implemented | Stub | Planned | Not Started |
+|----------|-------------|------|---------|-------------|
+| Epic 1 (Process) | 14 | 0 | 5 | 0 |
+| Epic 2 (Filesystem) | 45 | 4 | 2 | 0 |
+| Epic 3 (Memory) | 7 | 0 | 0 | 0 |
+| Epic 4 (Disk/Sync) | 0 | 0 | 6 | 0 |
+| Epic 5 (Users) | 5 | 0 | 20 | 0 |
+| Epic 6 (Signals) | 9 | 0 | 6 | 0 |
+| Epic 7 (Networking) | 0 | 0 | 0 | 16 |
+| Epic 8 (Event/Poll) | 7 | 0 | 0 | 0 |
+| Epic 9 (Time) | 3 | 0 | 2 | 0 |
+| Custom | 5 | 0 | 0 | 0 |
+| **Total** | **~95** | **~4** | **~41** | **~16** |
 
 ---
 
@@ -246,11 +342,22 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 
 These syscalls are blocking for general-purpose OS:
 
-1. **fork/clone** - Can't spawn processes without it
-2. **execve** - Can't run programs without it
-3. **wait4** - Can't manage children without it
-4. **getuid/setuid** - Can't have users without it
-5. **chmod/chown** - Can't have permissions without it
-6. **pivot_root** - Can't have disk root without it
+1. ~~**fork/clone**~~ ✅ Can spawn processes
+2. ~~**execve**~~ ✅ Can run programs
+3. ~~**wait4**~~ ✅ Can manage children
+4. **setuid/setgid** ⏳ Needed for proper users
+5. **chmod/chown** ⏳ Needed for permissions
+6. **pivot_root** ⏳ Needed for disk root
+7. **fsync** ⏳ Needed for data integrity
 
-Everything else can be stubbed or implemented incrementally.
+---
+
+## Next Priority Syscalls
+
+Based on coreutils and shell requirements:
+
+1. **pread64/pwrite64** - Many tools use positioned I/O
+2. **ftruncate** - File editing tools need this
+3. **fchdir** - Some directory operations
+4. **fsync/fdatasync** - Data integrity
+5. **chmod/fchmod** - Permission management

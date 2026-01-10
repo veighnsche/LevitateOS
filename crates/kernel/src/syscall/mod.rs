@@ -48,6 +48,7 @@ pub mod errno {
     pub const ENOSYS: i64 = -38;
     pub const ENOTEMPTY: i64 = -39;  // Directory not empty
     pub const ELOOP: i64 = -40;       // TEAM_381: Too many symbolic links
+    pub const ESPIPE: i64 = -29;      // TEAM_404: Illegal seek
 }
 
 /// TEAM_342: Deprecated - use errno module instead. Kept for backward compatibility.
@@ -89,6 +90,34 @@ pub fn syscall_dispatch(frame: &mut SyscallFrame) {
         ),
         Some(SyscallNumber::Close) => fs::sys_close(frame.arg0() as usize),
         Some(SyscallNumber::Fstat) => fs::sys_fstat(frame.arg0() as usize, frame.arg1() as usize),
+        // TEAM_404: File positioning and descriptor syscalls
+        Some(SyscallNumber::Lseek) => fs::sys_lseek(
+            frame.arg0() as usize,
+            frame.arg1() as i64,
+            frame.arg2() as i32,
+        ),
+        Some(SyscallNumber::Pread64) => fs::sys_pread64(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as i64,
+        ),
+        Some(SyscallNumber::Pwrite64) => fs::sys_pwrite64(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+            frame.arg2() as usize,
+            frame.arg3() as i64,
+        ),
+        Some(SyscallNumber::Dup2) => fs::sys_dup2(
+            frame.arg0() as usize,
+            frame.arg1() as usize,
+        ),
+        Some(SyscallNumber::Ftruncate) => fs::sys_ftruncate(
+            frame.arg0() as usize,
+            frame.arg1() as i64,
+        ),
+        Some(SyscallNumber::Chdir) => fs::sys_chdir(frame.arg0() as usize),
+        Some(SyscallNumber::Fchdir) => fs::sys_fchdir(frame.arg0() as usize),
         Some(SyscallNumber::Nanosleep) => {
             time::sys_nanosleep(frame.arg0() as u64, frame.arg1() as u64)
         }

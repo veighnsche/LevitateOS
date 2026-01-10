@@ -1,8 +1,14 @@
 //! TEAM_233: File descriptor duplication syscalls.
+//! TEAM_404: Added lseek, dup2, chdir, fchdir, ftruncate for coreutils compatibility.
 
 use crate::syscall::errno;
 use crate::task::current_task;
 use crate::task::fd_table::FdType;
+
+// TEAM_404: lseek whence constants
+const SEEK_SET: i32 = 0;
+const SEEK_CUR: i32 = 1;
+const SEEK_END: i32 = 2;
 
 // TEAM_394: Terminal foreground process group ioctls
 const TIOCGPGRP: u64 = 0x540F; // Get foreground process group
@@ -350,4 +356,114 @@ pub fn sys_ioctl(fd: usize, request: u64, arg: usize) -> i64 {
         },
         _ => errno::ENOTTY,
     }
+}
+
+/// TEAM_404: sys_lseek - Reposition file offset.
+///
+/// Returns new offset on success, negative errno on failure.
+pub fn sys_lseek(fd: usize, offset: i64, whence: i32) -> i64 {
+    use crate::fs::vfs::ops::SeekWhence;
+    
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+    
+    let entry = match fd_table.get(fd) {
+        Some(e) => e,
+        None => return errno::EBADF,
+    };
+    
+    match &entry.fd_type {
+        FdType::VfsFile(file) => {
+            let seek_whence = match whence {
+                SEEK_SET => SeekWhence::Set,
+                SEEK_CUR => SeekWhence::Cur,
+                SEEK_END => SeekWhence::End,
+                _ => return errno::EINVAL,
+            };
+            
+            match file.seek(offset, seek_whence) {
+                Ok(new_offset) => new_offset as i64,
+                Err(_) => errno::EINVAL,
+            }
+        }
+        FdType::Stdin | FdType::Stdout | FdType::Stderr => errno::ESPIPE,
+        FdType::PipeRead(_) | FdType::PipeWrite(_) => errno::ESPIPE,
+        _ => errno::EINVAL,
+    }
+}
+
+/// TEAM_404: sys_dup2 - Duplicate fd to specific number (legacy version).
+///
+/// Maps to dup3 with flags=0.
+pub fn sys_dup2(oldfd: usize, newfd: usize) -> i64 {
+    if oldfd == newfd {
+        // Unlike dup3, dup2 returns newfd if oldfd == newfd (and oldfd is valid)
+        let task = current_task();
+        let fd_table = task.fd_table.lock();
+        if fd_table.get(oldfd).is_some() {
+            return newfd as i64;
+        } else {
+            return errno::EBADF;
+        }
+    }
+    sys_dup3(oldfd, newfd, 0)
+}
+
+/// TEAM_404: sys_chdir - Change current working directory.
+///
+/// Returns 0 on success, negative errno on failure.
+pub fn sys_chdir(path_ptr: usize) -> i64 {
+    let task = current_task();
+    let mut path_buf = [0u8; 256];
+    
+    let path = match crate::syscall::read_user_cstring(task.ttbr0, path_ptr, &mut path_buf) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+    
+    // Update task's cwd (assume path exists - proper validation TODO)
+    let mut cwd = task.cwd.lock();
+    cwd.clear();
+    cwd.push_str(path);
+    0
+}
+
+/// TEAM_404: sys_fchdir - Change cwd by fd.
+///
+/// Stub: returns ENOSYS (not commonly used by coreutils).
+pub fn sys_fchdir(_fd: usize) -> i64 {
+    // TODO: Implement when directory fd tracking is added
+    errno::ENOSYS
+}
+
+/// TEAM_404: sys_ftruncate - Truncate file to specified length.
+///
+/// Stub: returns 0 (success) for now - full impl needs inode truncate support.
+pub fn sys_ftruncate(fd: usize, _length: i64) -> i64 {
+    let task = current_task();
+    let fd_table = task.fd_table.lock();
+    
+    // Just verify fd is valid
+    if fd_table.get(fd).is_none() {
+        return errno::EBADF;
+    }
+    
+    // TODO: Implement actual truncation
+    0
+}
+
+/// TEAM_404: sys_pread64 - Read from fd at offset without changing file position.
+///
+/// Stub: returns ENOSYS - full impl needs positioned read support.
+pub fn sys_pread64(_fd: usize, _buf_ptr: usize, _count: usize, _offset: i64) -> i64 {
+    // TODO: Implement when File has read_at method
+    errno::ENOSYS
+}
+
+/// TEAM_404: sys_pwrite64 - Write to fd at offset without changing file position.
+///
+/// Stub: returns ENOSYS - full impl needs positioned write support.
+pub fn sys_pwrite64(_fd: usize, _buf_ptr: usize, _count: usize, _offset: i64) -> i64 {
+    // TODO: Implement when File has write_at method
+    errno::ENOSYS
 }

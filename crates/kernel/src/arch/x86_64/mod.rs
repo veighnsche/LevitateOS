@@ -35,6 +35,7 @@ pub enum SyscallNumber {
     Write = 1,
     Close = 3,
     Fstat = 5,
+    Lseek = 8,      // TEAM_404: File positioning
     Mmap = 9,
     Mprotect = 10,
     Munmap = 11,
@@ -43,10 +44,13 @@ pub enum SyscallNumber {
     SigProcMask = 14,
     SigReturn = 15,
     Ioctl = 16,
+    Pread64 = 17,   // TEAM_404: Positioned read
+    Pwrite64 = 18,  // TEAM_404: Positioned write
     Readv = 19,
     Writev = 20,
     Yield = 24, // x86: sched_yield=24
     Dup = 32,
+    Dup2 = 33,      // TEAM_404: Legacy dup
     Pause = 34,
     Nanosleep = 35,
     GetPid = 39, // x86: getpid=39
@@ -55,8 +59,11 @@ pub enum SyscallNumber {
     Exit = 60,
     Waitpid = 61, // x86: wait4=61
     Kill = 62,
+    Ftruncate = 77, // TEAM_404: Truncate file
     Getdents = 78,
     Getcwd = 79,
+    Chdir = 80,     // TEAM_404: Change directory
+    Fchdir = 81,    // TEAM_404: Change directory by fd
     GetPpid = 110, // x86: getppid=110
     Mount = 165,
     Umount = 166,
@@ -122,6 +129,7 @@ impl SyscallNumber {
             1 => Some(Self::Write),
             3 => Some(Self::Close),
             5 => Some(Self::Fstat),
+            8 => Some(Self::Lseek),      // TEAM_404
             9 => Some(Self::Mmap),
             10 => Some(Self::Mprotect),
             11 => Some(Self::Munmap),
@@ -130,10 +138,13 @@ impl SyscallNumber {
             14 => Some(Self::SigProcMask),
             15 => Some(Self::SigReturn),
             16 => Some(Self::Ioctl),
+            17 => Some(Self::Pread64),   // TEAM_404
+            18 => Some(Self::Pwrite64),  // TEAM_404
             19 => Some(Self::Readv),
             20 => Some(Self::Writev),
             24 => Some(Self::Yield),
             32 => Some(Self::Dup),
+            33 => Some(Self::Dup2),      // TEAM_404
             34 => Some(Self::Pause),
             35 => Some(Self::Nanosleep),
             39 => Some(Self::GetPid),
@@ -142,8 +153,11 @@ impl SyscallNumber {
             60 => Some(Self::Exit),
             61 => Some(Self::Waitpid),
             62 => Some(Self::Kill),
+            77 => Some(Self::Ftruncate), // TEAM_404
             78 => Some(Self::Getdents),
             79 => Some(Self::Getcwd),
+            80 => Some(Self::Chdir),     // TEAM_404
+            81 => Some(Self::Fchdir),    // TEAM_404
             110 => Some(Self::GetPpid),
             165 => Some(Self::Mount),
             166 => Some(Self::Umount),
@@ -160,6 +174,7 @@ impl SyscallNumber {
             267 => Some(Self::Readlinkat),
             280 => Some(Self::Utimensat),
             292 => Some(Self::Dup3),
+            22 => Some(Self::Pipe2),  // TEAM_404: Old pipe() syscall → Pipe2
             293 => Some(Self::Pipe2),
             // TEAM_350: Eyra prerequisites
             186 => Some(Self::Gettid),

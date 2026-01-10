@@ -128,6 +128,14 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
         count += 1;
     }
     
+    // TEAM_404: Add brush shell (Eyra-based shell with std support)
+    let brush_src = PathBuf::from(format!("crates/userspace/eyra/target/{}/release/brush", eyra_target));
+    if brush_src.exists() {
+        std::fs::copy(&brush_src, root.join("brush"))?;
+        count += 1;
+        println!("  📦 Added brush shell");
+    }
+    
     // TEAM_380: Copy coreutils multi-call binary and create symlinks
     let coreutils_src = PathBuf::from(format!(
         "crates/userspace/eyra/coreutils/target/{}/release/coreutils",
@@ -541,6 +549,8 @@ pub fn build_eyra(arch: &str, _only: Option<&str>) -> Result<()> {
     println!("✅ Built coreutils multi-call binary");
     
     // TEAM_380: Also build eyra-hello and eyra-test-runner from the eyra workspace
+    // TEAM_404: Do NOT use -Zbuild-std here! Eyra uses rename pattern (std = { package = "eyra" })
+    // which provides its own std crate. -Zbuild-std would build Rust's real std, causing conflicts.
     println!("🔧 Building eyra-hello and eyra-test-runner...");
     let status = Command::new("cargo")
         .current_dir(&eyra_dir)
@@ -550,7 +560,6 @@ pub fn build_eyra(arch: &str, _only: Option<&str>) -> Result<()> {
             "build",
             "--release",
             "--target", target,
-            "-Zbuild-std=std,panic_abort",
         ])
         .status()
         .context("Failed to build eyra workspace")?;

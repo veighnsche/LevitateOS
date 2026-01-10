@@ -1,23 +1,17 @@
 # TEAM_394: Brush shell for LevitateOS
-# POSIX/Bash-compatible shell using Eyra std support
+# TEAM_404: Simplified shell with raw syscalls for process spawning
 [package]
 name = "brush"
 version = "0.1.0"
 edition = "2021"
-description = "Brush shell adapted for LevitateOS via Eyra"
+description = "LevitateOS shell with Eyra std support"
 
-# TEAM_394: brush-shell provides the shell implementation
-# We create a thin wrapper that uses Eyra as std
 [dependencies]
 # TEAM_395: Official Eyra pattern - rename to std for native std support
 std = { package = "eyra", version = "0.22", features = ["experimental-relocate"] }
 
-# brush-shell with minimal features for initial port
-# Disable reedline initially to reduce complexity
-brush-shell = { version = "0.3.0", default-features = false, features = ["minimal"] }
-
-# tokio is required by brush - use single-threaded runtime
-tokio = { version = "1.48", default-features = false, features = ["rt", "sync", "io-util", "macros"] }
+# TEAM_404: libsyscall for spawn_args (raw syscalls work with Eyra)
+libsyscall = { path = "../libsyscall" }
 
 [[bin]]
 name = "brush"

@@ -1,6 +1,7 @@
-# TEAM_374: Userspace workspace with init, shell, and libsyscall
+# TEAM_374: Userspace workspace with init (bare-metal no_std binary)
+# TEAM_404: libsyscall moved to eyra/, shell replaced by brush
 [workspace]
-members = ["init", "shell", "libsyscall"]
+members = ["init"]
 resolver = "2"
 
 [workspace.lints.rust]
