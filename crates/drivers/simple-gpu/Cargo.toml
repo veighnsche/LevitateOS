@@ -6,7 +6,7 @@ readme = "README.md"
 description = "Generic UEFI GOP Framebuffer Driver for LevitateOS"
 
 [dependencies]
-los_error = { path = "../../kernel/error" }
-los_hal = { path = "../../kernel/hal" }
+los_error = { path = "../../kernel/lib/error" }
+los_hal = { path = "../../kernel/lib/hal" }
 log = "0.4"
 embedded-graphics = { workspace = true }
