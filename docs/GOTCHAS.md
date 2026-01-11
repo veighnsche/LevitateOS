@@ -608,3 +608,133 @@ fn log(&self, record: &Record) {
 **Problem:** Printing the same information (e.g., boot registers) in multiple boot stages will cause behavior test failures if the golden file only expects it once.
 
 **Rule:** Ensure diagnostic information is printed exactly once in the boot sequence. If a function like `print_boot_regs()` is moved or called in multiple stages, audit the call sites to prevent duplicates.
+
+---
+
+### 32. AArch64 Boot Code Cannot Use Higher-Half Symbols Directly (TEAM_422)
+
+**Location:** `crates/kernel/arch/aarch64/src/asm/boot.S`, `crates/kernel/arch/aarch64/src/boot.rs`
+
+**Problem:** AArch64 boot code runs at physical address 0x40080000, but the kernel is linked at higher-half virtual addresses (0xFFFF_8000_0000_0000+). The `adrp` instruction has a ±4GB range limit, so boot code CANNOT directly access higher-half symbols.
+
+**Symptom:** Linker error: `relocation truncated to fit: R_AARCH64_ADR_PREL_PG_HI21`
+
+**Root Cause:**
+- Boot assembly uses `adrp` which is PC-relative with ±4GB range
+- Distance from physical 0x40080000 to virtual 0xFFFF_8000... is >4GB
+- Rust code in higher-half also can't reach physical-address symbols
+
+**Solution - Two-Copy Pattern:**
+```rust
+// 1. Physical-address symbol (written by boot.S)
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".bss.boot")]
+pub static mut BOOT_DATA_PHYS: u64 = 0;
+
+// 2. Higher-half symbol (read by Rust code)
+static mut BOOT_DATA: u64 = 0;
+
+// 3. Copy function (called after identity mapping is active)
+pub unsafe fn copy_boot_data() {
+    BOOT_DATA = core::ptr::read_volatile(core::ptr::addr_of!(BOOT_DATA_PHYS));
+}
+```
+
+**Linker Script Requirements:**
+```ld
+/* Before higher-half jump */
+.bss.boot (NOLOAD) : {
+    *(.bss.boot)
+}
+
+/* Page tables for early MMU */
+.boot_page_tables (NOLOAD) : {
+    __boot_l0_ttbr0 = .; . = . + 4096;
+    __boot_l0_ttbr1 = .; . = . + 4096;
+    /* ... */
+}
+
+/* THEN jump to higher-half */
+. += 0xFFFF800000000000;
+```
+
+**Boot Assembly Must:**
+1. Save boot registers to `.bss.boot` symbols (reachable by `adrp`)
+2. Set up early page tables with identity + higher-half mapping
+3. Enable MMU
+4. Jump to Rust entry point at higher-half address
+
+**References:**
+- `crates/kernel/arch/aarch64/src/asm/boot.S` - Complete boot sequence
+- `crates/kernel/levitate/src/arch/aarch64/linker.ld` - Memory layout
+
+---
+
+### 33. Kernel Modular Crate Dependencies Must Avoid Cycles (TEAM_422)
+
+**Location:** `crates/kernel/` workspace
+
+**Problem:** When refactoring the kernel into separate crates, circular dependencies are easy to create. For example: `los_sched` needs types from `los_syscall`, but `los_syscall` needs the scheduler.
+
+**Symptom:** Cargo error: `cyclic package dependency`
+
+**Solution - Shared Types Crate:**
+```
+los_types/      ← Shared types (SyscallFrame, Pid, etc.)
+   ↑
+   ├── los_sched    (imports los_types)
+   ├── los_syscall  (imports los_types)
+   └── los_mm       (imports los_types)
+```
+
+**Pattern:**
+1. Extract shared types/traits to a separate crate (`los_types`)
+2. Make it dependency-free (only depends on `core`)
+3. All crates that need shared types import from `los_types`
+
+**Common Shared Types:**
+- `SyscallFrame` - Register state for syscall dispatch
+- `Pid`, `Tid` - Process/thread identifiers
+- `SyscallResult` - Standard syscall return type
+- Architecture-specific constants
+
+---
+
+### 34. Architecture Crates Use Extern Callbacks for Integration (TEAM_422)
+
+**Location:** `crates/kernel/arch/*/src/lib.rs`
+
+**Problem:** Architecture crates (`los_arch_aarch64`, `los_arch_x86_64`) need to call into kernel code (e.g., syscall dispatch), but can't depend on the kernel binary.
+
+**Solution - Extern Function Pattern:**
+```rust
+// In arch crate (los_arch_aarch64/src/exceptions.rs)
+unsafe extern "Rust" {
+    fn syscall_dispatch(frame: &mut SyscallFrame);
+}
+
+// Called from exception handler
+pub fn handle_svc(frame: &mut SyscallFrame) {
+    unsafe { syscall_dispatch(frame); }
+}
+```
+
+```rust
+// In kernel binary (levitate/src/main.rs)
+#[unsafe(no_mangle)]
+fn syscall_dispatch(frame: &mut crate::arch::SyscallFrame) {
+    los_syscall::syscall_dispatch(frame);
+}
+```
+
+**Why This Works:**
+- Arch crate declares extern function (no implementation)
+- Kernel binary provides implementation with `#[no_mangle]`
+- Linker resolves at link time
+- No circular dependency
+
+**Required Callbacks:**
+- `syscall_dispatch` - Called from syscall exception
+- `handle_user_exception` - Called for user-mode faults (AArch64)
+- `handle_irq_dispatch` - Called for IRQ handling (AArch64)
+- `check_and_deliver_signals` - Called before return to userspace
