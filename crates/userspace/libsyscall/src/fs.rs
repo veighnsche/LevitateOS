@@ -5,9 +5,9 @@
 use crate::arch;
 use crate::errno::ENAMETOOLONG;
 use crate::sysno::{
-    __NR_dup, __NR_dup3, __NR_fstat, __NR_getcwd, __NR_getdents, __NR_linkat, __NR_mkdirat,
-    __NR_openat, __NR_pipe2, __NR_readlinkat, __NR_renameat, __NR_symlinkat, __NR_unlinkat,
-    __NR_utimensat,
+    __NR_chdir, __NR_dup, __NR_dup3, __NR_fstat, __NR_getcwd, __NR_getdents, __NR_linkat,
+    __NR_mkdirat, __NR_openat, __NR_pipe2, __NR_readlinkat, __NR_renameat, __NR_symlinkat,
+    __NR_unlinkat, __NR_utimensat,
 };
 use crate::time::Timespec;
 
@@ -106,6 +106,17 @@ pub fn getcwd(buf: &mut [u8]) -> isize {
         buf.as_mut_ptr() as u64,
         buf.len() as u64,
     ) as isize
+}
+
+/// TEAM_435: Change current working directory.
+#[inline]
+pub fn chdir(path: &str) -> isize {
+    let mut path_buf = [0u8; 4096];
+    if let Err(e) = copy_path_with_null(path, &mut path_buf) {
+        return e;
+    }
+
+    arch::syscall1(__NR_chdir as u64, path_buf.as_ptr() as u64) as isize
 }
 
 /// TEAM_345: Linux ABI - mkdirat(dirfd, pathname, mode)

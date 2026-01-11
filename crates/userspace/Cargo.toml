@@ -1,7 +1,8 @@
 # TEAM_374: Userspace workspace with init (bare-metal no_std binary)
 # TEAM_435: libsyscall moved back from eyra/ (eyra removed)
+# TEAM_435: Added shell - standalone no_std shell
 [workspace]
-members = ["init", "libsyscall"]
+members = ["init", "libsyscall", "shell"]
 resolver = "2"
 
 [workspace.lints.rust]

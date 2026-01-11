@@ -121,9 +121,9 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    // TEAM_404: Spawn brush shell (Eyra-based with std support)
+    // TEAM_435: Spawn no_std shell (replaced brush which needs libc)
     println!("[INIT] Spawning shell...");
-    let shell_pid = spawn("brush");
+    let shell_pid = spawn("shell");
 
     if shell_pid < 0 {
         println!("[INIT] ERROR: Failed to spawn shell: {}", shell_pid);
