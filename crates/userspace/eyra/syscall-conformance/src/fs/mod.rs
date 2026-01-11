@@ -185,9 +185,14 @@ fn test_dup2_redirect() -> TestResult {
         let saved_stdout = syscall1(sysno::__NR_dup as u64, 1);
         assert_syscall_ok!(saved_stdout, "save stdout");
 
-        // dup2 to same fd should just return the fd
+        // dup2/dup3 to same fd should just return the fd
+        // Note: aarch64 doesn't have dup2, use dup3 with flags=0 instead
+        #[cfg(target_arch = "x86_64")]
         let result = syscall2(sysno::__NR_dup2 as u64, 1, 1);
-        assert_eq_desc!(result, 1, "dup2 same fd returns that fd");
+        #[cfg(target_arch = "aarch64")]
+        let result = syscall3(sysno::__NR_dup3 as u64, 1, 1, 0);
+
+        assert_eq_desc!(result, 1, "dup2/dup3 same fd returns that fd");
 
         // Clean up
         let _ = syscall1(sysno::__NR_close as u64, saved_stdout as u64);
