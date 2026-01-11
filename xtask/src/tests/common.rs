@@ -63,7 +63,7 @@ impl QemuSession {
             .context("Failed to start QEMU")?;
 
         let stdin = child.stdin.take().expect("Failed to get stdin");
-        let mut stdout = child.stdout.take().expect("Failed to get stdout");
+        let stdout = child.stdout.take().expect("Failed to get stdout");
 
         // Set stdout to non-blocking
         let fd = stdout.as_raw_fd();
@@ -111,7 +111,7 @@ impl QemuSession {
             .context("Failed to start QEMU")?;
 
         let stdin = child.stdin.take().expect("Failed to get stdin");
-        let mut stdout = child.stdout.take().expect("Failed to get stdout");
+        let stdout = child.stdout.take().expect("Failed to get stdout");
 
         // Set stdout to non-blocking
         let fd = stdout.as_raw_fd();
