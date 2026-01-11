@@ -103,11 +103,11 @@ $ ./some-linux-binary
 ### Deliverables
 
 - [ ] /bin, /sbin, /lib are symlinks to /usr/*
-- [ ] /dev/null, /dev/zero, /dev/urandom work
+- [x] /dev/null, /dev/zero, /dev/urandom work (TEAM_431: devtmpfs implemented)
 - [ ] /dev/stdin, /dev/stdout, /dev/stderr work
 - [ ] /proc/self/exe returns executable path
 - [ ] /etc/passwd, /etc/group parsed correctly
-- [ ] Mount sequence executes at boot
+- [x] Mount sequence executes at boot (devtmpfs mounts at /dev)
 
 ---
 
@@ -296,13 +296,13 @@ $ ./some-linux-binary
 ### Phase 2: Filesystem Structure (TEAM_401)
 
 1. Restructure initramfs with merged /usr
-2. Implement devtmpfs filesystem
-3. Create standard device nodes
+2. ~~Implement devtmpfs filesystem~~ ✅ TEAM_431
+3. ~~Create standard device nodes~~ ✅ TEAM_431 (null, zero, full, urandom)
 4. Implement /dev/fd/, stdin, stdout, stderr
 5. Implement minimal /proc/self
 6. Add /etc configuration files
-7. Update boot mount sequence
-8. Test: /bin/sh works, /dev/null works
+7. ~~Update boot mount sequence~~ ✅ TEAM_431 (devtmpfs mounts at /dev)
+8. Test: /bin/sh works, /dev/null works ✅ (cgull-test passes 19/19)
 
 ### Phase 3: Permissions (TEAM_405)
 

@@ -40,6 +40,8 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | kill | 62 | 129 | ✅ | Send signal |
 | tkill | 200 | 130 | ✅ | Send to thread |
 | pause | 34 | - | ✅ | Wait for signal |
+| getrusage | 98 | 165 | ✅ | Resource usage (zeroed) |
+| prlimit64 | 302 | 261 | ✅ | Get/set resource limits |
 
 ---
 
@@ -59,7 +61,8 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | pwrite64 | 18 | 68 | ✅ | Positioned write |
 | readv | 19 | 65 | ✅ | Vectored read |
 | writev | 20 | 66 | ✅ | Vectored write |
-| ftruncate | 77 | 46 | ✅ | Truncate file |
+| truncate | 76 | 45 | ✅ | Truncate file by path |
+| ftruncate | 77 | 46 | ✅ | Truncate file by fd |
 
 ### File Descriptor Operations
 
@@ -188,17 +191,17 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 
 | Syscall | x86_64 | aarch64 | Status | Notes |
 |---------|--------|---------|--------|-------|
-| chmod | 90 | - | ⏳ | Change file mode |
-| fchmod | 91 | 52 | ⏳ | Change mode by fd |
-| fchmodat | 268 | 53 | ⏳ | Change mode at path |
-| chown | 92 | - | ⏳ | Change owner |
-| fchown | 93 | 55 | ⏳ | Change owner by fd |
-| fchownat | 260 | 54 | ⏳ | Change owner at path |
+| chmod | 90 | - | 🔨 | No-op (single-user OS) |
+| fchmod | 91 | 52 | 🔨 | No-op (single-user OS) |
+| fchmodat | 268 | 53 | 🔨 | No-op (single-user OS) |
+| chown | 92 | - | 🔨 | No-op (single-user OS) |
+| fchown | 93 | 55 | 🔨 | No-op (single-user OS) |
+| fchownat | 260 | 54 | 🔨 | No-op (single-user OS) |
 | lchown | 94 | - | ⏳ | Change symlink owner |
 | access | 21 | - | ⏳ | Check access |
 | faccessat | 269 | 48 | ✅ | Check access at path |
 | faccessat2 | 439 | 439 | ⏳ | Check access with flags |
-| umask | 95 | 166 | ⏳ | Set file creation mask |
+| umask | 95 | 166 | ✅ | Set file creation mask |
 
 ---
 
@@ -277,7 +280,7 @@ This document lists all syscalls required for a general-purpose Unix-compatible 
 | clock_gettime | 228 | 113 | ✅ | Get time |
 | clock_getres | 229 | 114 | ✅ | Get clock resolution |
 | gettimeofday | 96 | 1094 | ✅ | Get time (legacy) |
-| clock_nanosleep | 230 | 115 | ⏳ | Sleep with clock |
+| clock_nanosleep | 230 | 115 | ✅ | Sleep with clock |
 
 ---
 
@@ -325,16 +328,16 @@ These are non-Linux syscalls specific to LevitateOS:
 | Category | Implemented | Stub | Planned | Not Started |
 |----------|-------------|------|---------|-------------|
 | Epic 1 (Process) | 14 | 0 | 5 | 0 |
-| Epic 2 (Filesystem) | 45 | 4 | 2 | 0 |
+| Epic 2 (Filesystem) | 46 | 3 | 2 | 0 |
 | Epic 3 (Memory) | 7 | 0 | 0 | 0 |
 | Epic 4 (Disk/Sync) | 0 | 0 | 6 | 0 |
-| Epic 5 (Users) | 5 | 0 | 20 | 0 |
+| Epic 5 (Users) | 6 | 6 | 13 | 0 |
 | Epic 6 (Signals) | 9 | 0 | 6 | 0 |
 | Epic 7 (Networking) | 0 | 0 | 0 | 16 |
 | Epic 8 (Event/Poll) | 7 | 0 | 0 | 0 |
-| Epic 9 (Time) | 3 | 0 | 2 | 0 |
+| Epic 9 (Time) | 5 | 0 | 0 | 0 |
 | Custom | 5 | 0 | 0 | 0 |
-| **Total** | **~95** | **~4** | **~41** | **~16** |
+| **Total** | **~99** | **~9** | **~32** | **~16** |
 
 ---
 
@@ -346,7 +349,7 @@ These syscalls are blocking for general-purpose OS:
 2. ~~**execve**~~ ✅ Can run programs
 3. ~~**wait4**~~ ✅ Can manage children
 4. **setuid/setgid** ⏳ Needed for proper users
-5. **chmod/chown** ⏳ Needed for permissions
+5. ~~**chmod/chown**~~ 🔨 No-op stubs (sufficient for single-user)
 6. **pivot_root** ⏳ Needed for disk root
 7. **fsync** ⏳ Needed for data integrity
 
@@ -474,11 +477,12 @@ This section maps syscalls to their kernel implementation files.
 | sys_futex | ✅ | Fast mutex |
 | sys_ppoll | ✅ | Poll with timeout |
 
-### Module: `syscall/time.rs` (3 syscalls)
+### Module: `syscall/time.rs` (4 syscalls)
 
 | Syscall | Status | Notes |
 |---------|--------|-------|
 | sys_nanosleep | ✅ | Sleep |
+| sys_clock_nanosleep | ✅ | Sleep with clock |
 | sys_clock_getres | ✅ | Clock resolution |
 | sys_clock_gettime | ✅ | Get time |
 

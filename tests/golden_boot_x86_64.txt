@@ -1,12 +1,13 @@
 limine: Loading kernel `boot:///boot/levitate-kernel`...
 limine: Loading module `boot:///boot/initramfs.cpio`...
-LH123456789CXLRikdHeap initialized.
+RikdHeap initialized.
 [BOOT] Protocol: Limine
-[BOOT] Memory: 16 regions, 1767 MB usable
+[BOOT] Memory: 16 regions, 1766 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
-[MEM] Buddy Allocator initialized with unified BootInfo
-[CPU] x86_64 PCR initialized at 0xffffffff80065a00
-[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff8000f0b0
+[MEM] Physical: 0x50000 - 0x6e757000 (452359 pages, 1767 MB)
+[MEM] Frame allocator initialized
+[CPU] x86_64 PCR initialized at 0xffffffff80052a30
+[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff8003bbf4
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
 [BOOT] Stage 3: Boot Console (DXE)
@@ -35,13 +36,15 @@ Timer initialized.
 [PCI] PciTransport created successfully
 [INPUT] VirtIO Input initialized via PCI.
 Detecting Initramfs...
-Initramfs found at 0xffff80006e860000 - 0xffff80006f3e5800 (12081152 bytes)
+Initramfs found at 0xffff80006e777000 - 0xffff80006f3ce400 (12940288 bytes)
 Files in initramfs:
  - .
  - hello.txt
  - eyra-hello
  - init
  - brush
+ - cgull-test
+ - syscall-conformance
  - coreutils
  - cat
  - cp
@@ -111,15 +114,12 @@ Files in initramfs:
  - false
  - pwd
  - true
+[BOOT] Process hooks registered
 [BOOT] spawning init task...
-[SPAWN] Parsing ELF header (15368 bytes)...
 ELF Header e_ident verified
-[SPAWN] ELF parsed.
-[SPAWN] Creating user page table...
 [MMU] Creating user page table...
 [MMU] Allocated L0 table at phys [MASKED]
 [MMU] Zeroing L0 table at va [MASKED]
-[SPAWN] Loading segments...
 [ELF] Copying segment: src[0]=55 to VA 10000
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [ELF] Copying segment: src[0]=5b to VA 11428
@@ -128,17 +128,17 @@ ELF Header e_ident verified
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [ELF] Copying segment: src[0]=54 to VA 119d8
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[SPAWN] Setting up stack...
-[SPAWN] Setting up stack arguments...
+[TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
 [TASK] UserTask::new: PID=1 Entry=0x10000
-[SPAWN] Success: PID=1 entry=0x10000 sp=0x7ffffffeff40
+[SPAWN] Created process PID=1 entry=0x10000 sp=0x7ffffffeff30 brk=0x12000
 [BOOT] Init process scheduled.
 Mounting filesystems...
-ERROR: Failed to mount FAT32: E0501: Failed to open volume
-[BOOT] WARNING: Filesystem mount failed: E0501: Failed to open volume
-  (Check tinyos_disk.img format/presence)
+[FS] Filesystem subsystem ready
+[BOOT] Filesystem initialized successfully.
 [BOOT] Mounted tmpfs at /tmp
-[GPU_TEST] Flush count: 111
+[DEVTMPFS] Initialized with null, zero, full, urandom devices
+[BOOT] Mounted devtmpfs at /dev
+[GPU_TEST] Flush count: 110
 [GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
 
 [SUCCESS] LevitateOS System Ready.
@@ -148,14 +148,10 @@ ERROR: Failed to mount FAT32: E0501: Failed to open volume
 [SYSCALL] spawn('eyra-test-runner')
 [INIT] Spawning shell...
 [SYSCALL] spawn('brush')
-[SPAWN] Parsing ELF header (400056 bytes)...
 ELF Header e_ident verified
-[SPAWN] ELF parsed.
-[SPAWN] Creating user page table...
 [MMU] Creating user page table...
 [MMU] Allocated L0 table at phys [MASKED]
 [MMU] Zeroing L0 table at va [MASKED]
-[SPAWN] Loading segments...
 [ELF] Copying segment: src[0]=7f to VA 10000
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [ELF] Copying segment: src[0]=48 to VA 24ea0
@@ -165,17 +161,16 @@ ELF Header e_ident verified
 [ELF] Copying segment: src[0]=0 to VA 73aa8
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [ELF] PIE binary loaded at base 0x10000, self-relocating
-[SPAWN] Setting up stack...
-[SPAWN] Setting up stack arguments...
+[TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
 [TASK] UserTask::new: PID=2 Entry=0x24ea0
-[SPAWN] Success: PID=2 entry=0x24ea0 sp=0x7ffffffeff40
+[SPAWN] Created process PID=2 entry=0x24ea0 sp=0x7ffffffeff30 brk=0x75000
 [INIT] Shell spawned as PID 2
 [TASK] Entering user task PID=2 at 0x24ea0
 [MPROTECT] Changed protection for 4 pages at 0x6f000-0x73000 prot=0x1
 [MMAP] Mapped 1 pages at 0x100000000000 with prot=0x3
 [SYSCALL] arch_prctl(code=0x1002, addr=0x100000000028)
 [SYSCALL] ppoll(nfds=3) -> 0 ready
-[SYSCALL] sigaltstack(ss=0x0, old_ss=0x7ffffffefd30) -> 0
+[SYSCALL] sigaltstack(ss=0x0, old_ss=0x7ffffffefd20) -> 0
 [MMAP] Mapped 16 pages at 0x100000001000 with prot=0x3
 
 LevitateOS Shell v0.2
