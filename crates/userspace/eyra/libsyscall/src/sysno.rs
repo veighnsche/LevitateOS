@@ -2,6 +2,7 @@
 // TEAM_210: Syscall constants
 
 // Direct export of standard syscall numbers
+// TEAM_424: Added more syscalls for conformance testing
 pub use linux_raw_sys::general::{
     __NR_brk,
     __NR_chdir,
@@ -18,9 +19,12 @@ pub use linux_raw_sys::general::{
     __NR_getdents64 as __NR_getdents, // Modern Linux uses getdents64
     __NR_getpid,
     __NR_getppid,
+    __NR_gettid,       // TEAM_424: For thread identification tests
+    __NR_getrandom,    // TEAM_424: For getrandom tests
     __NR_ioctl,
     __NR_kill,
     __NR_linkat,
+    __NR_lseek,        // TEAM_424: For lseek tests
     __NR_mkdirat,
     __NR_mmap,
     __NR_mprotect,
@@ -45,6 +49,10 @@ pub use linux_raw_sys::general::{
     __NR_write,
     __NR_writev,
 };
+
+// TEAM_424: dup2 is only available on x86_64, aarch64 uses dup3
+#[cfg(target_arch = "x86_64")]
+pub use linux_raw_sys::general::__NR_dup2;
 
 // Custom LevitateOS syscalls (defined as u32 to match __NR_* types)
 pub const SYS_SPAWN: u32 = 1000;

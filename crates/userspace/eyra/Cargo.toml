@@ -8,6 +8,7 @@ members = [
     "eyra-test-runner",
     "libsyscall",
     "libsyscall-tests",
+    "syscall-conformance",  # TEAM_424: Syscall conformance test suite
 ]
 resolver = "2"
 

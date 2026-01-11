@@ -13,7 +13,8 @@
 use core::panic::PanicInfo;
 
 // TEAM_275: Architecture-specific syscall primitives
-mod arch;
+// TEAM_424: Made public for syscall conformance tests
+pub mod arch;
 
 // Modules
 pub mod errno;
