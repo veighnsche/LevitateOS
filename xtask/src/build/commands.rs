@@ -358,6 +358,7 @@ fn build_kernel_with_features(features: &[&str], arch: &str) -> Result<()> {
         "-Z".to_string(), "build-std=core,alloc".to_string(),
         "--release".to_string(),
         "--target".to_string(), target.to_string(),
+        "-p".to_string(), "levitate-kernel".to_string(),  // TEAM_426: Only build kernel, not all workspace members
     ];
 
     if !features.is_empty() {
