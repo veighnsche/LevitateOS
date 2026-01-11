@@ -66,11 +66,19 @@ From brush source code analysis (`/.external-kernels/brush/`):
 - **Platforms:** x86_64 primary, aarch64 parity required
 - **Time Sensitivity:** Medium - blocking brush shell bringup
 
-## Open Questions
+## Open Questions (RESOLVED by TEAM_440 Review)
 
-1. Does aarch64 have the same sigaction format issue?
-2. Are there other syscalls with struct pointer mismatches?
-3. What sigaction flags does tokio require (SA_RESTORER, SA_SIGINFO)?
+### Q1: Does aarch64 have the same sigaction format issue?
+**ANSWER:** YES, but with a different struct layout. aarch64 sigaction is 24 bytes (no `sa_restorer` field), while x86_64 is 32 bytes. The fix must handle both architectures with `#[cfg(target_arch)]` conditionals. See Phase 3/4 for details.
+
+### Q2: Are there other syscalls with struct pointer mismatches?
+**ANSWER:** Likely yes, but out of scope for this bugfix. `sys_sigprocmask` also has potential issues with 32-bit vs 64-bit masks. TODO added for future investigation.
+
+### Q3: What sigaction flags does tokio require (SA_RESTORER, SA_SIGINFO)?
+**ANSWER:** Tokio/signal-hook-registry primarily uses:
+- `SA_RESTORER` (x86_64 only) - Required for signal return trampoline
+- `SA_RESTART` - Optional, restarts interrupted syscalls
+- `SA_SIGINFO` - Not typically used by tokio's SIGCHLD handler
 
 ---
 

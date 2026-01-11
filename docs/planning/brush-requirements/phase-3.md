@@ -128,7 +128,9 @@ struct sigaction {
 
 ### Step 2: Define sigaction Struct Layout
 
-**x86_64 Linux `struct sigaction` (kernel format):**
+**IMPORTANT: Layout differs between architectures!**
+
+#### x86_64 Linux `struct sigaction` (kernel format):
 ```c
 struct sigaction {
     __sighandler_t sa_handler;    // offset 0, 8 bytes
@@ -138,8 +140,19 @@ struct sigaction {
 };  // Total: 32 bytes
 ```
 
+#### aarch64 Linux `struct sigaction` (kernel format):
+```c
+struct sigaction {
+    __sighandler_t sa_handler;    // offset 0, 8 bytes
+    unsigned long sa_flags;        // offset 8, 8 bytes
+    sigset_t sa_mask;             // offset 16, 8 bytes
+};  // Total: 24 bytes (NO sa_restorer field!)
+```
+
+**Key Difference:** aarch64 does NOT have `sa_restorer` field. Signal return is handled differently (kernel provides trampoline automatically).
+
 **Key Flags:**
-- `SA_RESTORER` (0x04000000) - sa_restorer field is valid
+- `SA_RESTORER` (0x04000000) - sa_restorer field is valid **(x86_64 ONLY)**
 - `SA_SIGINFO` (0x00000004) - use sa_sigaction, not sa_handler
 - `SA_RESTART` (0x10000000) - restart syscalls after handler
 
