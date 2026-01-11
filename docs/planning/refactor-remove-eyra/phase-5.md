@@ -131,6 +131,18 @@ cargo xtask build all
 - [ ] Documentation updated
 - [ ] Team file completed
 
+## Handoff Checklist
+
+Before marking complete:
+
+- [ ] Project builds: `cargo xtask build all`
+- [ ] All tests pass: `cargo xtask test`
+- [ ] No "eyra" in active code (archive docs and team files exempt)
+- [ ] Team file has complete progress log
+- [ ] Remaining TODOs documented in team file
+- [ ] Any gotchas added to `docs/GOTCHAS.md`
+- [ ] CLAUDE.md updated with c-gull instructions
+
 ## Team Sign-Off
 
 ```

@@ -2,9 +2,9 @@ limine: Loading kernel `boot:///boot/levitate-kernel`...
 limine: Loading module `boot:///boot/initramfs.cpio`...
 RikdHeap initialized.
 [BOOT] Protocol: Limine
-[BOOT] Memory: 16 regions, 1766 MB usable
+[BOOT] Memory: 16 regions, 1776 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
-[MEM] Physical: 0x50000 - 0x6e741000 (452337 pages, 1766 MB)
+[MEM] Physical: 0x50000 - 0x6f145000 (454901 pages, 1776 MB)
 [MEM] Frame allocator initialized
 [CPU] x86_64 PCR initialized at 0xffffffff80054a30
 [SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff8003d744
@@ -36,84 +36,21 @@ Timer initialized.
 [PCI] PciTransport created successfully
 [INPUT] VirtIO Input initialized via PCI.
 Detecting Initramfs...
-Initramfs found at 0xffff80006e761000 - 0xffff80006f3b8400 (12940288 bytes)
+Initramfs found at 0xffff80006f165000 - 0xffff80006f3b8600 (2438656 bytes)
 Files in initramfs:
  - .
  - hello.txt
- - eyra-hello
  - init
- - brush
- - cgull-test
- - syscall-conformance
+ - hello-cgull
  - coreutils
  - cat
- - cp
- - dd
- - ln
- - ls
- - mkdir
- - mv
- - rm
- - rmdir
- - touch
- - basename
- - comm
- - csplit
- - cut
- - dirname
  - echo
- - expand
- - fmt
- - fold
  - head
- - join
- - nl
- - numfmt
- - od
- - paste
- - pr
- - printenv
- - printf
- - ptx
- - seq
- - shuf
- - sort
- - split
- - sum
- - tac
- - tail
- - tr
- - truncate
- - tsort
- - unexpand
- - uniq
- - wc
- - dir
- - dircolors
- - df
- - du
- - link
- - mktemp
- - more
- - readlink
- - realpath
- - shred
- - sleep
- - tee
- - test
- - unlink
- - vdir
- - yes
- - base32
- - base64
- - basenc
- - cksum
- - hashsum
- - env
- - factor
- - false
+ - mkdir
  - pwd
- - true
+ - rm
+ - tail
+ - touch
 [BOOT] Process hooks registered
 [BOOT] spawning init task...
 ELF Header e_ident verified
@@ -138,7 +75,7 @@ Mounting filesystems...
 [BOOT] Mounted tmpfs at /tmp
 [DEVTMPFS] Initialized with null, zero, full, urandom devices
 [BOOT] Mounted devtmpfs at /dev
-[GPU_TEST] Flush count: 110
+[GPU_TEST] Flush count: 47
 [GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
 
 [SUCCESS] LevitateOS System Ready.
@@ -148,32 +85,4 @@ Mounting filesystems...
 [SYSCALL] spawn('eyra-test-runner')
 [INIT] Spawning shell...
 [SYSCALL] spawn('brush')
-ELF Header e_ident verified
-[MMU] Creating user page table...
-[MMU] Allocated L0 table at phys [MASKED]
-[MMU] Zeroing L0 table at va [MASKED]
-[ELF] Copying segment: src[0]=7f to VA 10000
-[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=48 to VA 24ea0
-[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=0 to VA 6fe58
-[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=0 to VA 73aa8
-[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] PIE binary loaded at base 0x10000, self-relocating
-[TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
-[TASK] UserTask::new: PID=2 Entry=0x24ea0
-[SPAWN] Created process PID=2 entry=0x24ea0 sp=0x7ffffffeff30 brk=0x75000
-[INIT] Shell spawned as PID 2
-[TASK] Entering user task PID=2 at 0x24ea0
-[MPROTECT] Changed protection for 4 pages at 0x6f000-0x73000 prot=0x1
-[MMAP] Mapped 1 pages at 0x100000000000 with prot=0x3
-[SYSCALL] arch_prctl(code=0x1002, addr=0x100000000028)
-[SYSCALL] ppoll(nfds=3) -> 0 ready
-[SYSCALL] sigaltstack(ss=0x0, old_ss=0x7ffffffefd20) -> 0
-[MMAP] Mapped 16 pages at 0x100000001000 with prot=0x3
-
-LevitateOS Shell v0.2
-Type 'help' for commands.
-
-# 
+[INIT] ERROR: Failed to spawn shell: -2

@@ -130,12 +130,30 @@ Remove the eyra coreutils submodule entry.
 | `CLAUDE.md` | Eyra documentation | Update to c-gull approach |
 | `docs/planning/c-gull-migration/` | Already documents new approach | Keep |
 
+### Additional Files to Modify/Delete
+
+TEAM_434 review identified these additional files:
+
+| File | Action |
+|------|--------|
+| `EYRA_INTEGRATION_COMPLETE.md` | Delete |
+| `docs/development/eyra-porting-guide.md` | Delete |
+| `scripts/build-eyra.sh` | Delete |
+| `.windsurf/workflows/eyra-test-runner.md` | Delete |
+| `tests/EYRA_TESTING_README.md` | Delete |
+| `tests/eyra_output.txt` | Delete |
+| `tests/eyra_behavior_test.sh` | Delete |
+| `tests/run_eyra_tests.sh` | Delete |
+| `run.sh` | Update (has eyra references) |
+| `.github/workflows/release.yml` | Update (has eyra references) |
+
 ### Grep Results to Fix
 
 ```bash
 grep -r "eyra" --include="*.rs" --include="*.toml" --include="*.md" | wc -l
-# Currently: ~50+ references
-# Target: 0 references
+# Currently: ~1626 references across 194 files
+# Most are in: archived docs, team files (historical), active code
+# Target: 0 references in active code (archives/team files exempt)
 ```
 
 ## Rollback Plan

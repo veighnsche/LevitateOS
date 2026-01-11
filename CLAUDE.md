@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Building
 
 ```bash
-# Build everything (kernel + userspace + initramfs + Eyra coreutils)
+# Build everything (kernel + userspace + initramfs + coreutils)
 cargo xtask build all
 
 # Build specific components
@@ -16,9 +16,10 @@ cargo xtask build userspace   # Userspace + initramfs
 cargo xtask build initramfs   # Create initramfs only
 cargo xtask build iso         # Bootable Limine ISO (x86_64)
 
-# Build Eyra utilities (uutils coreutils with Eyra - provides std support)
-cargo xtask build eyra --arch x86_64
-cargo xtask build eyra --arch aarch64
+# Build c-gull sysroot and external projects
+cargo xtask build sysroot     # Build libc.a from c-gull
+cargo xtask build coreutils   # Build uutils/coreutils (clones if needed)
+cargo xtask build brush       # Build brush shell (clones if needed)
 ```
 
 ### Running
@@ -406,52 +407,50 @@ Key considerations:
 - Errno value alignment with Linux (use constants from `kernel/src/syscall/mod.rs::errno`)
 - Vectored I/O for `println!` (`writev`/`readv`)
 
-### Eyra Integration (CRITICAL - READ THIS)
+### c-gull Sysroot (CRITICAL - READ THIS)
 
-**What is Eyra?** Eyra replaces Rust's `std` with a pure-Rust implementation that makes Linux syscalls directly, without libc. This lets us run Rust programs on LevitateOS without glibc/musl.
+**What is c-gull?** c-gull (from [c-ward](https://github.com/sunfishcode/c-ward)) provides a pure-Rust libc implementation. We build it as a static library (`libc.a`) that any Rust program can link against, enabling **UNMODIFIED** upstream projects to run on LevitateOS.
 
-**Status**: Eyra utilities integrated via git submodule at `crates/userspace/eyra/coreutils`
+**Status**: c-gull sysroot implemented. External projects (coreutils, brush) are cloned at build time.
 
-#### REQUIRED PATTERN FOR EYRA APPS
+#### How It Works
 
-When porting any Rust application to use Eyra, you MUST follow this exact pattern:
-
-**1. Cargo.toml - Add Eyra as "std" (rename pattern):**
-```toml
-[dependencies]
-std = { package = "eyra", version = "0.22", features = ["experimental-relocate"] }
-```
-
-**2. build.rs - Add nostartfiles flag:**
-```rust
-fn main() {
-    println!("cargo:rustc-link-arg=-nostartfiles");
-    // ... rest of build.rs
-}
-```
-
-**3. .cargo/config.toml - Static PIE flags:**
-```toml
-[target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=pic"]
-
-[target.aarch64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=pic"]
-```
-
-**DO NOT use `extern crate eyra;`** - that's the old pattern. The rename-to-std pattern is cleaner and official.
-
-#### Current Limitation: App Modification Required
-
-Currently, **every app must be modified** to use Eyra. This is NOT scalable for arbitrary user apps.
-
-**Future Solution**: LevitateOS will provide a libc-compatible layer using [c-ward/c-gull](https://github.com/sunfishcode/c-ward) so unmodified Linux binaries can run. This is tracked as a future milestone.
+1. **Sysroot**: `toolchain/sysroot/lib/libc.a` - pre-built libc
+2. **External projects**: Cloned to `toolchain/` at build time (gitignored)
+3. **Build**: Projects built with RUSTFLAGS pointing to sysroot
+4. **No source modifications** - upstream repos work as-is
 
 #### Build Commands
 ```bash
-cargo xtask build eyra --arch x86_64
-cargo xtask build eyra --arch aarch64
+cargo xtask build sysroot      # Build libc.a from c-gull
+cargo xtask build coreutils    # Clone & build uutils/coreutils
+cargo xtask build brush        # Clone & build brush shell
+cargo xtask build all          # Everything (auto-builds deps if missing)
 ```
+
+#### Directory Layout
+```
+toolchain/
+├── libc-levitateos/     # Our wrapper crate (committed)
+├── c-ward/              # Cloned at build time (gitignored)
+├── coreutils/           # Cloned at build time (gitignored)
+├── brush/               # Cloned at build time (gitignored)
+├── sysroot/lib/libc.a   # Built output (gitignored)
+└── coreutils-out/       # Built binaries (gitignored)
+```
+
+#### Current Limitations
+
+- **Static linking only** - no dynamic linker (`ld.so`) yet
+- **Limited utilities** - some coreutils need libc functions c-gull doesn't have yet (e.g., `getpwuid` for `ls`)
+- **x86_64 tested** - aarch64 may need linker flag adjustments
+
+#### Future: Dynamic Linking
+
+Once we implement `ld.so`, we can:
+- Support dynamically linked binaries
+- Download pre-built binaries instead of building from source
+- Full Linux binary compatibility
 
 ### Memory Layout
 

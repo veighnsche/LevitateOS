@@ -1,6 +1,5 @@
-# TEAM_380: Migrated libsyscall to eyra directory for std support in integration tests
-# TEAM_395: libsyscall is pure no_std - it does NOT depend on eyra
-# The binary crates (libsyscall-tests, etc.) bring in eyra for std support
+# TEAM_435: Moved back to crates/userspace/ (eyra removed)
+# libsyscall is pure no_std - no external libc dependencies
 [package]
 name = "libsyscall"
 version = "0.1.0"

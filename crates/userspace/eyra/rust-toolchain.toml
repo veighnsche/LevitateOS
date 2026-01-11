@@ -1,7 +1,0 @@
-# TEAM_363: Shared toolchain for all Eyra-based userspace apps
-# Pin to nightly version compatible with Eyra 0.22
-# Source: https://github.com/sunfishcode/eyra/blob/main/rust-toolchain.toml
-[toolchain]
-channel = "nightly-2025-04-28"
-components = ["rustc", "cargo", "rust-std", "rust-src"]
-targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]

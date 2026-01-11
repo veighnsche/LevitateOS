@@ -1,11 +1,10 @@
 //! Test modules for LevitateOS
 //!
 //! TEAM_327: Reorganized test structure.
-//! TEAM_358: Added Eyra std integration test.
+//! TEAM_435: Removed eyra module (Eyra replaced by c-gull)
 
 pub mod backspace;
 pub mod common;
-pub mod eyra;
 pub mod screenshot;
 
 // Legacy modules (to be consolidated)

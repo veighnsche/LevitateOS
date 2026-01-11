@@ -1,7 +1,3 @@
-[submodule "crates/userspace/eyra/coreutils"]
-	path = crates/userspace/eyra/coreutils
-	url = git@github.com:LevitateOS/coreutils.git
-	branch = eyra-rebased
 [submodule "crates/kernel"]
 	path = crates/kernel
 	url = git@github.com:LevitateOS/kernel.git

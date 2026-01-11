@@ -204,9 +204,8 @@ fn main() -> Result<()> {
             "alpine" => tests::screenshot::run(Some("alpine"))?,
             "levitate" | "display" => tests::screenshot::run(Some("levitate"))?,
             "userspace" => tests::screenshot::run(Some("userspace"))?,
-            // TEAM_358: Eyra std integration test
-            "eyra" => tests::eyra::run(arch)?,
-            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', 'eyra', or 'all'", other),
+            // TEAM_435: Eyra test removed (Eyra replaced by c-gull)
+            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', or 'all'", other),
         },
         // TEAM_326: Refactored command handlers
         Commands::Run(args) => {
@@ -268,7 +267,7 @@ fn main() -> Result<()> {
         Commands::Build(cmd) => {
             preflight::check_preflight(arch)?;
             match cmd {
-                // TEAM_369: All commands now always include Eyra (provides std)
+                // TEAM_435: Removed Eyra, added Sysroot/Coreutils/Brush
                 build::BuildCommands::All => build::build_all(arch)?,
                 build::BuildCommands::Kernel => build::build_kernel_only(arch)?,
                 build::BuildCommands::Userspace => {
@@ -277,9 +276,9 @@ fn main() -> Result<()> {
                 }
                 build::BuildCommands::Initramfs => build::create_initramfs(arch)?,
                 build::BuildCommands::Iso => build::build_iso(arch)?,
-                build::BuildCommands::Eyra { arch: eyra_arch, only } => {
-                    build::build_eyra(&eyra_arch, only.as_deref())?;
-                }
+                build::BuildCommands::Sysroot => build::sysroot::build_sysroot(arch)?,
+                build::BuildCommands::Coreutils => build::external::build_coreutils(arch)?,
+                build::BuildCommands::Brush => build::external::build_brush(arch)?,
             }
         },
         Commands::Vm(cmd) => match cmd {

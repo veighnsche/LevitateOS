@@ -13,5 +13,5 @@ name = "init"
 path = "src/main.rs"
 
 [dependencies]
-# TEAM_404: libsyscall moved to eyra/ directory
-libsyscall = { path = "../eyra/libsyscall" }
+# TEAM_435: libsyscall moved back to userspace/ (eyra removed)
+libsyscall = { path = "../libsyscall" }
