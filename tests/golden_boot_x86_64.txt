@@ -4,10 +4,10 @@ RikdHeap initialized.
 [BOOT] Protocol: Limine
 [BOOT] Memory: 16 regions, 1766 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
-[MEM] Physical: 0x50000 - 0x6e757000 (452359 pages, 1767 MB)
+[MEM] Physical: 0x50000 - 0x6e741000 (452337 pages, 1766 MB)
 [MEM] Frame allocator initialized
-[CPU] x86_64 PCR initialized at 0xffffffff80052a30
-[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff8003bbf4
+[CPU] x86_64 PCR initialized at 0xffffffff80054a30
+[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff8003d744
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
 [BOOT] Stage 3: Boot Console (DXE)
@@ -36,7 +36,7 @@ Timer initialized.
 [PCI] PciTransport created successfully
 [INPUT] VirtIO Input initialized via PCI.
 Detecting Initramfs...
-Initramfs found at 0xffff80006e777000 - 0xffff80006f3ce400 (12940288 bytes)
+Initramfs found at 0xffff80006e761000 - 0xffff80006f3b8400 (12940288 bytes)
 Files in initramfs:
  - .
  - hello.txt

@@ -4,6 +4,7 @@
 [workspace]
 members = [
     "brush",
+    "cgull-test",           # TEAM_430: c-gull syscall compatibility test
     "eyra-hello",
     "eyra-test-runner",
     "libsyscall",
