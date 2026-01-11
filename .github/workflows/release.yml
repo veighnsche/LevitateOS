@@ -72,7 +72,10 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src, rust-std
-          targets: x86_64-unknown-none, x86_64-unknown-linux-gnu
+          targets: x86_64-unknown-none
+
+      - name: Install x86_64 linux target
+        run: rustup target add x86_64-unknown-linux-gnu
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -119,7 +122,10 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src, rust-std
-          targets: aarch64-unknown-none, aarch64-unknown-linux-gnu
+          targets: aarch64-unknown-none
+
+      - name: Install aarch64 linux target
+        run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
