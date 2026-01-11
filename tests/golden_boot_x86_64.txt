@@ -4,10 +4,10 @@ RikdHeap initialized.
 [BOOT] Protocol: Limine
 [BOOT] Memory: 16 regions, 1769 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
-[MEM] Physical: 0x50000 - 0x6ea31000 (453089 pages, 1769 MB)
+[MEM] Physical: 0x50000 - 0x6ea35000 (453093 pages, 1769 MB)
 [MEM] Frame allocator initialized
-[CPU] x86_64 PCR initialized at 0xffffffff80055a30
-[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff8003f024
+[CPU] x86_64 PCR initialized at 0xffffffff80056a30
+[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff800400a4
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
 [BOOT] Stage 3: Boot Console (DXE)
@@ -36,13 +36,12 @@ Timer initialized.
 [PCI] PciTransport created successfully
 [INPUT] VirtIO Input initialized via PCI.
 Detecting Initramfs...
-Initramfs found at 0xffff80006ea51000 - 0xffff80006f3a2800 (9771008 bytes)
+Initramfs found at 0xffff80006ea55000 - 0xffff80006f395e00 (9702912 bytes)
 Files in initramfs:
  - .
  - hello.txt
  - init
  - shell
- - hello-cgull
  - coreutils
  - cat
  - echo
@@ -77,12 +76,14 @@ Mounting filesystems...
 [BOOT] Mounted tmpfs at /tmp
 [DEVTMPFS] Initialized with null, zero, full, urandom devices
 [BOOT] Mounted devtmpfs at /dev
-[GPU_TEST] Flush count: 49
+[GPU_TEST] Flush count: 48
 [GPU_TEST] Framebuffer: 400 non-black pixels of 1024000 total
 
 [SUCCESS] LevitateOS System Ready.
 --------------------------------------
+[TASK_EXIT] PID 0 marked Exited, calling schedule()
 [TASK] Entering user task PID=1 at 0x10000
+[TASK] Setting FS_BASE=0x7ffffffe0000 for PID=1
 [INIT] PID 1 starting...
 [SYSCALL] spawn('eyra-test-runner')
 [INIT] Spawning shell...
@@ -93,38 +94,57 @@ ELF Header e_ident verified
 [MMU] Zeroing L0 table at va [MASKED]
 [ELF] Copying segment: src[0]=7f to VA 10000
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=50 to VA fa420
+[ELF] Copying segment: src[0]=50 to VA fa3a0
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=8 to VA 6c1a48
+[ELF] Copying segment: src[0]=8 to VA 6c19c8
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
-[ELF] Copying segment: src[0]=0 to VA 6fb878
+[ELF] Copying segment: src[0]=0 to VA 6fb7f8
 [ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
 [ELF] PIE binary loaded at base 0x10000, self-relocating
 [TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
-[TASK] UserTask::new: PID=2 Entry=0x69d56c
-[SPAWN] Created process PID=2 entry=0x69d56c sp=0x7ffffffeff30 brk=0x701000
+[TASK] UserTask::new: PID=2 Entry=0x69d4ec
+[SPAWN] Created process PID=2 entry=0x69d4ec sp=0x7ffffffeff30 brk=0x701000
 [INIT] Shell spawned as PID 2
-[TASK] Entering user task PID=2 at 0x69d56c
-EXCEPTION: INVALID OPCODE at 6b6555
-Code at RIP: 0f 0b 0f 0b 0f 0b 0f 0b 0f 0b 0f 0b 55 41 57 41 
-Code before: 00 00 00 0f 05 48 85 c0 75 0e 5b 41 5e 41 5f c3 
-Stack at 7ffffffefe90:
-  SP+0 : 7ffffffeff38
-  SP+8 : 7ffffffeff48
-  SP+16: 1
-  SP+24: 6b6038
-  SP+32: 0
-  SP+40: 0
-  SP+48: 0
-  SP+56: 0
-  SP+64: 0
-  SP+72: 0
-  SP+80: 0
+[TASK] Entering user task PID=2 at 0x69d4ec
+[TASK] Setting FS_BASE=0x7ffffffe0000 for PID=2
+[MPROTECT] Changed protection for 58 pages at 0x6c1000-0x6fb000 prot=0x1
+[MMAP] Mapped 5 pages at 0x100000000000 with prot=0x3
+[SYSCALL] arch_prctl(code=0x1002, addr=0x100000004260)
+[SYSCALL] ppoll(nfds=3) -> 0 ready
+[SYSCALL] sigaltstack(ss=0x0, old_ss=0x7ffffffefd20) -> 0
+[MMAP] Mapped 16 pages at 0x100000005000 with prot=0x3
+[MMAP] Mapped 16 pages at 0x100000015000 with prot=0x3
+[SYSCALL] getrandom(buf=0x7ffffffed060, len=16, flags=0x4)
+[SYSCALL] sched_getaffinity(0, 128, 0x7ffffffecff0) -> 128
+[SYSCALL] epoll_create1(524288) -> fd=3
+[SYSCALL] eventfd2(initval=0, flags=0x80800) -> fd=4
+[SYSCALL] epoll_ctl(epfd=3, op=1, fd=4) -> 0
+[SYSCALL] socketpair: created fds [6, 7]
+[SYSCALL] epoll_ctl(epfd=5, op=1, fd=8) -> 0
+[MMAP] Mapped 521 pages at 0x100000025000 with prot=0x0
+[MPROTECT] Changed protection for 517 pages at 0x100000029000-0x10000022e000 prot=0x3
+[SYSCALL] clone(flags=0x13d0f00, stack=0x100000228ff0, tls=0x10000022d260)
+[SYSCALL] clone: created thread TID=3 for parent PID=2
+EXCEPTION: INVALID OPCODE at 6aa71f
+Code at RIP: 0f 0b 31 c0 c3 f6 c1 20 75 1a 41 83 f8 ff 74 4b 
+Code before: 00 00 48 63 ff b8 e7 00 00 00 0f 05 0f 0b 0f 0b 
+Stack at 7ffffffe7828:
+  SP+0 : 64d3a1
+  SP+8 : 0
+  SP+16: 0
+  SP+24: 8000000000000000
+  SP+32: 7ffffffe7680
+  SP+40: 8000000000000000
+  SP+48: 20
+  SP+56: 10
+  SP+64: 10
+  SP+72: 10
+  SP+80: 69ee1f
   SP+88: 0
-  SP+96: 0
-  SP+104: ffffffff80b4a1a0
-  SP+112: 0
+  SP+96: 7ffffffed610
+  SP+104: 1000000181a0
+  SP+112: 8000000000000000
   SP+120: 0
 KERNEL PANIC: panicked at lib/hal/src/x86_64/cpu/exceptions.rs:245:5:
 EXCEPTION: INVALID OPCODE
-6b6555
+6aa71f
