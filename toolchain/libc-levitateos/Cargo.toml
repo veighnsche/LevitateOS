@@ -1,0 +1,32 @@
+[package]
+name = "libc-levitateos"
+version = "0.1.0"
+edition = "2021"
+description = "Static libc for LevitateOS built from c-gull"
+
+# Build as a static library that can be linked like libc.a
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+# c-gull provides libc implementation
+c-gull = { path = "../c-ward/c-gull", default-features = false, features = [
+    "take-charge",           # c-gull takes control of the process
+    "thread",                # Threading support
+    "call-main",             # Call extern "C" main
+    "malloc-via-crates",     # malloc from Rust crates (not system)
+    "threadsafe-setenv",     # Thread-safe setenv
+    "experimental-relocate", # Support static PIE executables
+    "extra-syscalls",        # Extended syscall support
+    "global-allocator",      # Provide global allocator for no-std
+    "panic-handler-trap",    # Provide panic handler (trap on panic)
+    "eh-personality-continue", # EH personality (continue unwinding)
+    "todo",                  # Stub implementations for incomplete functions
+] }
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+
+[workspace]

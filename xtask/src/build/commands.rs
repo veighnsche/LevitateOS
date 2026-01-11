@@ -135,7 +135,31 @@ pub fn create_initramfs(arch: &str) -> Result<()> {
         count += 1;
         println!("  📦 Added brush shell");
     }
-    
+
+    // TEAM_430: Add c-gull syscall test
+    let cgull_test_src = PathBuf::from(format!("crates/userspace/eyra/target/{}/release/cgull-test", eyra_target));
+    if cgull_test_src.exists() {
+        std::fs::copy(&cgull_test_src, root.join("cgull-test"))?;
+        count += 1;
+        println!("  📦 Added cgull-test");
+    }
+
+    // TEAM_424: Add syscall conformance test
+    let conformance_src = PathBuf::from(format!("crates/userspace/eyra/target/{}/release/syscall-conformance", eyra_target));
+    if conformance_src.exists() {
+        std::fs::copy(&conformance_src, root.join("syscall-conformance"))?;
+        count += 1;
+        println!("  📦 Added syscall-conformance");
+    }
+
+    // c-gull libc test binary (built with standalone c-gull sysroot)
+    let hello_cgull_src = PathBuf::from(format!("toolchain/libc-levitateos/test/rust-test/target/{}/release/hello_rust", eyra_target));
+    if hello_cgull_src.exists() {
+        std::fs::copy(&hello_cgull_src, root.join("hello-cgull"))?;
+        count += 1;
+        println!("  📦 Added hello-cgull (c-gull libc test)");
+    }
+
     // TEAM_380: Copy coreutils multi-call binary and create symlinks
     let coreutils_src = PathBuf::from(format!(
         "crates/userspace/eyra/coreutils/target/{}/release/coreutils",

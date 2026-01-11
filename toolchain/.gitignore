@@ -1,0 +1,10 @@
+# Build outputs
+sysroot/
+*/target/
+
+# External repos (cloned, not submodules yet)
+c-ward/
+unmodified-coreutils/
+
+# Custom targets (not needed - we use standard Linux target)
+targets/
