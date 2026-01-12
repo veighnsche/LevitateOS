@@ -121,10 +121,30 @@ Shell is fully interactive. Remaining issues discovered:
 | `arch/x86_64/src/lib.rs` | Added `Stat = 4` to enum and `from_u64()` match |
 | `syscall/src/lib.rs` | Wired Stat to sys_fstatat dispatcher |
 
+### Session 4 (2026-01-12)
+- Fixed "Permission denied" error when running commands like `cat`, `ls`
+- Root cause: `vfs_stat()` wasn't following symlinks
+  - `/bin/cat` is a symlink to `busybox`
+  - stat() returned the symlink's inode (mode=S_IFLNK) instead of target's
+  - Shell interpreted S_IFLNK mode as "not executable" → EACCES
+- Fix: Added `resolve_symlinks()` helper in `vfs/src/dispatch.rs`
+  - Follows symlink chain up to 8 levels deep
+  - Added `VfsError::TooManySymlinks` (ELOOP) for loop detection
+  - Added `vfs_lstat()` for cases where symlinks shouldn't be followed
+
+## Files Modified (Session 4)
+
+| File | Change |
+|------|--------|
+| `vfs/src/dispatch.rs` | Added `resolve_symlinks()`, modified `vfs_stat()`, added `vfs_lstat()` |
+| `vfs/src/error.rs` | Added `TooManySymlinks` variant |
+| `vfs/src/lib.rs` | Exported `vfs_lstat` |
+
 ## Remaining Work
 
 - [x] Implement syscall 4 (`stat` on x86_64) - DONE
 - [x] Investigate why `cat` returns "Function not implemented" - RESOLVED (was stat issue)
+- [x] Fix "Permission denied" for commands - RESOLVED (symlink following in stat)
 
 **New issues discovered:**
 - `mount: mounting proc on /proc failed: Invalid argument` - procfs not implemented
