@@ -93,7 +93,8 @@ pub fn run(arch: &str, phase: Option<&str>) -> Result<()> {
     std::thread::sleep(Duration::from_millis(500));
 
     // Run the test script with the phase argument
-    let test_cmd = format!("sh /root/test-core.sh {}\n", phase_arg);
+    // TEAM_466: Script at root level (kernel has issues with subdirectory files)
+    let test_cmd = format!("sh /test-core.sh {}\n", phase_arg);
     println!("\nSending: {}", test_cmd.trim());
     stdin.write_all(test_cmd.as_bytes())?;
     stdin.flush()?;

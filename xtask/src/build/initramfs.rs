@@ -213,9 +213,9 @@ pub fn create_busybox_initramfs(arch: &str) -> Result<()> {
 ::sysinit:/bin/mount -t proc proc /proc
 ::sysinit:/bin/mount -t sysfs sysfs /sys
 
-# Note: There's a kernel bug where initramfs subdirectory contents don't show in readdir
-# Files CAN be read by exact path, but ls won't list them
-# Run: sh /root/test-core.sh to test coreutils (has some known failures due to this)
+# Test scripts at root level (kernel has issues with subdirectory files)
+# Run: sh /test-core.sh [phase] to test coreutils
+# Run: sh /test.sh to test basic ash functionality
 
 # Start interactive shell
 ::wait:-/bin/ash
@@ -250,14 +250,15 @@ alias ll='ls -la'
 
     // TEAM_459: Test script to verify ash shell works
     // TEAM_466: Now loaded from external file
-    std::fs::write(root.join("root/test.sh"), TEST_SH)?;
-    make_executable(&root.join("root/test.sh"))?;
+    // TEAM_466: Moved to root level - kernel has issues with initramfs subdirectory files
+    std::fs::write(root.join("test.sh"), TEST_SH)?;
+    make_executable(&root.join("test.sh"))?;
 
     // TEAM_460: Comprehensive coreutils test suite - deliberate dependency order
     // TEAM_465: Added phase selection support
-    // TEAM_466: Now loaded from external file
-    std::fs::write(root.join("root/test-core.sh"), TEST_CORE_SH)?;
-    make_executable(&root.join("root/test-core.sh"))?;
+    // TEAM_466: Now loaded from external file, moved to root level
+    std::fs::write(root.join("test-core.sh"), TEST_CORE_SH)?;
+    make_executable(&root.join("test-core.sh"))?;
 
     // Show what we created
     let applet_count = super::busybox::applets().len();

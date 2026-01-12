@@ -1,8 +1,17 @@
 # LevitateOS
 
-**A General Purpose Unix-Compatible Operating System**
+**An Experimental AI-Written Operating System**
 
-LevitateOS is a modern OS written in Rust that aims to **run any Unix program without modification**. Built from scratch with memory safety guarantees, it provides Linux binary compatibility so existing programs just work.
+> ⚠️ **This is NOT a production operating system.**
+>
+> LevitateOS is an experiment: *How far can I get building a general-purpose, POSIX-compatible, musl/BusyBox operating system written entirely by AI agents?*
+>
+> Yes, the code looks bad — the goal is making it work, not winning beauty contests.  
+> No, I didn't care about security — only capability.  
+> Yes, a Linux app should run on it. That's the whole point.  
+> This is my own kernel, built from scratch.
+
+LevitateOS is a Rust-based OS that aims to **run unmodified Linux binaries**. It targets POSIX compatibility via musl libc and BusyBox, providing a minimal but functional Unix environment.
 
 | Target | Status |
 |--------|--------|
