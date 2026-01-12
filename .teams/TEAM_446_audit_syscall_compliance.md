@@ -6,9 +6,9 @@ Focus on critical shell-related syscalls that are marked as "implemented".
 
 ## Summary
 
-**2 BUGS FOUND:**
-1. **x86_64 Stat struct has wrong layout** - Using 128-byte aarch64 layout instead of 144-byte x86_64 layout
-2. **waitpid status encoding wrong** - Writing raw exit code instead of `exit_code << 8`
+**2 BUGS FOUND AND FIXED:**
+1. **x86_64 Stat struct has wrong layout** - FIXED: Created architecture-specific Stat structs
+2. **waitpid status encoding wrong** - FIXED: Now encodes as `(exit_code & 0xFF) << 8`
 
 ## Detailed Findings
 
@@ -133,9 +133,40 @@ let encoded_status = sig_num & 0x7F;  // + 0x80 if core dumped
 
 ## Session Log
 
-### 2026-01-12
+### 2026-01-12 (Investigation)
 - Compared struct layouts using C sizeof/offsetof
 - Found x86_64 Stat struct mismatch (144 vs 128 bytes)
 - Found waitpid status encoding bug
 - Verified termios, sigaction, errno are correct
 - Documented findings and placed breadcrumbs
+
+### 2026-01-12 (Fixes Applied)
+**Bug 1 Fix - x86_64 Stat struct:**
+- Created architecture-specific `Stat` structs in `lib/types/src/lib.rs`
+- aarch64: 128-byte asm-generic layout (unchanged)
+- x86_64: 144-byte layout with st_nlink (u64) before st_mode
+- Added compile-time size assertions for both architectures
+- Updated API: `new_pipe()` and `from_inode_data()` now take i64 for blksize
+- Updated all callers: `stat.rs`, `statx.rs`, `inode.rs`
+
+**Bug 2 Fix - waitpid status encoding:**
+- Modified `write_exit_status()` in `lifecycle.rs`
+- Now encodes status as `(exit_code & 0xFF) << 8`
+- `WIFEXITED()` and `WEXITSTATUS()` macros will now work correctly
+
+**Additional fixes found during build:**
+- Added `#[cfg(target_arch = "x86_64")]` to `SyscallNumber::Open` dispatch
+- Added `#[cfg(target_arch = "x86_64")]` to `SyscallNumber::Socketpair` dispatch
+- Made `write_to_user_buf()` public for levitate crate access
+
+**Files modified:**
+- `lib/types/src/lib.rs` - Architecture-specific Stat structs
+- `syscall/src/process/lifecycle.rs` - waitpid status encoding
+- `syscall/src/fs/stat.rs` - Updated new_pipe call
+- `syscall/src/fs/statx.rs` - Updated new_pipe call and stat_to_statx casts
+- `syscall/src/lib.rs` - Architecture-specific syscall dispatch, pub visibility
+- `vfs/src/inode.rs` - Updated blksize cast
+
+**Build verification:**
+- x86_64: ✅ Builds successfully
+- aarch64: ✅ Builds successfully
