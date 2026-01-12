@@ -41,6 +41,7 @@ pub struct ExternalApp {
 ///
 /// TEAM_444: brush removed - it's for far future. Use built-in shell first
 /// to verify musl works, then add dash (simpler), then brush (complex).
+/// TEAM_459: coreutils no longer required - BusyBox provides all utilities.
 pub static APPS: &[ExternalApp] = &[
     ExternalApp {
         name: "coreutils",
@@ -50,7 +51,9 @@ pub static APPS: &[ExternalApp] = &[
         // TEAM_444: With musl, we can potentially enable more features
         // since musl has better libc coverage than c-gull
         features: "cat,echo,head,mkdir,pwd,rm,tail,touch",
-        required: true,
+        // TEAM_459: Not required - BusyBox provides all utilities now.
+        // Can still be built manually with: cargo xtask build coreutils
+        required: false,
         symlinks: &["cat", "echo", "head", "mkdir", "pwd", "rm", "tail", "touch"],
     },
     // NOTE: brush removed from default builds - it's complex and for later.
@@ -213,8 +216,10 @@ pub fn optional_apps() -> impl Iterator<Item = &'static ExternalApp> {
 }
 
 /// Build all apps that aren't already built (for build all/iso)
+/// TEAM_459: Only build required apps (not all apps in registry)
+/// Apps like coreutils are optional now that BusyBox is the primary.
 pub fn ensure_all_built(arch: &str) -> Result<()> {
-    for app in APPS {
+    for app in required_apps() {
         app.ensure_built(arch)?;
     }
     Ok(())
