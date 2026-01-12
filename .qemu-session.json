@@ -1,0 +1,6 @@
+{
+  "pid": 193629,
+  "qmp_socket": "./qemu-session.sock",
+  "arch": "x86_64",
+  "started_at": "SystemTime { tv_sec: 1768254261, tv_nsec: 617040603 }"
+}

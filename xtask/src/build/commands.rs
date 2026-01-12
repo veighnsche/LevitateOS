@@ -403,7 +403,8 @@ echo "=== ALL TESTS COMPLETE ==="
     }
 
     // TEAM_460: Comprehensive coreutils test suite - deliberate dependency order
-    // Run with: sh /root/test-core.sh
+    // TEAM_465: Added phase selection support
+    // Run with: sh /root/test-core.sh [PHASE]
     let test_core = r#"#!/bin/ash
 #=============================================================================
 # LevitateOS BusyBox Coreutils Test Suite
@@ -423,8 +424,36 @@ echo "=== ALL TESTS COMPLETE ==="
 #   Phase 12: Command substitution
 #   Phase 13: Find (needs directory tree)
 #
-# Test folder: /tmp/coretest (created fresh, cleaned up after)
+# Test folder: /root/coretest (created fresh, cleaned up after)
+#
+# Usage: test-core.sh [PHASE]
+#   PHASE: 1-13, "all" (default), or range like "2-5"
+#   Examples:
+#     test-core.sh         # Run all phases
+#     test-core.sh 2       # Run only phase 2
+#     test-core.sh 2-5     # Run phases 2 through 5
 #=============================================================================
+
+# Parse phase argument
+PHASE_ARG="${1:-all}"
+
+# Determine which phases to run
+run_phase() {
+    phase=$1
+    if [ "$PHASE_ARG" = "all" ]; then
+        return 0  # run all
+    elif echo "$PHASE_ARG" | grep -q "-"; then
+        # Range like "2-5"
+        start=$(echo "$PHASE_ARG" | cut -d- -f1)
+        end=$(echo "$PHASE_ARG" | cut -d- -f2)
+        [ "$phase" -ge "$start" ] && [ "$phase" -le "$end" ]
+        return $?
+    else
+        # Single phase
+        [ "$phase" -eq "$PHASE_ARG" ]
+        return $?
+    fi
+}
 
 PASS=0
 FAIL=0
@@ -489,9 +518,14 @@ check_contains() {
 echo "========================================"
 echo " LevitateOS Coreutils Test Suite"
 echo "========================================"
+[ "$PHASE_ARG" != "all" ] && echo " Running phase(s): $PHASE_ARG"
 echo ""
 
+# Setup test directory variable (used by phases 2+)
+TEST_DIR="/root/coretest"
+
 #-----------------------------------------------------------------------------
+if run_phase 1; then
 echo "[Phase 1] Basic Output (echo, printf)"
 echo "----------------------------------------"
 
@@ -514,13 +548,12 @@ OUT=$(printf "x=%d y=%s" 10 "hi")
 check_eq "printf multi" "x=10 y=hi" "$OUT"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 2; then
 echo "[Phase 2] Directory Creation (mkdir)"
 echo "----------------------------------------"
-
-# Use /root for testing since /tmp has issues with empty directories
-TEST_DIR="/root/coretest"
 
 # Clean any previous run
 rm -rf "$TEST_DIR" 2>/dev/null
@@ -538,10 +571,23 @@ check_file_exists "mkdir -p deep" "$TEST_DIR/deep/nested/path"
 cd "$TEST_DIR"
 
 echo ""
+fi
+
+# Ensure test dir exists for phases 3+ (even if phase 2 was skipped)
+if [ -d "$TEST_DIR" ]; then
+    cd "$TEST_DIR"
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 3; then
 echo "[Phase 3] File Creation (touch, echo >)"
 echo "----------------------------------------"
+
+# Create test dir if phase 2 was skipped
+if [ ! -d "$TEST_DIR" ]; then
+    mkdir -p "$TEST_DIR"
+    cd "$TEST_DIR"
+fi
 
 touch file1.txt
 check_file_exists "touch create" "file1.txt"
@@ -555,8 +601,10 @@ echo "line3" >> multi.txt
 check_file_exists "echo >> append" "multi.txt"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 4; then
 echo "[Phase 4] File Reading (cat, head, tail, wc)"
 echo "----------------------------------------"
 
@@ -594,8 +642,10 @@ OUT=$(echo $OUT)
 check_eq "wc -c" "5" "$OUT"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 5; then
 echo "[Phase 5] File Manipulation (cp, mv, rm, ln)"
 echo "----------------------------------------"
 
@@ -638,8 +688,10 @@ rmdir emptydir
 check_file_gone "rmdir removes empty" "emptydir"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 6; then
 echo "[Phase 6] Directory Listing (ls, pwd, basename, dirname)"
 echo "----------------------------------------"
 
@@ -667,8 +719,10 @@ OUT=$(dirname /path/to/file.txt)
 check_eq "dirname" "/path/to" "$OUT"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 7; then
 echo "[Phase 7] Text Processing (grep, sed, tr, cut, sort, uniq)"
 echo "----------------------------------------"
 
@@ -746,8 +800,10 @@ b"
 check_eq "sort | uniq" "$EXPECTED" "$OUT"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 8; then
 echo "[Phase 8] Conditionals (test, true, false, expr)"
 echo "----------------------------------------"
 
@@ -808,8 +864,10 @@ OUT=$(expr 10 / 3)
 check_eq "expr div" "3" "$OUT"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 9; then
 echo "[Phase 9] Iteration (seq, xargs)"
 echo "----------------------------------------"
 
@@ -835,8 +893,10 @@ c"
 check_eq "xargs -n1" "$EXPECTED" "$OUT"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 10; then
 echo "[Phase 10] System Info (uname, id, hostname)"
 echo "----------------------------------------"
 
@@ -859,8 +919,10 @@ hostname >/dev/null 2>&1
 check_exit "hostname runs" "0" "$?"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 11; then
 echo "[Phase 11] Pipes and Redirection"
 echo "----------------------------------------"
 
@@ -899,8 +961,10 @@ echo "gone" > /dev/null
 check_exit "/dev/null write" "0" "$?"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 12; then
 echo "[Phase 12] Command Substitution"
 echo "----------------------------------------"
 
@@ -931,8 +995,10 @@ VAR=`echo "backtick"`
 check_eq "backtick subst" "backtick" "$VAR"
 
 echo ""
+fi
 
 #-----------------------------------------------------------------------------
+if run_phase 13; then
 echo "[Phase 13] Find"
 echo "----------------------------------------"
 
@@ -954,6 +1020,7 @@ OUT=$(find finddir -type d 2>/dev/null | sort)
 check_contains "find -type d" "finddir/sub1" "$OUT"
 
 echo ""
+fi
 
 #=============================================================================
 # Cleanup - remove test directory

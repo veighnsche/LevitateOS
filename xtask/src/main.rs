@@ -143,13 +143,17 @@ pub struct RunArgs {
 
 #[derive(clap::Args)]
 pub struct TestArgs {
-    /// Which test suite to run (unit, behavior, regress, gicv3, or all)
+    /// Which test suite to run (unit, behavior, regress, gicv3, coreutils, or all)
     #[arg(default_value = "all")]
     pub suite: String,
 
     /// Update golden logs with current output (Rule 4 Refined)
     #[arg(long)]
     pub update: bool,
+
+    /// TEAM_465: Phase to run for coreutils tests (e.g., "all", "2", "1-5")
+    #[arg(long, default_value = "all")]
+    pub phase: String,
 }
 
 fn main() -> Result<()> {
@@ -209,8 +213,10 @@ fn main() -> Result<()> {
             "alpine" => tests::screenshot::run(Some("alpine"))?,
             "levitate" | "display" => tests::screenshot::run(Some("levitate"))?,
             "userspace" => tests::screenshot::run(Some("userspace"))?,
+            // TEAM_465: Coreutils test suite
+            "coreutils" | "core" => tests::coreutils::run(arch, Some(args.phase.as_str()))?,
             // TEAM_435: Eyra test removed (Eyra replaced by c-gull)
-            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', or 'all'", other),
+            other => bail!("Unknown test suite: {}. Use 'unit', 'behavior', 'regress', 'gicv3', 'coreutils', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', or 'all'", other),
         },
         // TEAM_326: Refactored command handlers
         Commands::Run(args) => {
