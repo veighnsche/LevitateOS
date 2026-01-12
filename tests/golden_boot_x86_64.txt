@@ -4,10 +4,10 @@ RikdHeap initialized.
 [BOOT] Protocol: Limine
 [BOOT] Memory: 16 regions, 1776 MB usable
 [BOOT] Stage 2: Memory & MMU (PEI)
-[MEM] Physical: 0x50000 - 0x6f0ec000 (454812 pages, 1776 MB)
+[MEM] Physical: 0x50000 - 0x6f0dd000 (454797 pages, 1776 MB)
 [MEM] Frame allocator initialized
-[CPU] x86_64 PCR initialized at 0xffffffff8005da50
-[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff80042aa4
+[CPU] x86_64 PCR initialized at 0xffffffff8005ea50
+[SYSCALL] x86_64 syscall MSRs initialized, LSTAR=0xffffffff80043a74
 [BOOT] Stage 2: Memory & MMU (PEI)
 Exceptions initialized.
 [BOOT] Stage 3: Boot Console (DXE)
@@ -36,7 +36,7 @@ Timer initialized.
 [PCI] PciTransport created successfully
 [INPUT] VirtIO Input initialized via PCI.
 Detecting Initramfs...
-Initramfs found at 0xffff80006f10c000 - 0xffff80006f359a00 (2415104 bytes)
+Initramfs found at 0xffff80006f0fd000 - 0xffff80006f34aa00 (2415104 bytes)
 Files in initramfs:
  - .
  - bin
@@ -146,21 +146,55 @@ Mounting filesystems...
 [SUCCESS] LevitateOS System Ready.
 --------------------------------------
 [TASK_EXIT] PID 0 marked Exited, calling schedule()
-[SWITCH] switch_to called: old PID=0 (ptr=0xffffffff800673a0), new PID=1 (ptr=0xffffffff804630d0)
+[SWITCH] switch_to called: old PID=0 (ptr=0xffffffff800683a0), new PID=1 (ptr=0xffffffff804640d0)
 [SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=1: ctx.rsp=0xffffffff804630c0, ctx.rip=0xffffffff80042bc8, ctx.rbx=0xffffffff80030e00
+[SWITCH] To PID=1: ctx.rsp=0xffffffff804640c0, ctx.rip=0xffffffff80043b98, ctx.rbx=0xffffffff80031dc0
 [SWITCH] Frame at rsp: rcx=0x0, rsp=0x0, rax=0x2
 [SWITCH] Raw at offset 56: 0x0, at offset 120: 0x0
-[TASK] Entering user task PID=1 at 0x4015b5 (wrapper fn=0xffffffff80030e00, exception_return=0xffffffff80042b50)
+[TASK] Entering user task PID=1 at 0x4015b5 (wrapper fn=0xffffffff80031dc0, exception_return=0xffffffff80043b20)
 [TASK] Setting FS_BASE=0x7ffffffe0000 for PID=1
 [TASK] Calling enter_user_mode(0x4015b5, 0x7ffffffeff30)
+[SYSCALL] nr=158 args=[0x1002, 0x526278, 0xe7, 0xffffffff80465710]
 [SYSCALL] arch_prctl(code=0x1002, addr=0x526278)
+[SYSCALL] nr=218 args=[0x526b6c, 0x526278, 0xe7, 0xffffffff80465710]
+[SYSCALL] nr=102 args=[0x7ffffffeffe7, 0x2f, 0x0, 0xffffffff80465710]
+[SYSCALL] nr=14 args=[0x0, 0x5265d8, 0x0, 0x8]
+[SYSCALL] nr=39 args=[0x0, 0x5265d8, 0x0, 0x8]
+[SYSCALL] nr=169 args=[0xfee1dead, 0x28121969, 0x0, 0x8]
 [REBOOT] CAD_OFF - Ctrl+Alt+Del disabled
+[SYSCALL] nr=2 args=[0x50160d, 0x8002, 0x0, 0x0]
+[SYSCALL] nr=3 args=[0x6, 0x0, 0x0, 0x0]
+[SYSCALL] nr=16 args=[0x0, 0x5600, 0x7ffffffefd8c, 0x0]
+[SYSCALL] nr=12 args=[0x0, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=12 args=[0x529000, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=9 args=[0x0, 0x2000, 0x0, 0x22]
+[MMAP] Request: addr=0x0 len=0x2000 prot=0x0 flags=0x22
+[MMAP] Found free region at 0x100000000000
 [MMAP] Mapped 2 pages at 0x100000000000 with prot=0x0
+[SYSCALL] nr=10 args=[0x100000001000, 0x1000, 0x3, 0x22]
 [MPROTECT] Changed protection for 1 pages at 0x100000001000-0x100000002000 prot=0x3
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000002000
 [MMAP] Mapped 1 pages at 0x100000002000 with prot=0x3
+[SYSCALL] nr=16 args=[0x0, 0x5401, 0x7ffffffefd2c, 0x10000000221c]
+[SYSCALL] nr=16 args=[0x0, 0x5402, 0x7ffffffefd2c, 0x10000000221c]
+[SYSCALL] nr=80 args=[0x50d89d, 0x5402, 0x7ffffffefd2c, 0x10000000221c]
+[SYSCALL] nr=112 args=[0x0, 0x5402, 0x4ced42, 0x10000000221c]
+[SYSCALL] nr=2 args=[0x50fee7, 0x8000, 0x1b6, 0x50ff6d]
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000003000
 [MMAP] Mapped 1 pages at 0x100000003000 with prot=0x3
+[SYSCALL] nr=0 args=[0x6, 0x100000003120, 0x400, 0x2]
+[SYSCALL] nr=0 args=[0x6, 0x100000003120, 0x400, 0x1000000032bf]
+[SYSCALL] nr=3 args=[0x6, 0x100000003520, 0x0, 0x1000000032bf]
+[SYSCALL] nr=11 args=[0x100000003000, 0x1000, 0x1000, 0x2]
 [MUNMAP] Unmapped 0x100000003000-0x100000004000
+[SYSCALL] nr=14 args=[0x1, 0x7ffffffefd40, 0x0, 0x8]
+[SYSCALL] nr=13 args=[0x14, 0x7ffffffefd20, 0x0, 0x8]
+[SYSCALL] nr=13 args=[0x13, 0x7ffffffefd20, 0x0, 0x8]
+[SYSCALL] nr=58 args=[0x100000002430, 0x7ffffffefd20, 0x4b9fd0, 0x8]
 [SYSCALL] clone(flags=0x11, stack=0x0, tls=0x0)
 [SYSCALL] clone: fork mode (no CLONE_VM)
 [FORK] Creating fork of PID=1
@@ -177,40 +211,143 @@ Mounting filesystems...
 [FORK] VMA 6: 0x100000001000-0x100000002000 flags=VmaFlags(READ | WRITE)
 [FORK] VMA 7: 0x100000002000-0x100000003000 flags=VmaFlags(READ | WRITE)
 [FORK] VMA 8: 0x7ffffff70000-0x7fffffff0000 flags=VmaFlags(READ | WRITE)
-[FORK] Address space copy complete, child_ttbr0=0x6e10f000, 426 pages copied
-[FORK] Copied address space, child_ttbr0=0x6e10f000
-[FORK] Child frame at 0xffffffff80468dc0: rcx=0x4d5d54, rsp=0x7ffffffefd10
+[FORK] Address space copy complete, child_ttbr0=0x6e11e000, 426 pages copied
+[FORK] Copied address space, child_ttbr0=0x6e11e000
+[FORK] Child frame at 0xffffffff80469dc0: rcx=0x4d5d54, rsp=0x7ffffffefd10
 [FORK] Frame readback: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
 [FORK] Child PID=2
-[FORK] Context setup: rsp=0xffffffff80468dc0, rip=0xffffffff80042bc8, rbx=0xffffffff80042b50
-[FORK] Created child TCB: PID=2, ttbr0=0x6e10f000, entry=0x4d5d54
-[FORK] refresh_kernel_mappings: current CR3=0xb69000, child=0x6e10f000
+[FORK] Context setup: rsp=0xffffffff80469dc0, rip=0xffffffff80043b98, rbx=0xffffffff80043b20
+[FORK] Created child TCB: PID=2, ttbr0=0x6e11e000, entry=0x4d5d54
+[FORK] refresh_kernel_mappings: current CR3=0x6f0dc000, child=0x6e11e000
 [FORK] PML4[511] after refresh: parent=0x7fe74000, child=0x7fe74000
 [SCHED] add_task: PID=2
 [SYSCALL] clone: forked process PID=2 from parent PID=1
-[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804630d0), new PID=2 (ptr=0xffffffff80469080)
+[SYSCALL] nr=61 args=[0xffffffffffffffff, 0x0, 0x0, 0x0]
+[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804640d0), new PID=2 (ptr=0xffffffff8046a080)
 [SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=2: ctx.rsp=0xffffffff80468dc0, ctx.rip=0xffffffff80042bc8, ctx.rbx=0xffffffff80042b50
+[SWITCH] To PID=2: ctx.rsp=0xffffffff80469dc0, ctx.rip=0xffffffff80043b98, ctx.rbx=0xffffffff80043b20
 [SWITCH] Frame at rsp: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
 [SWITCH] Raw at offset 56: 0x4d5d54, at offset 120: 0x7ffffffefd10
+[SYSCALL] nr=13 args=[0x13, 0x7ffffffefb20, 0x7ffffffefb40, 0x8]
+[SYSCALL] nr=13 args=[0x14, 0x7ffffffefb20, 0x7ffffffefb40, 0x8]
+[SYSCALL] nr=14 args=[0x1, 0x7ffffffefc68, 0x7ffffffefc68, 0x8]
+[SYSCALL] nr=112 args=[0x1, 0x7ffffffefc68, 0x0, 0x8]
 [SYSCALL] setsid() -> 2
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
+[SYSCALL] nr=16 args=[0x0, 0x5401, 0x7ffffffefcac, 0x8]
+[SYSCALL] nr=16 args=[0x0, 0x5402, 0x7ffffffefcac, 0x8]
+[SYSCALL] nr=39 args=[0x0, 0x5402, 0x7ffffffefcac, 0x8]
+[SYSCALL] nr=41 args=[0x1, 0x80002, 0x0, 0x0]
+[SYSCALL] socket(domain=1, type=524290, protocol=0) -> EAFNOSUPPORT
+[SYSCALL] nr=228 args=[0x0, 0x7ffffffef590, 0x0, 0x0]
+[SYSCALL] nr=44 args=[0xffffffffffffffff, 0x7ffffffef630, 0x61, 0x0]
+[SYSCALL] sendto(sockfd=-1, len=97) -> ENOTSOCK
+[SYSCALL] nr=3 args=[0xffffffffffffffff, 0x0, 0x0, 0x0]
+[SYSCALL] nr=59 args=[0x50fe2b, 0x7ffffffefba0, 0x100000002230, 0x5076f0]
 [SYSCALL] execve('/bin/sh', argv=0x7ffffffefba0, envp=0x100000002230)
-[SYSCALL] execve: prepare_exec_image failed: Elf
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-can't run '/bin/sh': Exec format error
-[SYSCALL] exit_group(-1)
-[SYSCALL] exit(-1)
+ELF Header e_ident verified
+[MMU] Creating user page table...
+[MMU] Allocated L0 table at phys [MASKED]
+[MMU] Zeroing L0 table at va [MASKED]
+[ELF] Copying segment: src[0]=7f to VA 400000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=50 to VA 401000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=2 to VA 4ef000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=f0 to VA 521c10
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
+[EXEC] Prepared image: entry=0x4015b5 sp=0x7ffffffefe70 brk=0x527000 tls=0x7ffffffe0000
+[EXECVE] Success: path='/bin/sh' entry=0x4015b5 sp=0x7ffffffefe70
+[SYSCALL] nr=158 args=[0x1002, 0x526278, 0xe7, 0x0]
+[SYSCALL] arch_prctl(code=0x1002, addr=0x526278)
+[SYSCALL] nr=218 args=[0x526b6c, 0x526278, 0xe7, 0x0]
+[SYSCALL] nr=102 args=[0x7ffffffeff4f, 0x2f, 0x7ffffffeff54, 0x0]
+[SYSCALL] nr=12 args=[0x0, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=12 args=[0x529000, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=9 args=[0x0, 0x2000, 0x0, 0x22]
+[MMAP] Request: addr=0x0 len=0x2000 prot=0x0 flags=0x22
+[MMAP] Found free region at 0x100000000000
+[MMAP] Mapped 2 pages at 0x100000000000 with prot=0x0
+[SYSCALL] nr=10 args=[0x100000001000, 0x1000, 0x3, 0x22]
+[MPROTECT] Changed protection for 1 pages at 0x100000001000-0x100000002000 prot=0x3
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000002000
+[MMAP] Mapped 1 pages at 0x100000002000 with prot=0x3
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000003000
+[MMAP] Mapped 1 pages at 0x100000003000 with prot=0x3
+[SYSCALL] nr=39 args=[0x1000000023b0, 0x100000003e8c, 0x466570, 0x100000003fec]
+[SYSCALL] nr=14 args=[0x1, 0x7ffffffef9e0, 0x0, 0x8]
+[SYSCALL] nr=13 args=[0x11, 0x7ffffffef9c0, 0x0, 0x8]
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000004000
+[MMAP] Mapped 1 pages at 0x100000004000 with prot=0x3
+[SYSCALL] nr=110 args=[0x51dfc5, 0x51dfc4, 0x4, 0x10000000421c]
+[SYSCALL] nr=63 args=[0x7ffffffefb80, 0x10000000412c, 0x0, 0x0]
+[SYSCALL] uname() -> 0
+[SYSCALL] nr=79 args=[0x7ffffffeecd0, 0x1000, 0x0, 0x10000000460c]
+[SYSCALL] nr=13 args=[0x2, 0x0, 0x7ffffffefc10, 0x8]
+[SYSCALL] nr=13 args=[0x2, 0x7ffffffefbf0, 0x0, 0x8]
+[SYSCALL] nr=13 args=[0x3, 0x0, 0x7ffffffefc10, 0x8]
+[SYSCALL] nr=13 args=[0x3, 0x7ffffffefbf0, 0x0, 0x8]
+[SYSCALL] nr=13 args=[0xf, 0x0, 0x7ffffffefc10, 0x8]
+[SYSCALL] nr=13 args=[0x3, 0x7ffffffef780, 0x0, 0x8]
+[SYSCALL] nr=59 args=[0x100000003178, 0x1000000031e0, 0x1000000031f8, 0x8]
+[SYSCALL] execve('/bin/echo', argv=0x1000000031e0, envp=0x1000000031f8)
+ELF Header e_ident verified
+[MMU] Creating user page table...
+[MMU] Allocated L0 table at phys [MASKED]
+[MMU] Zeroing L0 table at va [MASKED]
+[ELF] Copying segment: src[0]=7f to VA 400000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=50 to VA 401000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=2 to VA 4ef000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=f0 to VA 521c10
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
+[EXEC] Prepared image: entry=0x4015b5 sp=0x7ffffffefe60 brk=0x527000 tls=0x7ffffffe0000
+[EXECVE] Success: path='/bin/echo' entry=0x4015b5 sp=0x7ffffffefe60
+[SYSCALL] nr=158 args=[0x1002, 0x526278, 0xe7, 0x0]
+[SYSCALL] arch_prctl(code=0x1002, addr=0x526278)
+[SYSCALL] nr=218 args=[0x526b6c, 0x526278, 0xe7, 0x0]
+[SYSCALL] nr=102 args=[0x7ffffffeff4f, 0x2f, 0x7ffffffeff54, 0x0]
+[SYSCALL] nr=12 args=[0x0, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=12 args=[0x529000, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=9 args=[0x0, 0x2000, 0x0, 0x22]
+[MMAP] Request: addr=0x0 len=0x2000 prot=0x0 flags=0x22
+[MMAP] Found free region at 0x100000000000
+[MMAP] Mapped 2 pages at 0x100000000000 with prot=0x0
+[SYSCALL] nr=10 args=[0x100000001000, 0x1000, 0x3, 0x22]
+[MPROTECT] Changed protection for 1 pages at 0x100000001000-0x100000002000 prot=0x3
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000002000
+[MMAP] Mapped 1 pages at 0x100000002000 with prot=0x3
+[SYSCALL] nr=1 args=[0x1, 0x100000002040, 0x21, 0x0]
+LevitateOS (BusyBox) starting...
+[SYSCALL] nr=11 args=[0x100000002000, 0x1000, 0x1000, 0x1]
+[MUNMAP] Unmapped 0x100000002000-0x100000003000
+[SYSCALL] nr=231 args=[0x0, 0x0, 0x0, 0x1]
+[SYSCALL] exit_group(0)
+[SYSCALL] exit(0)
 [SCHED] add_task: PID=1
 [TASK_EXIT] PID 2 marked Exited, calling schedule()
-[SWITCH] switch_to called: old PID=2 (ptr=0xffffffff80469080), new PID=1 (ptr=0xffffffff804630d0)
+[SWITCH] switch_to called: old PID=2 (ptr=0xffffffff8046a080), new PID=1 (ptr=0xffffffff804640d0)
 [SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=1: ctx.rsp=0xffffffff80462d28, ctx.rip=0xffffffff80042aa2, ctx.rbx=0xffffffff80469070
-[SWITCH] Frame at rsp: rcx=0xffffffff8004dc4c, rsp=0x4d5d54, rax=0xffffffff80031665
-[SWITCH] Raw at offset 56: 0xffffffff8004dc4c, at offset 120: 0x4d5d54
-[SYSCALL] Unknown syscall number: 21
+[SWITCH] To PID=1: ctx.rsp=0xffffffff80463cc8, ctx.rip=0xffffffff80043a72, ctx.rbx=0xffffffff8046a070
+[SWITCH] Frame at rsp: rcx=0xffffffff8004ed13, rsp=0x4d5d54, rax=0xffffffff80032625
+[SWITCH] Raw at offset 56: 0xffffffff8004ed13, at offset 120: 0x4d5d54
+[SYSCALL] nr=21 args=[0x5108a6, 0x6, 0x0, 0x0]
+[SYSCALL] faccessat(dirfd=-100, path='/dev/null/utmp', mode=0x6, flags=0x0)
+[SYSCALL] nr=2 args=[0x5108a6, 0x8041, 0x1b4, 0x0]
+[SYSCALL] nr=3 args=[0xffffffffffffffff, 0x0, 0x0, 0x0]
+[SYSCALL] nr=58 args=[0x100000002490, 0x0, 0x4b9fd0, 0x0]
 [SYSCALL] clone(flags=0x11, stack=0x0, tls=0x0)
 [SYSCALL] clone: fork mode (no CLONE_VM)
 [FORK] Creating fork of PID=1
@@ -227,40 +364,92 @@ Mounting filesystems...
 [FORK] VMA 6: 0x100000001000-0x100000002000 flags=VmaFlags(READ | WRITE)
 [FORK] VMA 7: 0x100000002000-0x100000003000 flags=VmaFlags(READ | WRITE)
 [FORK] VMA 8: 0x7ffffff70000-0x7fffffff0000 flags=VmaFlags(READ | WRITE)
-[FORK] Address space copy complete, child_ttbr0=0x6e2c3000, 426 pages copied
-[FORK] Copied address space, child_ttbr0=0x6e2c3000
-[FORK] Child frame at 0xffffffff8046dd98: rcx=0x4d5d54, rsp=0x7ffffffefd10
+[FORK] Address space copy complete, child_ttbr0=0x1095000, 426 pages copied
+[FORK] Copied address space, child_ttbr0=0x1095000
+[FORK] Child frame at 0xffffffff8046ecd8: rcx=0x4d5d54, rsp=0x7ffffffefd10
 [FORK] Frame readback: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
 [FORK] Child PID=3
-[FORK] Context setup: rsp=0xffffffff8046dd98, rip=0xffffffff80042bc8, rbx=0xffffffff80042b50
-[FORK] Created child TCB: PID=3, ttbr0=0x6e2c3000, entry=0x4d5d54
-[FORK] refresh_kernel_mappings: current CR3=0xb69000, child=0x6e2c3000
+[FORK] Context setup: rsp=0xffffffff8046ecd8, rip=0xffffffff80043b98, rbx=0xffffffff80043b20
+[FORK] Created child TCB: PID=3, ttbr0=0x1095000, entry=0x4d5d54
+[FORK] refresh_kernel_mappings: current CR3=0x6f0dc000, child=0x1095000
 [FORK] PML4[511] after refresh: parent=0x7fe74000, child=0x7fe74000
 [SCHED] add_task: PID=3
 [SYSCALL] clone: forked process PID=3 from parent PID=1
-[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804630d0), new PID=3 (ptr=0xffffffff8046e070)
+[SYSCALL] nr=61 args=[0xffffffffffffffff, 0x0, 0x0, 0x0]
+[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804640d0), new PID=3 (ptr=0xffffffff8046efb0)
 [SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=3: ctx.rsp=0xffffffff8046dd98, ctx.rip=0xffffffff80042bc8, ctx.rbx=0xffffffff80042b50
+[SWITCH] To PID=3: ctx.rsp=0xffffffff8046ecd8, ctx.rip=0xffffffff80043b98, ctx.rbx=0xffffffff80043b20
 [SWITCH] Frame at rsp: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
 [SWITCH] Raw at offset 56: 0x4d5d54, at offset 120: 0x7ffffffefd10
+[SYSCALL] nr=13 args=[0x13, 0x7ffffffefb20, 0x7ffffffefb40, 0x8]
+[SYSCALL] nr=13 args=[0x14, 0x7ffffffefb20, 0x7ffffffefb40, 0x8]
+[SYSCALL] nr=14 args=[0x1, 0x7ffffffefc68, 0x7ffffffefc68, 0x8]
+[SYSCALL] nr=112 args=[0x1, 0x7ffffffefc68, 0x0, 0x8]
 [SYSCALL] setsid() -> 3
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
+[SYSCALL] nr=16 args=[0x0, 0x5401, 0x7ffffffefcac, 0x8]
+[SYSCALL] nr=16 args=[0x0, 0x5402, 0x7ffffffefcac, 0x8]
+[SYSCALL] nr=39 args=[0x0, 0x5402, 0x7ffffffefcac, 0x8]
+[SYSCALL] nr=41 args=[0x1, 0x80002, 0x0, 0x0]
+[SYSCALL] socket(domain=1, type=524290, protocol=0) -> EAFNOSUPPORT
+[SYSCALL] nr=228 args=[0x0, 0x7ffffffef590, 0x0, 0x0]
+[SYSCALL] nr=44 args=[0xffffffffffffffff, 0x7ffffffef630, 0x52, 0x0]
+[SYSCALL] sendto(sockfd=-1, len=82) -> ENOTSOCK
+[SYSCALL] nr=3 args=[0xffffffffffffffff, 0x0, 0x0, 0x0]
+[SYSCALL] nr=59 args=[0x7ffffffefc80, 0x7ffffffefbf0, 0x100000002230, 0x5076f0]
 [SYSCALL] execve('/bin/mount', argv=0x7ffffffefbf0, envp=0x100000002230)
-[SYSCALL] execve: prepare_exec_image failed: Elf
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-can't run '/bin/mount': Exec format error
-[SYSCALL] exit_group(-1)
-[SYSCALL] exit(-1)
+ELF Header e_ident verified
+[MMU] Creating user page table...
+[MMU] Allocated L0 table at phys [MASKED]
+[MMU] Zeroing L0 table at va [MASKED]
+[ELF] Copying segment: src[0]=7f to VA 400000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=50 to VA 401000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=2 to VA 4ef000
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[ELF] Copying segment: src[0]=f0 to VA 521c10
+[ELF] Resolved PA [MASKED] -> Kernel VA [MASKED]
+[TLS] TEAM_408: Allocated TLS at 0x7ffffffe0000
+[EXEC] Prepared image: entry=0x4015b5 sp=0x7ffffffefe70 brk=0x527000 tls=0x7ffffffe0000
+[EXECVE] Success: path='/bin/mount' entry=0x4015b5 sp=0x7ffffffefe70
+[SYSCALL] nr=158 args=[0x1002, 0x526278, 0xe7, 0x0]
+[SYSCALL] arch_prctl(code=0x1002, addr=0x526278)
+[SYSCALL] nr=218 args=[0x526b6c, 0x526278, 0xe7, 0x0]
+[SYSCALL] nr=102 args=[0x7ffffffeff67, 0x2f, 0x7ffffffeff6c, 0x0]
+[SYSCALL] nr=12 args=[0x0, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=12 args=[0x529000, 0x7fffffff0000, 0xc, 0x0]
+[SYSCALL] nr=9 args=[0x0, 0x2000, 0x0, 0x22]
+[MMAP] Request: addr=0x0 len=0x2000 prot=0x0 flags=0x22
+[MMAP] Found free region at 0x100000000000
+[MMAP] Mapped 2 pages at 0x100000000000 with prot=0x0
+[SYSCALL] nr=10 args=[0x100000001000, 0x1000, 0x3, 0x22]
+[MPROTECT] Changed protection for 1 pages at 0x100000001000-0x100000002000 prot=0x3
+[SYSCALL] nr=9 args=[0x0, 0x1000, 0x3, 0x22]
+[MMAP] Request: addr=0x0 len=0x1000 prot=0x3 flags=0x22
+[MMAP] Found free region at 0x100000002000
+[MMAP] Mapped 1 pages at 0x100000002000 with prot=0x3
+[SYSCALL] nr=102 args=[0x100000002041, 0x10000000204c, 0x0, 0x10000000221c]
+[SYSCALL] nr=107 args=[0x100000002041, 0x10000000204c, 0x0, 0x10000000221c]
+[SYSCALL] nr=4 args=[0x7ffffffeff88, 0x7ffffffefaf0, 0x7ffffffefaf0, 0x52532c]
+[SYSCALL] Unknown syscall number: 4
+[SYSCALL] nr=165 args=[0x7ffffffeff88, 0x7ffffffeff90, 0x7ffffffeff80, 0x8000]
+[SYSCALL] nr=1 args=[0x2, 0x7ffffffefa28, 0x37, 0x0]
+mount: mounting proc on /proc failed: Invalid argument
+[SYSCALL] nr=231 args=[0xff, 0x0, 0x0, 0x0]
+[SYSCALL] exit_group(255)
+[SYSCALL] exit(255)
 [SCHED] add_task: PID=1
 [TASK_EXIT] PID 3 marked Exited, calling schedule()
-[SWITCH] switch_to called: old PID=3 (ptr=0xffffffff8046e070), new PID=1 (ptr=0xffffffff804630d0)
+[SWITCH] switch_to called: old PID=3 (ptr=0xffffffff8046efb0), new PID=1 (ptr=0xffffffff804640d0)
 [SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=1: ctx.rsp=0xffffffff80462d28, ctx.rip=0xffffffff80042aa2, ctx.rbx=0xffffffff8046e060
-[SWITCH] Frame at rsp: rcx=0xffffffff8004dc4c, rsp=0x4d5d54, rax=0xffffffff80031665
-[SWITCH] Raw at offset 56: 0xffffffff8004dc4c, at offset 120: 0x4d5d54
-[SYSCALL] Unknown syscall number: 21
+[SWITCH] To PID=1: ctx.rsp=0xffffffff80463cc8, ctx.rip=0xffffffff80043a72, ctx.rbx=0xffffffff8046efa0
+[SWITCH] Frame at rsp: rcx=0xffffffff8004ed13, rsp=0x4d5d54, rax=0xffffffff80032625
+[SWITCH] Raw at offset 56: 0xffffffff8004ed13, at offset 120: 0x4d5d54
+[SYSCALL] nr=21 args=[0x5108a6, 0x6, 0x0, 0x0]
+[SYSCALL] faccessat(dirfd=-100, path='/dev/null/utmp', mode=0x6, flags=0x0)
+[SYSCALL] nr=2 args=[0x5108a6, 0x8041, 0x1b4, 0x0]
+[SYSCALL] nr=3 args=[0xffffffffffffffff, 0x0, 0x0, 0x0]
+[SYSCALL] nr=58 args=[0x1000000024f0, 0x0, 0x4b9fd0, 0x0]
 [SYSCALL] clone(flags=0x11, stack=0x0, tls=0x0)
 [SYSCALL] clone: fork mode (no CLONE_VM)
 [FORK] Creating fork of PID=1
@@ -271,156 +460,3 @@ Mounting filesystems...
 [MMU] Zeroing L0 table at va [MASKED]
 [FORK] VMA 1: 0x400000-0x401000 flags=VmaFlags(READ | WRITE | EXEC)
 [FORK] VMA 2: 0x401000-0x4ef000 flags=VmaFlags(READ | EXEC)
-[FORK] VMA 3: 0x4ef000-0x521000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 4: 0x521000-0x527000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 5: 0x100000000000-0x100000001000 flags=VmaFlags(0x0)
-[FORK] VMA 6: 0x100000001000-0x100000002000 flags=VmaFlags(READ | WRITE)
-[FORK] VMA 7: 0x100000002000-0x100000003000 flags=VmaFlags(READ | WRITE)
-[FORK] VMA 8: 0x7ffffff70000-0x7fffffff0000 flags=VmaFlags(READ | WRITE)
-[FORK] Address space copy complete, child_ttbr0=0x6e477000, 426 pages copied
-[FORK] Copied address space, child_ttbr0=0x6e477000
-[FORK] Child frame at 0xffffffff80472af0: rcx=0x4d5d54, rsp=0x7ffffffefd10
-[FORK] Frame readback: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
-[FORK] Child PID=4
-[FORK] Context setup: rsp=0xffffffff80472af0, rip=0xffffffff80042bc8, rbx=0xffffffff80042b50
-[FORK] Created child TCB: PID=4, ttbr0=0x6e477000, entry=0x4d5d54
-[FORK] refresh_kernel_mappings: current CR3=0xb69000, child=0x6e477000
-[FORK] PML4[511] after refresh: parent=0x7fe74000, child=0x7fe74000
-[SCHED] add_task: PID=4
-[SYSCALL] clone: forked process PID=4 from parent PID=1
-[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804630d0), new PID=4 (ptr=0xffffffff80472dc0)
-[SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=4: ctx.rsp=0xffffffff80472af0, ctx.rip=0xffffffff80042bc8, ctx.rbx=0xffffffff80042b50
-[SWITCH] Frame at rsp: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
-[SWITCH] Raw at offset 56: 0x4d5d54, at offset 120: 0x7ffffffefd10
-[SYSCALL] setsid() -> 4
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-[SYSCALL] execve('/bin/mount', argv=0x7ffffffefbe0, envp=0x100000002230)
-[SYSCALL] execve: prepare_exec_image failed: Elf
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-can't run '/bin/mount': Exec format error
-[SYSCALL] exit_group(-1)
-[SYSCALL] exit(-1)
-[SCHED] add_task: PID=1
-[TASK_EXIT] PID 4 marked Exited, calling schedule()
-[SWITCH] switch_to called: old PID=4 (ptr=0xffffffff80472dc0), new PID=1 (ptr=0xffffffff804630d0)
-[SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=1: ctx.rsp=0xffffffff80462d28, ctx.rip=0xffffffff80042aa2, ctx.rbx=0xffffffff80472db0
-[SWITCH] Frame at rsp: rcx=0xffffffff8004dc4c, rsp=0x4d5d54, rax=0xffffffff80031665
-[SWITCH] Raw at offset 56: 0xffffffff8004dc4c, at offset 120: 0x4d5d54
-[SYSCALL] Unknown syscall number: 21
-[SYSCALL] Unknown syscall number: 128
-[SYSCALL] Unknown syscall number: 128
-[SYSCALL] clone(flags=0x11, stack=0x0, tls=0x0)
-[SYSCALL] clone: fork mode (no CLONE_VM)
-[FORK] Creating fork of PID=1
-[FORK] Parent frame: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x3a
-[FORK] Copying user address space...
-[MMU] Creating user page table...
-[MMU] Allocated L0 table at phys [MASKED]
-[MMU] Zeroing L0 table at va [MASKED]
-[FORK] VMA 1: 0x400000-0x401000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 2: 0x401000-0x4ef000 flags=VmaFlags(READ | EXEC)
-[FORK] VMA 3: 0x4ef000-0x521000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 4: 0x521000-0x527000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 5: 0x100000000000-0x100000001000 flags=VmaFlags(0x0)
-[FORK] VMA 6: 0x100000001000-0x100000002000 flags=VmaFlags(READ | WRITE)
-[FORK] VMA 7: 0x100000002000-0x100000003000 flags=VmaFlags(READ | WRITE)
-[FORK] VMA 8: 0x7ffffff70000-0x7fffffff0000 flags=VmaFlags(READ | WRITE)
-[FORK] Address space copy complete, child_ttbr0=0x6e62b000, 426 pages copied
-[FORK] Copied address space, child_ttbr0=0x6e62b000
-[FORK] Child frame at 0xffffffff80477840: rcx=0x4d5d54, rsp=0x7ffffffefd10
-[FORK] Frame readback: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
-[FORK] Child PID=5
-[FORK] Context setup: rsp=0xffffffff80477840, rip=0xffffffff80042bc8, rbx=0xffffffff80042b50
-[FORK] Created child TCB: PID=5, ttbr0=0x6e62b000, entry=0x4d5d54
-[FORK] refresh_kernel_mappings: current CR3=0xb69000, child=0x6e62b000
-[FORK] PML4[511] after refresh: parent=0x7fe74000, child=0x7fe74000
-[SCHED] add_task: PID=5
-[SYSCALL] clone: forked process PID=5 from parent PID=1
-[SYSCALL] Unknown syscall number: 128
-[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804630d0), new PID=5 (ptr=0xffffffff80477b10)
-[SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=5: ctx.rsp=0xffffffff80477840, ctx.rip=0xffffffff80042bc8, ctx.rbx=0xffffffff80042b50
-[SWITCH] Frame at rsp: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
-[SWITCH] Raw at offset 56: 0x4d5d54, at offset 120: 0x7ffffffefd10
-[SYSCALL] setsid() -> 5
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-[SYSCALL] execve('/bin/ash', argv=0x7ffffffefc50, envp=0x100000002230)
-[SYSCALL] execve: prepare_exec_image failed: Elf
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-can't run '/bin/ash': Exec format error
-[SYSCALL] exit_group(-1)
-[SYSCALL] exit(-1)
-[SCHED] add_task: PID=1
-[TASK_EXIT] PID 5 marked Exited, calling schedule()
-[SWITCH] switch_to called: old PID=5 (ptr=0xffffffff80477b10), new PID=1 (ptr=0xffffffff804630d0)
-[SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=1: ctx.rsp=0xffffffff80462d28, ctx.rip=0xffffffff80042aa2, ctx.rbx=0xffffffff80477b00
-[SWITCH] Frame at rsp: rcx=0xffffffff8004dc4c, rsp=0x4d5d54, rax=0xffffffff80031665
-[SWITCH] Raw at offset 56: 0xffffffff8004dc4c, at offset 120: 0x4d5d54
-[SYSCALL] Unknown syscall number: 21
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-[SYSCALL] nanosleep: tv_sec=1, tv_nsec=0
-[SYSCALL] clone(flags=0x11, stack=0x0, tls=0x0)
-[SYSCALL] clone: fork mode (no CLONE_VM)
-[FORK] Creating fork of PID=1
-[FORK] Parent frame: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x3a
-[FORK] Copying user address space...
-[MMU] Creating user page table...
-[MMU] Allocated L0 table at phys [MASKED]
-[MMU] Zeroing L0 table at va [MASKED]
-[FORK] VMA 1: 0x400000-0x401000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 2: 0x401000-0x4ef000 flags=VmaFlags(READ | EXEC)
-[FORK] VMA 3: 0x4ef000-0x521000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 4: 0x521000-0x527000 flags=VmaFlags(READ | WRITE | EXEC)
-[FORK] VMA 5: 0x100000000000-0x100000001000 flags=VmaFlags(0x0)
-[FORK] VMA 6: 0x100000001000-0x100000002000 flags=VmaFlags(READ | WRITE)
-[FORK] VMA 7: 0x100000002000-0x100000003000 flags=VmaFlags(READ | WRITE)
-[FORK] VMA 8: 0x7ffffff70000-0x7fffffff0000 flags=VmaFlags(READ | WRITE)
-[FORK] Address space copy complete, child_ttbr0=0x6e7df000, 426 pages copied
-[FORK] Copied address space, child_ttbr0=0x6e7df000
-[FORK] Child frame at 0xffffffff8047c590: rcx=0x4d5d54, rsp=0x7ffffffefd10
-[FORK] Frame readback: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
-[FORK] Child PID=6
-[FORK] Context setup: rsp=0xffffffff8047c590, rip=0xffffffff80042bc8, rbx=0xffffffff80042b50
-[FORK] Created child TCB: PID=6, ttbr0=0x6e7df000, entry=0x4d5d54
-[FORK] refresh_kernel_mappings: current CR3=0xb69000, child=0x6e7df000
-[FORK] PML4[511] after refresh: parent=0x7fe74000, child=0x7fe74000
-[SCHED] add_task: PID=6
-[SYSCALL] clone: forked process PID=6 from parent PID=1
-[SYSCALL] Unknown syscall number: 128
-[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804630d0), new PID=6 (ptr=0xffffffff8047c860)
-[SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=6: ctx.rsp=0xffffffff8047c590, ctx.rip=0xffffffff80042bc8, ctx.rbx=0xffffffff80042b50
-[SWITCH] Frame at rsp: rcx=0x4d5d54, rsp=0x7ffffffefd10, rax=0x0
-[SWITCH] Raw at offset 56: 0x4d5d54, at offset 120: 0x7ffffffefd10
-[SYSCALL] setsid() -> 6
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-[SYSCALL] execve('/bin/ash', argv=0x7ffffffefc50, envp=0x100000002230)
-[SYSCALL] execve: prepare_exec_image failed: Elf
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-can't run '/bin/ash': Exec format error
-[SYSCALL] exit_group(-1)
-[SYSCALL] exit(-1)
-[SCHED] add_task: PID=1
-[SCHED] add_task: PID=1
-[TASK_EXIT] PID 6 marked Exited, calling schedule()
-[SWITCH] switch_to called: old PID=6 (ptr=0xffffffff8047c860), new PID=1 (ptr=0xffffffff804630d0)
-[SWITCH] Different tasks, proceeding with context switch
-[SWITCH] To PID=1: ctx.rsp=0xffffffff80462d28, ctx.rip=0xffffffff80042aa2, ctx.rbx=0xffffffff8047c850
-[SWITCH] Frame at rsp: rcx=0xffffffff8004dc4c, rsp=0x4d5d54, rax=0xffffffff80031665
-[SWITCH] Raw at offset 56: 0xffffffff8004dc4c, at offset 120: 0x4d5d54
-[SYSCALL] Unknown syscall number: 21
-[SYSCALL] Unknown syscall number: 41
-[SYSCALL] Unknown syscall number: 44
-[SWITCH] switch_to called: old PID=1 (ptr=0xffffffff804630d0), new PID=1 (ptr=0xffffffff804630d0)
-[SWITCH] Same task, returning early
-[SYSCALL] nanosleep: tv_sec=1, tv_nsec=0
