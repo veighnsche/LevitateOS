@@ -1,18 +1,37 @@
 # Shell Prerequisites Checklist
 
-This document lists ALL OS-level features that must be implemented BEFORE a POSIX shell (like dash, bash, or brush) can function correctly. Learned the hard way during TEAM_444/TEAM_445.
+This document lists ALL OS-level features needed for a POSIX shell (like dash, bash, or brush).
+Learned the hard way during TEAM_444/TEAM_445.
 
-## Quick Reference
+**Legend:** ✅ = Implemented | ⚠️ = Partial/Stub | ❌ = Not Implemented
 
-| Category | Critical | Important | Nice-to-Have |
-|----------|----------|-----------|--------------|
-| Process Management | fork, execve, waitpid, exit | clone, vfork | posix_spawn |
-| File Descriptors | open, close, read, write, dup2, pipe | dup, dup3, pipe2 | splice, tee |
-| File System | stat, fstat, getcwd, chdir, openat | access, readlink, getdents | faccessat |
-| Memory | brk, mmap, munmap | mprotect, mremap | madvise |
-| Signals | sigaction, kill, sigprocmask | sigreturn, rt_sigaction | signalfd |
-| Terminal | ioctl (termios), tcsetpgrp | isatty, ttyname | openpty |
-| Environment | execve envp handling | getenv in libc | setenv |
+---
+
+## Status Summary
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| Process Management | ✅ Done | fork, execve, waitpid, exit all working |
+| File Descriptors | ✅ Done | open, dup2, pipe, fcntl all working |
+| File System | ✅ Done | stat, getcwd, chdir, getdents working |
+| Memory | ✅ Done | brk, mmap, munmap, mprotect working |
+| Signals | ⚠️ **CRITICAL GAP** | Syscalls work but **DELIVERY NOT IMPLEMENTED** |
+| Terminal | ✅ Done | termios, TIOCGPGRP/TIOCSPGRP working |
+| Environment | ✅ Done | execve stack setup with argv, envp, auxv |
+
+---
+
+## CRITICAL TODO: Signal Delivery
+
+**⚠️ `check_and_deliver_signals()` in `levitate/src/main.rs:82-86` is a NO-OP!**
+
+Signals can be:
+- ✅ Registered via `sigaction()`
+- ✅ Sent via `kill()` (sets pending bit)
+- ✅ Masked via `sigprocmask()`
+- ❌ **NEVER DELIVERED** to userspace handlers
+
+This means Ctrl+C works only because TTY sends signal directly, but custom signal handlers won't run.
 
 ---
 
@@ -20,43 +39,22 @@ This document lists ALL OS-level features that must be implemented BEFORE a POSI
 
 ### 1.1 Process Creation & Execution (CRITICAL)
 
-| Syscall | Purpose | Shell Usage | Notes |
-|---------|---------|-------------|-------|
-| `fork()` | Create child process | Running any external command | Must copy entire address space correctly |
-| `clone()` | Create process/thread | Threading, vfork emulation | Flags: CLONE_VM, CLONE_FILES, CLONE_SIGHAND |
-| `execve()` | Replace process image | Running commands | Must handle argv, envp, shebang (#!) |
-| `exit()` / `exit_group()` | Terminate process | Command completion | Return exit status to parent |
-| `waitpid()` / `wait4()` | Wait for child | Reaping children, getting exit status | WNOHANG for job control |
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `fork()` / `clone()` | ✅ Done | Full address space copy, CLONE_VM/CLONE_FILES/CLONE_THREAD |
+| `execve()` | ✅ Done | argv, envp, auxv stack setup, ELF loading |
+| `exit()` / `exit_group()` | ✅ Done | Wakes waiters, closes FDs |
+| `waitpid()` / `wait4()` | ✅ Done | Zombie tracking, WNOHANG support |
 
-**Gotchas discovered:**
-- `fork()` must properly copy memory mappings, not just page tables
-- `execve()` must clear signal handlers (SIG_DFL) except ignored ones
-- Child processes inherit file descriptors - must handle CLOEXEC
+### 1.2 Process Identity
 
-### 1.2 Process Identity (IMPORTANT)
-
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `getpid()` | Get process ID | $$ variable |
-| `getppid()` | Get parent PID | $PPID variable |
-| `getpgid()` / `getpgrp()` | Get process group | Job control |
-| `setpgid()` / `setpgrp()` | Set process group | Job control - new job = new pgrp |
-| `getsid()` / `setsid()` | Session management | Creating new session (login shell) |
-
-### 1.3 Process Groups & Sessions (IMPORTANT for job control)
-
-```
-Session (setsid)
-└── Process Group (setpgid) - "job"
-    ├── Process (fork)
-    ├── Process
-    └── Process
-```
-
-**Required for job control (fg, bg, jobs):**
-- Each pipeline becomes a process group
-- Shell must call `setpgid()` in BOTH parent and child (race condition!)
-- Foreground job gets the terminal via `tcsetpgrp()`
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `getpid()` | ✅ Done | |
+| `getppid()` | ✅ Done | |
+| `getpgid()` / `getpgrp()` | ✅ Done | |
+| `setpgid()` | ⚠️ Partial | Works for current process only |
+| `setsid()` | ✅ Done | Creates new session |
 
 ---
 
@@ -64,431 +62,253 @@ Session (setsid)
 
 ### 2.1 Basic I/O (CRITICAL)
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `open()` / `openat()` | Open file | Redirection: `cmd > file` |
-| `close()` | Close fd | Cleanup after redirection |
-| `read()` | Read data | Reading input, scripts |
-| `write()` | Write data | Output, echo builtin |
-| `lseek()` | Seek in file | `<>` redirection, here-docs |
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `open()` / `openat()` | ✅ Done | Both legacy open() and openat() |
+| `close()` | ✅ Done | |
+| `read()` / `write()` | ✅ Done | |
+| `readv()` / `writev()` | ✅ Done | Scatter-gather I/O |
+| `lseek()` | ✅ Done | SEEK_SET/CUR/END |
+| `pread64()` / `pwrite64()` | ✅ Done | |
 
-**TEAM_444 discovery:** dash uses legacy `open()` (syscall 2), not just `openat()`. Must support both!
+### 2.2 File Descriptor Manipulation
 
-### 2.2 File Descriptor Manipulation (CRITICAL)
-
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `dup()` | Duplicate fd | Saving stdin before redirect |
-| `dup2()` | Duplicate to specific fd | `2>&1`, redirections |
-| `dup3()` | dup2 + flags | O_CLOEXEC support |
-| `pipe()` / `pipe2()` | Create pipe | Pipelines: `cmd1 \| cmd2` |
-| `fcntl()` | fd operations | F_DUPFD, F_GETFL, F_SETFL, F_SETFD |
-
-**Redirection implementation:**
-```
-# cmd > file 2>&1
-1. fd = open("file", O_WRONLY|O_CREAT|O_TRUNC)
-2. dup2(fd, 1)      # stdout -> file
-3. dup2(1, 2)       # stderr -> stdout (which is now file)
-4. close(fd)
-5. exec cmd
-```
-
-### 2.3 Pipe Mechanics (CRITICAL)
-
-```
-Pipeline: cmd1 | cmd2 | cmd3
-
-        cmd1              cmd2              cmd3
-    ┌─────────┐       ┌─────────┐       ┌─────────┐
-    │  stdout ├──────►│ stdin   │       │         │
-    │         │ pipe1 │  stdout ├──────►│ stdin   │
-    └─────────┘       └─────────┘ pipe2 └─────────┘
-```
-
-**Implementation steps:**
-1. Create N-1 pipes for N commands
-2. Fork each command
-3. In child: dup2 pipe ends to stdin/stdout, close unused ends
-4. In parent: close all pipe ends
-5. Wait for all children
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `dup()` | ✅ Done | |
+| `dup2()` / `dup3()` | ✅ Done | |
+| `pipe()` / `pipe2()` | ✅ Done | |
+| `fcntl()` | ✅ Done | F_DUPFD, F_GETFD/SETFD, F_GETFL/SETFL, F_*PIPE_SZ |
 
 ---
 
 ## 3. File System
 
-### 3.1 File Information (CRITICAL)
+### 3.1 File Information
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `stat()` / `fstat()` / `lstat()` | Get file info | `test -f`, `[`, `[[` |
-| `access()` / `faccessat()` | Check permissions | `test -r`, `-w`, `-x` |
-| `readlink()` / `readlinkat()` | Read symlink | Path resolution |
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `stat()` / `fstat()` / `lstat()` | ✅ Done | Via fstatat |
+| `statx()` | ✅ Done | Extended stat |
+| `access()` / `faccessat()` | ⚠️ Stub | Returns success, doesn't check permissions |
+| `readlink()` / `readlinkat()` | ✅ Done | |
 
-**Test builtin needs:**
-- `-e` exists: stat() succeeds
-- `-f` regular file: S_ISREG(st_mode)
-- `-d` directory: S_ISDIR(st_mode)
-- `-r` readable: access(R_OK)
-- `-w` writable: access(W_OK)
-- `-x` executable: access(X_OK)
-- `-s` non-empty: st_size > 0
+### 3.2 Directory Operations
 
-### 3.2 Directory Operations (CRITICAL)
-
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `getcwd()` | Get current directory | $PWD, pwd builtin |
-| `chdir()` | Change directory | cd builtin |
-| `getdents()` / `getdents64()` | Read directory | Glob expansion `*.txt` |
-| `mkdir()` / `mkdirat()` | Create directory | mkdir builtin (if any) |
-
-### 3.3 Path Resolution (IMPORTANT)
-
-The shell must resolve commands via PATH:
-```
-PATH=/bin:/usr/bin
-
-lookup("ls"):
-  1. Try /bin/ls - stat(), check +x
-  2. Try /usr/bin/ls - stat(), check +x
-  3. Return first match or "not found"
-```
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `getcwd()` | ✅ Done | |
+| `chdir()` | ✅ Done | |
+| `fchdir()` | ❌ ENOSYS | Not commonly needed |
+| `getdents()` / `getdents64()` | ✅ Done | |
+| `mkdir()` / `mkdirat()` | ✅ Done | |
+| `unlinkat()` | ✅ Done | |
+| `renameat()` | ✅ Done | |
 
 ---
 
 ## 4. Memory Management
 
-### 4.1 Heap (CRITICAL)
-
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `brk()` / `sbrk()` | Extend heap | malloc() in libc |
-| `mmap()` | Map memory | Large allocations, loading |
-| `munmap()` | Unmap memory | Free large allocations |
-| `mprotect()` | Change protection | Stack guard pages |
-
-**Note:** Most shells use malloc() heavily. libc needs working brk/mmap.
-
-### 4.2 Memory for execve (CRITICAL)
-
-When loading a new executable:
-1. Parse ELF headers
-2. `mmap()` code segment (PROT_READ|PROT_EXEC)
-3. `mmap()` data segment (PROT_READ|PROT_WRITE)
-4. Set up stack with argv, envp, auxv
-5. Clear BSS (zero-filled pages)
-6. Jump to entry point
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `brk()` / `sbrk()` | ✅ Done | |
+| `mmap()` | ✅ Done | |
+| `munmap()` | ✅ Done | |
+| `mprotect()` | ✅ Done | |
+| `mremap()` | ❌ Not implemented | Not critical for shells |
+| `madvise()` | ⚠️ Stub | Returns success |
 
 ---
 
-## 5. Signals
+## 5. Signals - **NEEDS WORK**
 
-### 5.1 Signal Handling (CRITICAL)
+### 5.1 Signal Syscalls
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `sigaction()` | Set signal handler | Ctrl+C handling |
-| `rt_sigaction()` | Modern sigaction | Same, 64-bit signal mask |
-| `sigprocmask()` | Block/unblock signals | Critical sections |
-| `kill()` | Send signal | kill builtin, job control |
-| `sigreturn()` | Return from handler | Kernel restores context |
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `rt_sigaction()` | ✅ Done | Arch-specific struct parsing, stores handlers |
+| `rt_sigprocmask()` | ✅ Done | 32-bit mask (TODO: 64-bit) |
+| `kill()` | ✅ Done | Sets pending bit, wakes blocked tasks |
+| `tkill()` | ✅ Done | Thread-specific |
+| `pause()` | ✅ Done | Blocks until signal |
+| `rt_sigreturn()` | ✅ Done | Restores signal frame |
+| `rt_sigaltstack()` | ⚠️ Stub | Returns success, not functional |
 
-### 5.2 Required Signals
+### 5.2 Signal Delivery - **❌ NOT IMPLEMENTED**
 
-| Signal | Number | Default | Shell Handling |
-|--------|--------|---------|----------------|
-| SIGINT | 2 | Term | Interrupt foreground job |
-| SIGQUIT | 3 | Core | Quit foreground job |
-| SIGCHLD | 17 | Ignore | Notify parent of child status |
-| SIGPIPE | 13 | Term | Broken pipe in pipeline |
-| SIGTERM | 15 | Term | Graceful termination |
-| SIGHUP | 1 | Term | Terminal hangup |
-| SIGTSTP | 20 | Stop | Ctrl+Z - suspend foreground |
-| SIGCONT | 18 | Continue | fg/bg builtins |
-| SIGTTIN | 21 | Stop | Background read from tty |
-| SIGTTOU | 22 | Stop | Background write to tty |
-
-### 5.3 Job Control Signal Flow
-
+```rust
+// levitate/src/main.rs:82-86
+pub extern "C" fn check_and_deliver_signals(_frame: &mut SyscallFrame) {
+    // TODO(TEAM_422): Implement proper signal delivery
+    // For now, this is a no-op placeholder
+}
 ```
-User presses Ctrl+Z:
-1. Terminal driver sends SIGTSTP to foreground pgrp
-2. Foreground processes stop
-3. Shell (in background pgrp) receives SIGCHLD
-4. Shell's SIGCHLD handler calls waitpid(WUNTRACED)
-5. Shell prints "[1]+ Stopped  command"
-6. Shell becomes foreground again (tcsetpgrp)
 
-User types "fg":
-1. Shell calls kill(-pgrp, SIGCONT)
-2. Shell calls tcsetpgrp(tty, pgrp)
-3. Stopped job continues in foreground
-```
+**What's missing:**
+- ❌ Push signal frame to user stack
+- ❌ Redirect PC to signal handler
+- ❌ Actually invoke registered handlers
+- ❌ Handle SA_SIGINFO, SA_RESTART flags
+
+**Impact:**
+- Custom SIGINT handlers won't run
+- SIGCHLD for job control won't work properly
+- Signal-based communication between processes broken
+
+### 5.3 TTY Signal Generation
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Ctrl+C → SIGINT | ✅ Done | TTY driver calls `signal_foreground_process()` |
+| Ctrl+Z → SIGTSTP | ✅ Done | Sets pending bit |
+| Ctrl+\\ → SIGQUIT | ✅ Done | Sets pending bit |
+
+**Note:** These work for termination because the kernel checks pending signals and terminates,
+but custom handlers registered via `sigaction()` will never be invoked.
 
 ---
 
 ## 6. Terminal / TTY
 
-### 6.1 Terminal Control (CRITICAL)
+### 6.1 Terminal Control
 
-| Operation | Method | Purpose |
-|-----------|--------|---------|
-| Get/set termios | `ioctl(TCGETS/TCSETS)` | Raw mode, echo, etc. |
-| Get foreground pgrp | `ioctl(TIOCGPGRP)` | Job control |
-| Set foreground pgrp | `ioctl(TIOCSPGRP)` | Job control |
-| Get window size | `ioctl(TIOCGWINSZ)` | $COLUMNS, $LINES |
-| Is a tty? | `ioctl(TCGETS)` succeeds | isatty() |
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| `ioctl(TCGETS)` | ✅ Done | Get termios |
+| `ioctl(TCSETS/TCSETSW/TCSETSF)` | ✅ Done | Set termios |
+| `ioctl(TIOCGPGRP)` | ✅ Done | Get foreground pgrp |
+| `ioctl(TIOCSPGRP)` | ✅ Done | Set foreground pgrp |
+| `ioctl(TIOCGWINSZ)` | ✅ Done | Returns 80x24 (hardcoded) |
+| `ioctl(TIOCSWINSZ)` | ❌ Not implemented | Set window size |
+| `ioctl(TIOCSCTTY)` | ⚠️ Stub | Set controlling terminal |
+| `isatty()` | ✅ Done | Via TCGETS success |
 
-### 6.2 Termios Structure (CRITICAL)
+### 6.2 Termios / Line Discipline
 
-**TEAM_445 discovery:** Uninitialized termios breaks everything!
+| Feature | Status | Notes |
+|---------|--------|-------|
+| INITIAL_TERMIOS | ✅ Done | Properly initialized (TEAM_445 fix) |
+| ICANON (canonical mode) | ✅ Done | Line buffering works |
+| ECHO | ✅ Done | |
+| ICRNL (CR→LF) | ✅ Done | |
+| ISIG (signal chars) | ✅ Done | Ctrl+C/Z/\\ generate signals |
+| Control chars (VINTR, VEOF, etc.) | ✅ Done | All initialized |
 
-```c
-struct termios {
-    tcflag_t c_iflag;    // Input flags
-    tcflag_t c_oflag;    // Output flags
-    tcflag_t c_cflag;    // Control flags
-    tcflag_t c_lflag;    // Local flags
-    cc_t c_cc[NCCS];     // Control characters
-    speed_t c_ispeed;    // Input baud
-    speed_t c_ospeed;    // Output baud
-};
-```
+### 6.3 PTY Support
 
-**Required initial values:**
-
-| Flag | Value | Meaning |
-|------|-------|---------|
-| c_iflag | ICRNL \| IXON | CR->NL, XON/XOFF |
-| c_oflag | OPOST \| ONLCR | Post-process, NL->CRNL |
-| c_cflag | CS8 \| CREAD | 8-bit, enable receiver |
-| c_lflag | ISIG \| ICANON \| ECHO \| ECHOE | Signals, line edit, echo |
-
-**Control characters (c_cc):**
-
-| Index | Name | Default | Key |
-|-------|------|---------|-----|
-| VINTR | Interrupt | 0x03 | Ctrl+C |
-| VQUIT | Quit | 0x1C | Ctrl+\\ |
-| VERASE | Erase char | 0x7F | DEL/Backspace |
-| VKILL | Kill line | 0x15 | Ctrl+U |
-| VEOF | End of file | 0x04 | Ctrl+D |
-| VMIN | Min chars | 0x01 | - |
-| VSTART | Start output | 0x11 | Ctrl+Q |
-| VSTOP | Stop output | 0x13 | Ctrl+S |
-| VSUSP | Suspend | 0x1A | Ctrl+Z |
-
-### 6.3 Canonical vs Raw Mode
-
-**Canonical mode (ICANON set):**
-- Line buffered input
-- Backspace, Ctrl+U work
-- Read returns on newline or EOF
-- Shell uses this for simple input
-
-**Raw mode (ICANON cleared):**
-- Character-at-a-time input
-- No line editing by kernel
-- Shell handles all editing
-- Used by bash/zsh for readline
+| Feature | Status | Notes |
+|---------|--------|-------|
+| PTY allocation | ✅ Done | Master/slave pairs |
+| `ioctl(TIOCGPTN)` | ✅ Done | Get PTY number |
+| `ioctl(TIOCSPTLCK)` | ✅ Done | Lock/unlock PTY |
 
 ---
 
 ## 7. Environment & Arguments
 
-### 7.1 Process Stack Layout (CRITICAL for execve)
+### 7.1 Process Stack Layout
 
-```
-High addresses
-┌─────────────────────┐
-│ Platform string     │ "x86_64"
-├─────────────────────┤
-│ Random bytes (16)   │ AT_RANDOM points here
-├─────────────────────┤
-│ Environment strings │ "PATH=/bin\0HOME=/root\0"
-├─────────────────────┤
-│ Argument strings    │ "./dash\0-c\0echo hi\0"
-├─────────────────────┤
-│ NULL                │ End of auxv
-│ Auxiliary vector    │ AT_PAGESZ, AT_PHDR, etc.
-│ ...                 │
-├─────────────────────┤
-│ NULL                │ End of envp
-│ envp[n]             │ Pointers to env strings
-│ ...                 │
-│ envp[0]             │
-├─────────────────────┤
-│ NULL                │ End of argv
-│ argv[argc]          │
-│ ...                 │
-│ argv[0]             │
-├─────────────────────┤
-│ argc                │ Argument count
-└─────────────────────┘
-Low addresses (stack pointer)
-```
-
-### 7.2 Required Auxiliary Vector Entries
-
-| Entry | Value | Purpose |
-|-------|-------|---------|
-| AT_NULL (0) | 0 | End marker |
-| AT_PAGESZ (6) | 4096 | Page size |
-| AT_RANDOM (25) | ptr | 16 random bytes |
-| AT_PHDR (3) | ptr | Program headers |
-| AT_PHENT (4) | size | Size of phdr entry |
-| AT_PHNUM (5) | count | Number of phdrs |
-| AT_ENTRY (9) | addr | Entry point |
-| AT_UID/GID (11-14) | ids | User/group IDs |
-
-**Rust std requires AT_RANDOM** - will crash without it!
+| Feature | Status | Notes |
+|---------|--------|-------|
+| argc on stack | ✅ Done | |
+| argv pointers + strings | ✅ Done | |
+| envp pointers + strings | ✅ Done | |
+| Auxiliary vector | ✅ Done | AT_PAGESZ, AT_RANDOM, AT_PHDR, etc. |
+| AT_RANDOM (16 bytes) | ✅ Done | Required for Rust std |
 
 ---
 
 ## 8. User & Permissions
 
-### 8.1 User Identity (IMPORTANT)
-
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `getuid()` / `geteuid()` | Get user ID | $UID, $EUID |
-| `getgid()` / `getegid()` | Get group ID | Permission checks |
-| `setuid()` / `setgid()` | Set IDs | su, sudo |
-| `getgroups()` | Get supplementary groups | Permission checks |
-
-### 8.2 File Permissions
-
-- Shell needs to check execute permission before exec
-- `access(X_OK)` or `stat()` + check mode bits
-- setuid/setgid bits on executables
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `getuid()` / `geteuid()` | ✅ Done | Always returns 0 (root) |
+| `getgid()` / `getegid()` | ✅ Done | Always returns 0 |
+| `setuid()` / `setgid()` | ❌ Not implemented | Single-user OS |
+| `getgroups()` | ❌ Not implemented | |
 
 ---
 
 ## 9. Time
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `clock_gettime()` | Get current time | $SECONDS, time builtin |
-| `nanosleep()` | Sleep | sleep builtin |
-| `gettimeofday()` | Wall clock time | Timestamps |
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `clock_gettime()` | ✅ Done | |
+| `clock_getres()` | ✅ Done | |
+| `gettimeofday()` | ✅ Done | |
+| `nanosleep()` | ✅ Done | |
+| `clock_nanosleep()` | ✅ Done | |
 
 ---
 
 ## 10. Miscellaneous
 
-### 10.1 Resource Limits
+| Syscall | Status | Notes |
+|---------|--------|-------|
+| `uname()` | ✅ Done | |
+| `umask()` | ✅ Done | |
+| `getrandom()` | ✅ Done | |
+| `poll()` / `ppoll()` | ✅ Done | |
+| `epoll_create1/ctl/wait` | ✅ Done | |
+| `eventfd2()` | ✅ Done | |
+| `futex()` | ✅ Done | WAIT/WAKE |
+| `prlimit64()` | ⚠️ Stub | Returns sensible defaults |
+| `getrlimit()` / `setrlimit()` | ⚠️ Stub | |
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `getrlimit()` / `setrlimit()` | Resource limits | ulimit builtin |
-| `prlimit64()` | Modern limits | Same |
+---
 
-### 10.2 umask
+## Remaining TODOs
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `umask()` | File creation mask | umask builtin |
+### Critical (Blocks Job Control)
 
-### 10.3 Other
+1. **Signal Delivery** - Implement `check_and_deliver_signals()`:
+   - Push signal frame to user stack
+   - Save current registers for `sigreturn()`
+   - Redirect PC to handler address
+   - Handle SA_SIGINFO (3-arg handler)
+   - Handle SA_RESTART (restart syscalls)
 
-| Syscall | Purpose | Shell Usage |
-|---------|---------|-------------|
-| `uname()` | System info | uname, $OSTYPE |
-| `ioctl()` | Device control | Everything terminal |
+### Important (Nice to Have)
+
+2. **setpgid for other processes** - Currently only works for self
+3. **faccessat** - Actually check permissions
+4. **64-bit signal mask** - Currently 32-bit
+5. **TIOCSWINSZ** - Set terminal window size
+
+### Low Priority
+
+6. **fchdir** - Change directory by fd
+7. **setuid/setgid** - For multi-user support
+8. **getgroups** - Supplementary groups
+9. **mremap** - Resize mappings
+10. **sigaltstack** - Alternate signal stack
 
 ---
 
 ## Testing Checklist
 
-Before declaring shell support complete, verify:
+### Working Now ✅
+- [x] `echo $$` prints PID
+- [x] Simple command runs: `ls`
+- [x] Command with args: `ls -la /`
+- [x] Exit status works: `false; echo $?` prints 1
+- [x] Backspace works
+- [x] Ctrl+U clears line
+- [x] Ctrl+D on empty line exits
 
-### Process Tests
-- [ ] `echo $$` prints PID
-- [ ] Simple command runs: `ls`
-- [ ] Command with args: `ls -la /`
-- [ ] Exit status works: `false; echo $?` prints 1
-
-### Redirection Tests
+### Should Work (Not Fully Tested)
 - [ ] Output redirect: `echo hi > /tmp/test`
 - [ ] Input redirect: `cat < /etc/passwd`
-- [ ] Append: `echo hi >> /tmp/test`
-- [ ] stderr redirect: `ls /nonexistent 2>/dev/null`
-- [ ] Combined: `cmd > out 2>&1`
-
-### Pipeline Tests
 - [ ] Simple pipe: `echo hi | cat`
-- [ ] Multi-stage: `cat /etc/passwd | grep root | wc -l`
-- [ ] Exit status: `false | true; echo $?` prints 0
+- [ ] Shebang scripts: `#!/bin/sh`
 
-### Job Control Tests
-- [ ] Ctrl+C interrupts foreground
-- [ ] Ctrl+Z suspends foreground
-- [ ] `fg` resumes stopped job
+### Blocked by Signal Delivery ❌
+- [ ] Ctrl+C with custom SIGINT handler
+- [ ] Ctrl+Z suspends foreground (needs SIGTSTP delivery)
+- [ ] `fg` resumes stopped job (needs SIGCONT delivery)
 - [ ] `bg` runs stopped job in background
-- [ ] `jobs` lists jobs
-- [ ] `&` runs in background
-
-### Terminal Tests
-- [ ] Backspace works
-- [ ] Ctrl+U clears line
-- [ ] Ctrl+D on empty line exits
-- [ ] Arrow keys (if readline)
-
-### Script Tests
-- [ ] Shebang scripts work: `#!/bin/sh`
-- [ ] Sourcing works: `. ./script.sh`
-- [ ] Here-doc: `cat <<EOF`
-
----
-
-## Implementation Order
-
-Recommended order for implementing shell support:
-
-### Phase 1: Basic Execution
-- fork, execve, waitpid, exit
-- open, close, read, write
-- Basic ELF loading
-- Simple PATH resolution
-
-### Phase 2: Redirection
-- dup2, pipe
-- File descriptor table per-process
-- CLOEXEC handling
-
-### Phase 3: Terminal
-- termios ioctls
-- Proper initial termios values
-- Line discipline basics
-
-### Phase 4: Signals
-- sigaction, kill
-- SIGCHLD for child reaping
-- SIGINT/SIGTSTP delivery
-
-### Phase 5: Job Control
-- Process groups (setpgid)
-- tcsetpgrp/tcgetpgrp
-- Session management
-
-### Phase 6: Polish
-- Resource limits
-- umask
-- Full signal set
-
----
-
-## Common Gotchas (from TEAM_444/TEAM_445)
-
-1. **Termios must be initialized** - All-zeros termios = no keyboard input works
-2. **Support both open() and openat()** - C programs use legacy open() syscall
-3. **CLOEXEC is critical** - Leaked fds break pipes
-4. **Fork must copy VMAs** - Not just page tables, the VMA metadata too
-5. **Signals reset on exec** - Except SIG_IGN handlers
-6. **Process groups race** - Call setpgid() in BOTH parent and child
-7. **AT_RANDOM required** - Rust std crashes without it
-8. **Stat struct size matters** - Must be exactly 128 bytes on aarch64
+- [ ] `jobs` lists jobs (needs SIGCHLD)
+- [ ] Proper job control
 
 ---
 
