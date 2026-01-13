@@ -14,7 +14,7 @@ pub fn run(arch: &str) -> Result<()> {
     println!("⌨️  Testing keyboard input for {arch} (strict, no drops allowed)...\n");
 
     // First build everything
-    crate::build::build_all(arch)?;
+    crate::builder::build_all(arch)?;
     crate::disk::create_disk_image_if_missing()?;
 
     // Clean up

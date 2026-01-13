@@ -146,7 +146,7 @@ cargo run -- build all
 
 - [x] **Phase 1**: Tag and archive custom kernel ✅
 - [x] **Phase 2**: Remove cruft + dead xtask modules ✅
-- [ ] **Phase 3**: Move xtask → src, rename build → builder
+- [x] **Phase 3**: Move xtask → src, rename build → builder ✅
 - [ ] **Phase 4**: Update docs, review tests
 - [ ] **Phase 5**: Verify boot, update golden files
 
@@ -232,10 +232,54 @@ cargo run -- build all
 - Dead code in `initramfs/builder.rs`, `initramfs/manifest.rs`, `initramfs/tui.rs`
 - Unused functions in `linux.rs`, `openrc.rs`, `qemu/builder.rs`
 
+### Session 6 (2026-01-13) - Phase 3 Execution
+
+**Phase 3: Restructure - COMPLETED**
+
+1. **Moved xtask/src/* to src/**:
+   - Main binary now at root level
+   - Removed xtask/ directory entirely
+
+2. **Renamed build/ to builder/**:
+   - Semantic: "builder" describes what it IS
+
+3. **Updated Cargo.toml**:
+   - Package name: `levitate` (was `xtask`)
+   - Version: `2.0.0`
+   - Binary: `levitate` at `src/main.rs`
+
+4. **Updated all import paths**:
+   - `mod build;` → `mod builder;`
+   - `build::` → `builder::`
+   - `crate::build` → `crate::builder`
+
+5. **Build verification**:
+   - `cargo build` succeeds
+   - `./target/debug/levitate --help` works
+
+**New structure**:
+```
+src/
+├── main.rs
+├── builder/       (was build/)
+│   ├── busybox.rs
+│   ├── linux.rs
+│   ├── openrc.rs
+│   ├── initramfs/
+│   └── ...
+├── qemu/
+├── vm/
+├── support/
+├── disk/
+├── tests/
+├── run.rs
+├── config.rs
+└── calc.rs
+```
+
 **Next team should**:
-1. Execute Phase 3: Move xtask → src, rename build → builder
-2. Execute Phase 4: Update CLAUDE.md and docs, fix warnings
-3. Execute Phase 5: Verify boot matches golden file
+1. Execute Phase 4: Update CLAUDE.md and docs, fix warnings
+2. Execute Phase 5: Verify boot matches golden file
 
 ## References
 

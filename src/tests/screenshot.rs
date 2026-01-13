@@ -19,7 +19,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use crate::build;
+use crate::builder;
 use crate::qemu::{Arch, QemuBuilder, QemuProfile};
 use crate::support::qmp::QmpClient;
 
@@ -77,7 +77,7 @@ pub fn run_userspace() -> Result<()> {
     // Build for aarch64 (working arch)
     let arch = "aarch64";
     println!("🔨 Building LevitateOS for {arch}...");
-    build::build_all(arch)?;
+    builder::build_all(arch)?;
 
     let qmp_socket = format!("./userspace-test-{}.sock", std::process::id());
     let _ = fs::remove_file(&qmp_socket);
@@ -167,7 +167,7 @@ pub fn run_levitate() -> Result<()> {
 
     // Build for x86_64 (primary architecture)
     println!("🔨 Building LevitateOS...");
-    build::create_openrc_initramfs("x86_64")?;
+    builder::create_openrc_initramfs("x86_64")?;
 
     // Test aarch64 (working)
     println!("\n━━━ aarch64 ━━━");

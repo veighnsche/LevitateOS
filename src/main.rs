@@ -51,7 +51,7 @@ use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod build;
+mod builder;
 mod calc;
 mod config;
 mod disk;
@@ -84,7 +84,7 @@ enum Commands {
 
     /// Build components
     #[command(subcommand)]
-    Build(build::BuildCommands),
+    Build(builder::BuildCommands),
 
     /// Run tests
     Test(TestArgs),
@@ -251,9 +251,9 @@ fn main() -> Result<()> {
             } else if args.term {
                 // TEAM_476: Linux kernel with OpenRC (or BusyBox if --minimal)
                 if args.minimal {
-                    build::create_busybox_initramfs(arch)?;
+                    builder::create_busybox_initramfs(arch)?;
                 } else {
-                    build::create_openrc_initramfs(arch)?;
+                    builder::create_openrc_initramfs(arch)?;
                 }
                 run::run_qemu_term_linux(arch, !args.minimal)?;
             } else if args.gdb {
@@ -268,9 +268,9 @@ fn main() -> Result<()> {
                 };
                 // TEAM_476: Build Linux + OpenRC for debugging
                 if args.minimal {
-                    build::create_busybox_initramfs(arch)?;
+                    builder::create_busybox_initramfs(arch)?;
                 } else {
-                    build::create_openrc_initramfs(arch)?;
+                    builder::create_openrc_initramfs(arch)?;
                 }
                 run::run_qemu_gdb_linux(profile, args.wait, arch, !args.minimal)?;
             } else {
@@ -287,9 +287,9 @@ fn main() -> Result<()> {
                 };
                 // TEAM_476: Linux kernel with OpenRC (or BusyBox if --minimal)
                 if args.minimal {
-                    build::create_busybox_initramfs(arch)?;
+                    builder::create_busybox_initramfs(arch)?;
                 } else {
-                    build::create_openrc_initramfs(arch)?;
+                    builder::create_openrc_initramfs(arch)?;
                 }
                 run::run_qemu(profile, args.headless, false, arch, args.gpu_debug, true, !args.minimal)?;
             }
@@ -298,12 +298,12 @@ fn main() -> Result<()> {
             preflight::check_preflight(arch)?;
             // TEAM_476: Linux distribution builder - all commands build Linux components
             match cmd {
-                build::BuildCommands::All => build::build_all(arch)?,
-                build::BuildCommands::Initramfs => build::create_busybox_initramfs(arch)?,
-                build::BuildCommands::Busybox => build::busybox::build(arch)?,
-                build::BuildCommands::Linux => build::linux::build_linux_kernel(arch)?,
-                build::BuildCommands::Openrc => build::openrc::build(arch)?,
-                build::BuildCommands::OpenrcInitramfs => { build::create_openrc_initramfs(arch)?; }
+                builder::BuildCommands::All => builder::build_all(arch)?,
+                builder::BuildCommands::Initramfs => builder::create_busybox_initramfs(arch)?,
+                builder::BuildCommands::Busybox => builder::busybox::build(arch)?,
+                builder::BuildCommands::Linux => builder::linux::build_linux_kernel(arch)?,
+                builder::BuildCommands::Openrc => builder::openrc::build(arch)?,
+                builder::BuildCommands::OpenrcInitramfs => { builder::create_openrc_initramfs(arch)?; }
             }
         },
         Commands::Vm(cmd) => match cmd {

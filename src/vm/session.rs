@@ -9,7 +9,7 @@
 //! - screenshot: Take screenshot
 //! - stop: Kill VM and cleanup
 
-use crate::build;
+use crate::builder;
 use crate::qemu::{Arch, QemuBuilder, QemuProfile};
 use crate::support::qmp::QmpClient;
 use anyhow::{bail, Context, Result};
@@ -83,7 +83,7 @@ pub fn start(arch: &str) -> Result<()> {
     let _ = fs::remove_file(QMP_SOCKET);
 
     // TEAM_476: Build Linux + OpenRC
-    build::create_openrc_initramfs(arch)?;
+    builder::create_openrc_initramfs(arch)?;
 
     // Build QEMU command
     let arch_enum = Arch::try_from(arch)?;

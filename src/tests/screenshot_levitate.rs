@@ -13,7 +13,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use crate::build;
+use crate::builder;
 use crate::qemu::{Arch, QemuBuilder, QemuProfile};
 use crate::support::qmp::QmpClient;
 
@@ -28,8 +28,8 @@ pub fn run() -> Result<()> {
     println!("📸 LevitateOS Screenshot Tests\n");
 
     println!("🔨 Building LevitateOS for both architectures...");
-    build::build_all("aarch64")?;
-    build::build_all("x86_64")?;
+    builder::build_all("aarch64")?;
+    builder::build_all("x86_64")?;
 
     // Run sequentially to avoid disk lock conflicts
     println!("\n━━━ aarch64 ━━━");

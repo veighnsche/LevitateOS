@@ -3,7 +3,7 @@
 //! `TEAM_322`: Refactored to use `QemuBuilder` pattern.
 
 use crate::qemu::{Arch, QemuBuilder};
-use crate::{build, disk};
+use crate::{builder, disk};
 use anyhow::{bail, Context, Result};
 // TEAM_370: Removed unused clap::Subcommand import
 use std::path::PathBuf;
@@ -122,7 +122,7 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
 
     disk::create_disk_image_if_missing()?;
     // TEAM_476: Always use Linux + OpenRC
-    build::create_openrc_initramfs(arch)?;
+    builder::create_openrc_initramfs(arch)?;
 
     // Setup noVNC
     let novnc_path = PathBuf::from("/tmp/novnc");
@@ -266,7 +266,7 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("🧪 Running LevitateOS Boot Test for {arch}...\n");
 
     // Build Linux + OpenRC
-    build::create_openrc_initramfs(arch)?;
+    builder::create_openrc_initramfs(arch)?;
     disk::create_disk_image_if_missing()?;
 
     let timeout_secs: u64 = 60;
@@ -365,7 +365,7 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
 
     disk::create_disk_image_if_missing()?;
     // TEAM_476: Always use Linux + OpenRC
-    build::create_openrc_initramfs(arch)?;
+    builder::create_openrc_initramfs(arch)?;
 
     // Setup noVNC and websockify similar to run_qemu_vnc
     let novnc_path = PathBuf::from("/tmp/novnc");

@@ -17,7 +17,7 @@ pub fn run(arch: &str) -> Result<()> {
     println!("=== Serial Input Test (Linux + OpenRC) for {arch} ===\n");
 
     // Build Linux + OpenRC initramfs
-    crate::build::create_openrc_initramfs(arch)?;
+    crate::builder::create_openrc_initramfs(arch)?;
 
     let arch_enum = Arch::try_from(arch)?;
     let profile = if arch == "x86_64" {

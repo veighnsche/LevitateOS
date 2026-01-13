@@ -20,7 +20,7 @@ use std::os::unix::io::AsRawFd;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-use crate::build;
+use crate::builder;
 use crate::qemu::{Arch, QemuBuilder, QemuProfile};
 
 /// Run backspace regression test
@@ -30,7 +30,7 @@ pub fn run(arch: &str) -> Result<()> {
     println!("   It will FAIL if backspace is broken (echoes ^H instead of erasing).\n");
 
     // Build
-    build::build_all(arch)?;
+    builder::build_all(arch)?;
 
     let arch_enum = Arch::try_from(arch)?;
     let profile = if arch == "x86_64" {

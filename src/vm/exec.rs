@@ -11,7 +11,7 @@
 //! 4. Capturing output until next prompt
 //! 5. Returning the output
 
-use crate::build;
+use crate::builder;
 use crate::qemu::{Arch, QemuBuilder, QemuProfile};
 use anyhow::{bail, Context, Result};
 use std::io::{Read, Write};
@@ -25,7 +25,7 @@ pub fn exec(cmd: &str, timeout_secs: u32, arch: &str) -> Result<String> {
     println!();
 
     // TEAM_476: Build Linux + OpenRC
-    build::create_openrc_initramfs(arch)?;
+    builder::create_openrc_initramfs(arch)?;
 
     // TEAM_476: Use QemuBuilder for Linux + OpenRC
     let arch_enum = Arch::try_from(arch)?;

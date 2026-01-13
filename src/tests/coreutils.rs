@@ -23,7 +23,7 @@ pub fn run(arch: &str, phase: Option<&str>) -> Result<()> {
 
     // TEAM_476: Build Linux + OpenRC initramfs
     println!("Building Linux + OpenRC...");
-    crate::build::create_openrc_initramfs(arch)?;
+    crate::builder::create_openrc_initramfs(arch)?;
 
     // Use QemuBuilder for proper configuration
     let qemu_arch = Arch::try_from(arch)?;

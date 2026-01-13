@@ -49,7 +49,7 @@ fn run_with_profile(profile: QemuProfile, arch: &str, update: bool) -> Result<()
     let rating = config.golden_rating(golden_path);
 
     // TEAM_476: Build Linux + OpenRC initramfs
-    crate::build::create_openrc_initramfs(arch)?;
+    crate::builder::create_openrc_initramfs(arch)?;
 
     // Kill any existing QEMU
     let qemu_bin = match arch {
