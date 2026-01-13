@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! `BusyBox` build support
 //!
 //! `TEAM_451`: Single binary replaces coreutils + dash + custom init
@@ -439,23 +438,6 @@ fn num_cpus() -> usize {
 }
 
 /// Check if musl-gcc is available
-fn ensure_musl_gcc() -> Result<()> {
-    let output = Command::new("musl-gcc").arg("--version").output();
-
-    if output.is_err() || !output.unwrap().status.success() {
-        bail!(
-            "musl-gcc not found.\n\n\
-             Install musl development tools:\n\
-             Fedora: sudo dnf install musl-gcc musl-devel\n\
-             Ubuntu: sudo apt install musl-tools musl-dev\n\
-             Arch:   sudo pacman -S musl"
-        );
-    }
-
-    Ok(())
-}
-
-/// Check if musl-gcc is available (non-failing version)
 pub fn musl_gcc_available() -> bool {
     Command::new("musl-gcc")
         .arg("--version")
@@ -574,83 +556,6 @@ pub fn require(arch: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// List of applets to create symlinks for in initramfs
-/// Returns (name, directory) tuples - "bin" or "sbin"
-pub fn applets() -> &'static [(&'static str, &'static str)] {
-    &[
-        // Init system (sbin)
-        ("init", "sbin"),
-        ("halt", "sbin"),
-        ("poweroff", "sbin"),
-        ("reboot", "sbin"),
-        // Shell (bin)
-        ("sh", "bin"),
-        ("ash", "bin"),
-        // Coreutils (bin)
-        ("cat", "bin"),
-        ("cp", "bin"),
-        ("echo", "bin"),
-        ("ls", "bin"),
-        ("mkdir", "bin"),
-        ("mv", "bin"),
-        ("pwd", "bin"),
-        ("rm", "bin"),
-        ("rmdir", "bin"),
-        ("touch", "bin"),
-        ("ln", "bin"),
-        ("chmod", "bin"),
-        ("chown", "bin"),
-        ("head", "bin"),
-        ("tail", "bin"),
-        ("true", "bin"),
-        ("false", "bin"),
-        ("test", "bin"),
-        ("[", "bin"),
-        ("stat", "bin"),
-        ("wc", "bin"),
-        // Text processing (bin)
-        ("grep", "bin"),
-        ("sed", "bin"),
-        ("awk", "bin"),
-        ("sort", "bin"),
-        ("uniq", "bin"),
-        ("cut", "bin"),
-        ("tr", "bin"),
-        ("tee", "bin"),
-        // Search (bin)
-        ("find", "bin"),
-        ("xargs", "bin"),
-        ("which", "bin"),
-        // Archives (bin)
-        ("tar", "bin"),
-        ("gzip", "bin"),
-        ("gunzip", "bin"),
-        ("zcat", "bin"),
-        // Editor (bin)
-        ("vi", "bin"),
-        // Process (bin)
-        ("ps", "bin"),
-        ("kill", "bin"),
-        ("killall", "bin"),
-        ("sleep", "bin"),
-        // Filesystem (bin)
-        ("mount", "bin"),
-        ("umount", "bin"),
-        ("df", "bin"),
-        ("du", "bin"),
-        // Misc (bin)
-        ("date", "bin"),
-        ("clear", "bin"),
-        ("reset", "bin"),
-        ("env", "bin"),
-        ("printenv", "bin"),
-        ("uname", "bin"),
-        ("hostname", "bin"),
-        ("id", "bin"),
-        ("whoami", "bin"),
-    ]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -662,18 +567,5 @@ mod tests {
             output_path("x86_64"),
             PathBuf::from("toolchain/busybox-out/x86_64/busybox")
         );
-    }
-
-    #[test]
-    fn test_applets_not_empty() {
-        assert!(!applets().is_empty());
-        // Should have init in sbin
-        assert!(applets()
-            .iter()
-            .any(|(name, dir)| *name == "init" && *dir == "sbin"));
-        // Should have sh in bin
-        assert!(applets()
-            .iter()
-            .any(|(name, dir)| *name == "sh" && *dir == "bin"));
     }
 }

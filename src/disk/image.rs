@@ -65,47 +65,6 @@ pub fn install_userspace_to_disk(_arch: &str) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
-fn install_userspace_to_disk_legacy(arch: &str) -> Result<()> {
-    create_disk_image_if_missing()?;
-
-    // TEAM_121: Legacy - Install/Update userspace apps on the disk
-    let binaries: Vec<String> = vec![]; // Was: crate::get_binaries(arch)?
-    let target = match arch {
-        "aarch64" => "aarch64-unknown-none",
-        "x86_64" => "x86_64-unknown-none",
-        _ => bail!("Unsupported architecture: {arch}"),
-    };
-    print!(
-        "💿 Installing userspace apps to disk ({} binaries) for {}... ",
-        binaries.len(),
-        arch
-    );
-    let disk_path = "tinyos_disk.img";
-    let mut count = 0;
-    for bin in binaries {
-        let src = format!("crates/userspace/target/{target}/release/{bin}");
-        if std::path::Path::new(&src).exists() {
-            let status = Command::new("mcopy")
-                .args([
-                    "-i",
-                    &format!("{disk_path}@@1M"),
-                    "-o",
-                    &src,
-                    &format!("::/{bin}"),
-                ])
-                .status()
-                .context(format!("Failed to copy {bin} to disk"))?;
-            if status.success() {
-                count += 1;
-            }
-        }
-    }
-    println!("[DONE] ({count} installed)");
-
-    Ok(())
-}
-
 /// `TEAM_116`: Show disk image status and list contents
 pub fn show_disk_status() -> Result<()> {
     let disk_path = "tinyos_disk.img";

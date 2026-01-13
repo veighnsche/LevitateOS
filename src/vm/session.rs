@@ -83,7 +83,7 @@ pub fn start(arch: &str) -> Result<()> {
     let _ = fs::remove_file(QMP_SOCKET);
 
     // TEAM_476: Build Linux + OpenRC
-    builder::create_openrc_initramfs(arch)?;
+    builder::create_initramfs(arch)?;
 
     // Build QEMU command
     let arch_enum = Arch::try_from(arch)?;
@@ -97,7 +97,7 @@ pub fn start(arch: &str) -> Result<()> {
     let builder = QemuBuilder::new(arch_enum, profile)
         .display_vnc()
         .enable_qmp(QMP_SOCKET)
-        .linux_kernel()
+        
         .initrd(&initrd_path);
 
     let mut cmd = builder.build()?;

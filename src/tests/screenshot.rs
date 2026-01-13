@@ -167,7 +167,7 @@ pub fn run_levitate() -> Result<()> {
 
     // Build for x86_64 (primary architecture)
     println!("🔨 Building LevitateOS...");
-    builder::create_openrc_initramfs("x86_64")?;
+    builder::create_initramfs("x86_64")?;
 
     // Test aarch64 (working)
     println!("\n━━━ aarch64 ━━━");
@@ -361,7 +361,7 @@ fn start_levitate_vnc(arch: &str, qmp_socket: &str) -> Result<std::process::Chil
     let builder = QemuBuilder::new(arch_enum, profile)
         .display_vnc()
         .enable_qmp(qmp_socket)
-        .linux_kernel()
+        
         .initrd(&initrd_path);
 
     let mut cmd = builder.build()?;

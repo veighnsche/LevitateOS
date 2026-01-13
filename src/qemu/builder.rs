@@ -22,14 +22,6 @@ impl Arch {
         }
     }
 
-    /// Returns the custom kernel binary path for this architecture
-    pub fn kernel_path(&self) -> &'static str {
-        match self {
-            Arch::Aarch64 => "kernel64_rust.bin",
-            Arch::X86_64 => "crates/kernel/target/x86_64-unknown-none/release/levitate-kernel",
-        }
-    }
-
     /// TEAM_474: Returns the Linux kernel binary path for this architecture
     pub fn linux_kernel_path(&self) -> &'static str {
         match self {
@@ -59,15 +51,6 @@ impl TryFrom<&str> for Arch {
     }
 }
 
-/// Boot mode configuration
-#[derive(Clone, Copy, Debug, Default)]
-pub enum BootMode {
-    /// Boot from kernel + initrd
-    #[default]
-    Kernel,
-    /// Boot from ISO (Limine)
-    Iso,
-}
 
 /// Display configuration
 #[derive(Clone, Copy, Debug, Default)]
@@ -75,8 +58,6 @@ pub enum DisplayMode {
     /// GTK window
     #[default]
     Gtk,
-    /// SDL window (better virgl support - GTK has display refresh issues with gl=on)
-    Sdl,
     /// VNC server on :0
     Vnc,
     /// Headless (display=none)
@@ -107,7 +88,6 @@ impl Default for GpuResolution {
 pub struct QemuBuilder {
     arch: Arch,
     profile: QemuProfile,
-    boot_mode: BootMode,
     display: DisplayMode,
     gpu_resolution: GpuResolution,
     // Features
@@ -116,16 +96,11 @@ pub struct QemuBuilder {
     enable_qmp: bool,
     qmp_socket: String,
     enable_gpu_debug: bool,
-    no_reboot: bool,
     // Disk
     disk_image: Option<String>,
     initrd: Option<String>,
-    // TEAM_474: Linux kernel support
-    use_linux_kernel: bool,
     // TEAM_476: Serial output to file (for behavior tests)
     serial_file: Option<String>,
-    // TEAM_477: Enable virgl for 3D acceleration (Wayland)
-    enable_virgl: bool,
 }
 
 impl QemuBuilder {
@@ -139,7 +114,6 @@ impl QemuBuilder {
         Self {
             arch,
             profile,
-            boot_mode: BootMode::default(),
             display: DisplayMode::default(),
             gpu_resolution: GpuResolution::default(),
             enable_gdb: false,
@@ -147,12 +121,9 @@ impl QemuBuilder {
             enable_qmp: false,
             qmp_socket: "./qmp.sock".to_string(),
             enable_gpu_debug: false,
-            no_reboot: true,
-            disk_image: Some("tinyos_disk.img".to_string()),
+            disk_image: None, // Linux boots from initramfs
             initrd: Some(initrd_name.to_string()),
-            use_linux_kernel: false,
             serial_file: None,
-            enable_virgl: false,
         }
     }
 
@@ -162,50 +133,15 @@ impl QemuBuilder {
         self
     }
 
-    /// TEAM_474: Use Linux kernel instead of custom kernel
-    /// TEAM_476: Linux boots from initramfs, disk is optional
-    pub fn linux_kernel(mut self) -> Self {
-        self.use_linux_kernel = true;
-        // Linux + initramfs doesn't need disk - disable by default
-        self.disk_image = None;
-        self
-    }
-
     /// TEAM_475: Set custom initramfs path
     pub fn initrd(mut self, path: &str) -> Self {
         self.initrd = Some(path.to_string());
         self
     }
 
-    /// TEAM_477: Enable virgl for 3D acceleration (needed for Wayland)
-    pub fn enable_virgl(mut self) -> Self {
-        self.enable_virgl = true;
-        self
-    }
-
-    /// Set boot mode to ISO
-    pub fn boot_iso(mut self) -> Self {
-        self.boot_mode = BootMode::Iso;
-        self
-    }
-
-    /// Set boot mode to kernel with custom initrd
-    #[allow(dead_code)]
-    pub fn boot_kernel(mut self, initrd: &str) -> Self {
-        self.boot_mode = BootMode::Kernel;
-        self.initrd = Some(initrd.to_string());
-        self
-    }
-
     /// Set display to GTK
     pub fn display_gtk(mut self) -> Self {
         self.display = DisplayMode::Gtk;
-        self
-    }
-
-    /// Set display to SDL (better virgl support for Wayland)
-    pub fn display_sdl(mut self) -> Self {
-        self.display = DisplayMode::Sdl;
         self
     }
 
@@ -253,20 +189,6 @@ impl QemuBuilder {
         self
     }
 
-    /// Set disk image path (None to disable)
-    #[allow(dead_code)]
-    pub fn disk_image(mut self, path: Option<&str>) -> Self {
-        self.disk_image = path.map(std::string::ToString::to_string);
-        self
-    }
-
-    /// Set no-reboot flag
-    #[allow(dead_code)]
-    pub fn no_reboot(mut self, enabled: bool) -> Self {
-        self.no_reboot = enabled;
-        self
-    }
-
     /// Build the QEMU command
     pub fn build(self) -> Result<Command> {
         let mut cmd = Command::new(self.arch.qemu_binary());
@@ -282,78 +204,51 @@ impl QemuBuilder {
             cmd.args(["-smp", smp]);
         }
 
-        // Boot configuration
-        match self.boot_mode {
-            BootMode::Kernel => {
-                // TEAM_474: Use Linux or custom kernel based on flag
-                let kernel_path = if self.use_linux_kernel {
-                    self.arch.linux_kernel_path()
-                } else {
-                    self.arch.kernel_path()
-                };
-                cmd.args(["-kernel", kernel_path]);
-                if let Some(ref initrd) = self.initrd {
-                    cmd.args(["-initrd", initrd]);
-                }
-                // TEAM_474: Linux kernel needs command line for console
-                if self.use_linux_kernel {
-                    cmd.args([
-                        "-append",
-                        "console=ttyS0 earlyprintk=serial,ttyS0,115200 rdinit=/init",
-                    ]);
-                }
-            }
-            BootMode::Iso => {
-                cmd.args(["-cdrom", "levitate.iso", "-boot", "d"]);
-            }
+        // Boot configuration - always use Linux kernel
+        cmd.args(["-kernel", self.arch.linux_kernel_path()]);
+        if let Some(ref initrd) = self.initrd {
+            cmd.args(["-initrd", initrd]);
         }
+        cmd.args([
+            "-append",
+            "console=ttyS0 earlyprintk=serial,ttyS0,115200 rdinit=/init",
+        ]);
 
         // GPU device
         // TEAM_331: x86_64 display mode:
         // - GTK/SDL: Use -vga std (Limine framebuffer, proper window size)
         // - VNC/headless: Use virtio-gpu-pci (proper resolution via edid)
         // - Nographic: Use virtio-gpu but no VGA (TEAM_444)
-        // TEAM_477: virgl mode uses virtio-gpu-gl for 3D acceleration
-        if self.enable_virgl {
-            // Wayland mode: use virtio-gpu-gl for 3D acceleration
-            cmd.args(["-vga", "none"]);
-            let gpu_spec = format!(
-                "virtio-gpu-gl-pci,xres={},yres={}",
-                self.gpu_resolution.width, self.gpu_resolution.height
-            );
-            cmd.args(["-device", &gpu_spec]);
-        } else {
-            match (&self.arch, &self.display) {
-                (Arch::X86_64, DisplayMode::Gtk) => {
-                    // Use VGA std - Limine gets framebuffer, GTK shows correct window size
-                    cmd.args(["-vga", "std"]);
-                }
-                (Arch::X86_64, DisplayMode::Nographic) => {
-                    // TEAM_444: For nographic, still add virtio-gpu for GPU init but no VGA
-                    cmd.args(["-vga", "none"]);
-                    let gpu_spec = format!(
-                        "virtio-gpu-pci,xres={},yres={},edid=on",
-                        self.gpu_resolution.width, self.gpu_resolution.height
-                    );
-                    cmd.args(["-device", &gpu_spec]);
-                }
-                (Arch::X86_64, _) => {
-                    // VNC/headless: use virtio-gpu for proper resolution
-                    cmd.args(["-vga", "none"]);
-                    let gpu_spec = format!(
-                        "virtio-gpu-pci,xres={},yres={},edid=on",
-                        self.gpu_resolution.width, self.gpu_resolution.height
-                    );
-                    cmd.args(["-device", &gpu_spec]);
-                }
-                _ => {
-                    // aarch64: always use virtio-gpu-pci
-                    let gpu_spec = format!(
-                        "virtio-gpu-pci,xres={},yres={}",
-                        self.gpu_resolution.width, self.gpu_resolution.height
-                    );
-                    cmd.args(["-device", &gpu_spec]);
-                }
+        match (&self.arch, &self.display) {
+            (Arch::X86_64, DisplayMode::Gtk) => {
+                // Use VGA std - Limine gets framebuffer, GTK shows correct window size
+                cmd.args(["-vga", "std"]);
+            }
+            (Arch::X86_64, DisplayMode::Nographic) => {
+                // TEAM_444: For nographic, still add virtio-gpu for GPU init but no VGA
+                cmd.args(["-vga", "none"]);
+                let gpu_spec = format!(
+                    "virtio-gpu-pci,xres={},yres={},edid=on",
+                    self.gpu_resolution.width, self.gpu_resolution.height
+                );
+                cmd.args(["-device", &gpu_spec]);
+            }
+            (Arch::X86_64, _) => {
+                // VNC/headless: use virtio-gpu for proper resolution
+                cmd.args(["-vga", "none"]);
+                let gpu_spec = format!(
+                    "virtio-gpu-pci,xres={},yres={},edid=on",
+                    self.gpu_resolution.width, self.gpu_resolution.height
+                );
+                cmd.args(["-device", &gpu_spec]);
+            }
+            _ => {
+                // aarch64: always use virtio-gpu-pci
+                let gpu_spec = format!(
+                    "virtio-gpu-pci,xres={},yres={}",
+                    self.gpu_resolution.width, self.gpu_resolution.height
+                );
+                cmd.args(["-device", &gpu_spec]);
             }
         }
 
@@ -379,22 +274,8 @@ impl QemuBuilder {
         // Display
         match self.display {
             DisplayMode::Gtk => {
-                if self.enable_virgl {
-                    // TEAM_477: GTK with OpenGL for virgl acceleration
-                    cmd.args(["-display", "gtk,gl=on"]);
-                } else {
-                    // TEAM_330: Use SDL instead of GTK - GTK ignores virtio-gpu resolution
-                    cmd.args(["-display", "sdl"]);
-                }
-                cmd.args(["-serial", "mon:stdio"]);
-            }
-            DisplayMode::Sdl => {
-                // TEAM_477: SDL with OpenGL - better virgl support than GTK
-                if self.enable_virgl {
-                    cmd.args(["-display", "sdl,gl=on"]);
-                } else {
-                    cmd.args(["-display", "sdl"]);
-                }
+                // TEAM_330: Use SDL instead of GTK - GTK ignores virtio-gpu resolution
+                cmd.args(["-display", "sdl"]);
                 cmd.args(["-serial", "mon:stdio"]);
             }
             DisplayMode::Vnc => {
@@ -438,10 +319,8 @@ impl QemuBuilder {
             cmd.args(["-D", "qemu_gpu_debug.log"]);
         }
 
-        // No reboot
-        if self.no_reboot {
-            cmd.arg("-no-reboot");
-        }
+        // No reboot - always enabled
+        cmd.arg("-no-reboot");
 
         // TEAM_409: Add isa-debug-exit device for x86_64 to allow proper VM termination
         // The kernel writes to port 0xf4 to exit QEMU

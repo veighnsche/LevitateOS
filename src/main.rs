@@ -91,7 +91,6 @@ enum Commands {
     Calc(calc::CalcCommands),
 }
 
-// TEAM_326: Simplified run args with flags instead of subcommands
 #[derive(clap::Args)]
 pub struct RunArgs {
     /// Run with GDB server enabled (port 1234)
@@ -114,7 +113,6 @@ pub struct RunArgs {
     #[arg(long)]
     pub headless: bool,
 
-    // TEAM_370: Removed --iso flag - x86_64 always uses ISO, aarch64 can't use ISO
     /// Enable GPU debug tracing
     #[arg(long)]
     pub gpu_debug: bool,
@@ -134,14 +132,6 @@ pub struct RunArgs {
     /// Timeout for verify-gpu (seconds)
     #[arg(long, default_value = "30")]
     pub timeout: u32,
-
-    /// TEAM_476: Use minimal BusyBox init instead of OpenRC (for debugging)
-    #[arg(long)]
-    pub minimal: bool,
-
-    /// TEAM_477: Run with Wayland desktop (sway compositor)
-    #[arg(long)]
-    pub wayland: bool,
 }
 
 #[derive(clap::Args)]
@@ -181,14 +171,12 @@ fn main() -> Result<()> {
             "serial" => tests::serial_input::run(arch)?,
             "keyboard" => tests::keyboard_input::run(arch)?,
             "shutdown" => tests::shutdown::run(arch)?,
-            "backspace" => tests::backspace::run(arch)?,
             "debug" => tests::debug_tools::run(args.update)?,
             "screenshot" => tests::screenshot::run(None)?,
             "screenshot:alpine" => tests::screenshot::run(Some("alpine"))?,
             "screenshot:levitate" => tests::screenshot::run(Some("levitate"))?,
-            other => bail!("Unknown test suite: {other}. Use 'unit', 'behavior', 'serial', 'keyboard', 'shutdown', 'backspace', 'debug', 'screenshot', or 'all'"),
+            other => bail!("Unknown test suite: {other}. Use 'unit', 'behavior', 'serial', 'keyboard', 'shutdown', 'debug', 'screenshot', or 'all'"),
         },
-        // TEAM_326: Refactored command handlers
         Commands::Run(args) => {
             preflight::check_preflight(arch)?;
 
@@ -199,17 +187,9 @@ fn main() -> Result<()> {
                 run::verify_gpu(arch, args.timeout)?;
             } else if args.vnc {
                 run::run_qemu_vnc(arch)?;
-            } else if args.wayland {
-                // TEAM_477: Run with Wayland desktop
-                run::run_qemu_wayland(arch)?;
             } else if args.term {
-                // TEAM_476: Linux kernel with OpenRC (or BusyBox if --minimal)
-                if args.minimal {
-                    builder::create_busybox_initramfs(arch)?;
-                } else {
-                    builder::create_openrc_initramfs(arch)?;
-                }
-                run::run_qemu_term_linux(arch, !args.minimal)?;
+                builder::create_initramfs(arch)?;
+                run::run_qemu_term_linux(arch)?;
             } else if args.gdb {
                 let profile = match args.profile.as_str() {
                     "pixel6" => {
@@ -220,13 +200,8 @@ fn main() -> Result<()> {
                     }
                     _ => if arch == "x86_64" { qemu::QemuProfile::X86_64 } else { qemu::QemuProfile::Default }
                 };
-                // TEAM_476: Build Linux + OpenRC for debugging
-                if args.minimal {
-                    builder::create_busybox_initramfs(arch)?;
-                } else {
-                    builder::create_openrc_initramfs(arch)?;
-                }
-                run::run_qemu_gdb_linux(profile, args.wait, arch, !args.minimal)?;
+                builder::create_initramfs(arch)?;
+                run::run_qemu_gdb_linux(profile, args.wait, arch)?;
             } else {
                 // Default: run with GUI
                 let profile = match args.profile.as_str() {
@@ -239,13 +214,8 @@ fn main() -> Result<()> {
                     }
                     _ => if arch == "x86_64" { qemu::QemuProfile::X86_64 } else { qemu::QemuProfile::Default }
                 };
-                // TEAM_476: Linux kernel with OpenRC (or BusyBox if --minimal)
-                if args.minimal {
-                    builder::create_busybox_initramfs(arch)?;
-                } else {
-                    builder::create_openrc_initramfs(arch)?;
-                }
-                run::run_qemu(profile, args.headless, false, arch, args.gpu_debug, true, !args.minimal)?;
+                builder::create_initramfs(arch)?;
+                run::run_qemu(profile, args.headless, arch, args.gpu_debug)?;
             }
         },
         Commands::Build(cmd) => {
@@ -253,25 +223,10 @@ fn main() -> Result<()> {
             // TEAM_476: Linux distribution builder - all commands build Linux components
             match cmd {
                 builder::BuildCommands::All => builder::build_all(arch)?,
-                builder::BuildCommands::Initramfs => builder::create_busybox_initramfs(arch)?,
+                builder::BuildCommands::Initramfs => builder::create_initramfs(arch)?,
                 builder::BuildCommands::Busybox => builder::busybox::build(arch)?,
                 builder::BuildCommands::Linux => builder::linux::build_linux_kernel(arch)?,
-                builder::BuildCommands::Openrc => builder::openrc::build(arch)?,
-                builder::BuildCommands::OpenrcInitramfs => { builder::create_openrc_initramfs(arch)?; }
-                // TEAM_477: Wayland components
-                builder::BuildCommands::Alpine => builder::alpine::ensure_wayland_packages(arch)?,
-                builder::BuildCommands::Wlroots => builder::wlroots::build(arch)?,
-                builder::BuildCommands::Sway => builder::sway::build(arch)?,
-                builder::BuildCommands::Foot => builder::foot::build(arch)?,
-                builder::BuildCommands::Wayland => {
-                    println!("Building all Wayland components...");
-                    builder::alpine::ensure_wayland_packages(arch)?;
-                    builder::wlroots::build(arch)?;
-                    builder::sway::build(arch)?;
-                    builder::foot::build(arch)?;
-                    println!("All Wayland components built!");
-                }
-                builder::BuildCommands::WaylandInitramfs => { builder::create_wayland_initramfs(arch)?; }
+                builder::BuildCommands::Openrc => builder::openrc::build(arch)?
             }
         },
         Commands::Vm(cmd) => match cmd {

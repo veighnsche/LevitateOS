@@ -15,7 +15,7 @@ pub fn run(arch: &str) -> Result<()> {
     println!("=== Shutdown Behavior Test (Linux + OpenRC) for {arch} ===\n");
 
     // Build Linux + OpenRC initramfs
-    crate::builder::create_openrc_initramfs(arch)?;
+    crate::builder::create_initramfs(arch)?;
 
     let arch_enum = Arch::try_from(arch)?;
     let profile = if arch == "x86_64" {
@@ -32,7 +32,7 @@ pub fn run(arch: &str) -> Result<()> {
     let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
     let builder = QemuBuilder::new(arch_enum, profile)
         .display_nographic()
-        .linux_kernel()
+        
         .initrd(&initrd_path);
 
     let base_cmd = builder.build()?;

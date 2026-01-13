@@ -86,37 +86,3 @@ pub fn build_linux_kernel(arch: &str) -> Result<()> {
 
     Ok(())
 }
-
-/// Clean Linux kernel build
-#[allow(dead_code)]
-pub fn clean_linux() -> Result<()> {
-    let linux_path = Path::new(LINUX_SRC);
-
-    if !linux_path.exists() {
-        return Ok(());
-    }
-
-    println!("Cleaning Linux kernel build...");
-
-    let status = Command::new("make")
-        .current_dir(linux_path)
-        .args(["mrproper"])
-        .status()
-        .context("Failed to clean Linux build")?;
-
-    if !status.success() {
-        bail!("Linux clean failed");
-    }
-
-    Ok(())
-}
-
-/// Get path to built Linux kernel image
-#[allow(dead_code)]
-pub fn linux_kernel_path(arch: &str) -> &'static str {
-    match arch {
-        "x86_64" => "linux/arch/x86/boot/bzImage",
-        "aarch64" => "linux/arch/arm64/boot/Image",
-        _ => panic!("Unsupported architecture: {arch}"),
-    }
-}

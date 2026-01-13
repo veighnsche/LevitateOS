@@ -34,12 +34,6 @@ pub fn output_dir(arch: &str) -> PathBuf {
     PathBuf::from(format!("toolchain/openrc-out/{arch}"))
 }
 
-/// Check if OpenRC has been built for the given architecture
-#[allow(dead_code)]
-pub fn exists(arch: &str) -> bool {
-    output_dir(arch).join("sbin/openrc").exists()
-}
-
 /// Clone the OpenRC repository if not present
 pub fn clone_repo() -> Result<()> {
     let dir = clone_dir();
@@ -280,24 +274,4 @@ pub fn require(arch: &str) -> Result<PathBuf> {
         );
     }
     Ok(path)
-}
-
-/// Clean OpenRC build artifacts
-#[allow(dead_code)]
-pub fn clean() -> Result<()> {
-    let build = build_dir();
-    if build.exists() {
-        println!("Removing OpenRC build directory...");
-        std::fs::remove_dir_all(&build)?;
-    }
-
-    for arch in ["x86_64", "aarch64"] {
-        let out = output_dir(arch);
-        if out.exists() {
-            println!("Removing OpenRC output for {}...", arch);
-            std::fs::remove_dir_all(&out)?;
-        }
-    }
-
-    Ok(())
 }

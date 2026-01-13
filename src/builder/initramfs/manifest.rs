@@ -2,8 +2,6 @@
 //!
 //! TEAM_474: Parses `initramfs/initramfs.toml` declarative configuration.
 
-#![allow(dead_code)]
-
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -11,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 /// Root manifest structure
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // meta field parsed for completeness
 pub struct Manifest {
     pub meta: Meta,
     pub layout: Layout,
@@ -24,10 +23,13 @@ pub struct Manifest {
     pub scripts: HashMap<String, FileEntry>,
     #[serde(default)]
     pub devices: HashMap<String, DeviceEntry>,
+    #[serde(default)]
+    pub trees: HashMap<String, String>,
 }
 
 /// Manifest metadata
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Parsed for future use
 pub struct Meta {
     pub version: String,
     #[serde(default)]
@@ -163,24 +165,21 @@ impl Manifest {
             symlinks: self.symlinks.len(),
             files: self.files.len() + self.scripts.len(),
             devices: self.devices.len(),
+            trees: self.trees.len(),
         }
     }
 }
 
 /// Summary of manifest contents for progress reporting
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields used by TUI dashboard
 pub struct ManifestTotals {
     pub directories: usize,
     pub binaries: usize,
     pub symlinks: usize,
     pub files: usize,
     pub devices: usize,
-}
-
-impl ManifestTotals {
-    pub fn total(&self) -> usize {
-        self.directories + self.binaries + self.symlinks + self.files + self.devices
-    }
+    pub trees: usize,
 }
 
 /// Parse octal mode string to u32

@@ -25,7 +25,7 @@ pub fn exec(cmd: &str, timeout_secs: u32, arch: &str) -> Result<String> {
     println!();
 
     // TEAM_476: Build Linux + OpenRC
-    builder::create_openrc_initramfs(arch)?;
+    builder::create_initramfs(arch)?;
 
     // TEAM_476: Use QemuBuilder for Linux + OpenRC
     let arch_enum = Arch::try_from(arch)?;
@@ -38,7 +38,7 @@ pub fn exec(cmd: &str, timeout_secs: u32, arch: &str) -> Result<String> {
     let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
     let builder = QemuBuilder::new(arch_enum, profile)
         .display_nographic()
-        .linux_kernel()
+        
         .initrd(&initrd_path);
 
     let base_cmd = builder.build()?;

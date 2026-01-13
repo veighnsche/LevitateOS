@@ -31,7 +31,7 @@ SMBIOS 2.8 present.
 DMI: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.17.0-9.fc43 06/10/2025
 DMI: Memory slots populated: 1/1
 tsc: Fast TSC calibration using PIT
-tsc: Detected 2111.976 MHz processor
+tsc: Detected 2111.998 MHz processor
 last_pfn = 0x7ffdf max_arch_pfn = 0x400000000
 MTRR map: 4 entries (3 fixed + 1 variable; max 19), built from 8 variable MTRRs
 x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
@@ -112,8 +112,8 @@ ACPI: Core revision 20250807
 clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
 APIC: Switch to symmetric I/O mode setup
 ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
-clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x1e7161bdfcf, max_idle_ns: 440795233580 ns
-Calibrating delay loop (skipped), value calculated using timer frequency.. 4223.95 BogoMIPS (lpj=8447904)
+clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x1e71768ef8b, max_idle_ns: 440795218977 ns
+Calibrating delay loop (skipped), value calculated using timer frequency.. 4223.99 BogoMIPS (lpj=8447992)
 Last level iTLB entries: 4KB 512, 2MB 255, 4MB 127
 Last level dTLB entries: 4KB 512, 2MB 255, 4MB 127, 1GB 0
 mitigations: Enabled attack vectors: user_kernel, user_user, SMT mitigations: auto
@@ -132,7 +132,7 @@ rcu: Hierarchical SRCU implementation.
 rcu: 	Max phase no-delay instances is 1000.
 smp: Bringing up secondary CPUs ...
 smp: Brought up 1 node, 1 CPU
-smpboot: Total of 1 processors activated (4223.95 BogoMIPS)
+smpboot: Total of 1 processors activated (4223.99 BogoMIPS)
 Memory: 1980384K/2096628K available (10565K kernel code, 974K rwdata, 2884K rodata, 1840K init, 476K bss, 113564K reserved, 0K cma-reserved)
 devtmpfs: initialized
 clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
@@ -275,7 +275,7 @@ In-situ OAM (IOAM) with IPv6
 sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
 NET: Registered PF_PACKET protocol family
 IPI shorthand broadcast: enabled
-sched_clock: Marking stable (1356117144, 23985333)->(1381576456, -1473979)
+sched_clock: Marking stable (1420100704, 24922761)->(1449183268, -4159803)
 Freeing unused kernel image (initmem) memory: 1840K
 Write protecting the kernel read-only data: 16384k
 Freeing unused kernel image (text/rodata gap) memory: 1720K
@@ -286,11 +286,11 @@ Run /init as init process
 
  * Mounting /proc ... [ ok ]
  * Mounting /run ... [ ok ]
+input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input5
  * /run/openrc: creating directory
  * checkpath: owner `root:uucp' not found
-input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input5
-tsc: Refined TSC clocksource calibration: 2111.993 MHz
-clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x1e7171ce903, max_idle_ns: 440795229087 ns
+tsc: Refined TSC clocksource calibration: 2111.991 MHz
+clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x1e716fff2bd, max_idle_ns: 440795203249 ns
 clocksource: Switched to clocksource tsc
 Service `netmount' needs non existent service `net'
  * Caching service dependencies ... [ ok ]

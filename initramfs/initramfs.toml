@@ -1,0 +1,331 @@
+# LevitateOS Initramfs Manifest
+#
+# Declarative configuration for initramfs contents.
+# Variables: ${arch}, ${toolchain}
+
+[meta]
+version = "1.0"
+description = "LevitateOS with OpenRC init system"
+
+# =============================================================================
+# Directory Structure
+# =============================================================================
+[layout]
+directories = [
+    ".",
+    "bin",
+    "sbin",
+    "dev",
+    "etc",
+    "etc/init.d",
+    "etc/conf.d",
+    "etc/runlevels",
+    "etc/runlevels/sysinit",
+    "etc/runlevels/boot",
+    "etc/runlevels/default",
+    "etc/runlevels/shutdown",
+    "lib",
+    "lib/rc",
+    "lib/rc/bin",
+    "lib/rc/sbin",
+    "lib/rc/sh",
+    "proc",
+    "sys",
+    "tmp",
+    "root",
+    "mnt",
+    "var",
+    "var/log",
+    "var/run",
+    "run",
+    "share",
+    "share/man",
+]
+
+# =============================================================================
+# Binaries
+# =============================================================================
+[binaries.busybox]
+source = "${toolchain}/busybox-out/${arch}/busybox"
+dest = "bin/busybox"
+mode = "0755"
+
+# OpenRC main binaries
+[binaries.openrc]
+source = "${toolchain}/openrc-out/${arch}/sbin/openrc"
+dest = "sbin/openrc"
+mode = "0755"
+
+[binaries.openrc-init]
+source = "${toolchain}/openrc-out/${arch}/sbin/openrc-init"
+dest = "sbin/openrc-init"
+mode = "0755"
+
+[binaries.openrc-run]
+source = "${toolchain}/openrc-out/${arch}/sbin/openrc-run"
+dest = "sbin/openrc-run"
+mode = "0755"
+
+[binaries.openrc-shutdown]
+source = "${toolchain}/openrc-out/${arch}/sbin/openrc-shutdown"
+dest = "sbin/openrc-shutdown"
+mode = "0755"
+
+[binaries.rc-service]
+source = "${toolchain}/openrc-out/${arch}/sbin/rc-service"
+dest = "sbin/rc-service"
+mode = "0755"
+
+[binaries.rc-update]
+source = "${toolchain}/openrc-out/${arch}/sbin/rc-update"
+dest = "sbin/rc-update"
+mode = "0755"
+
+[binaries.start-stop-daemon]
+source = "${toolchain}/openrc-out/${arch}/sbin/start-stop-daemon"
+dest = "sbin/start-stop-daemon"
+mode = "0755"
+
+[binaries.supervise-daemon]
+source = "${toolchain}/openrc-out/${arch}/sbin/supervise-daemon"
+dest = "sbin/supervise-daemon"
+mode = "0755"
+
+[binaries.rc-status]
+source = "${toolchain}/openrc-out/${arch}/bin/rc-status"
+dest = "bin/rc-status"
+mode = "0755"
+
+# =============================================================================
+# BusyBox Symlinks
+# =============================================================================
+[symlinks]
+# Shell
+"bin/sh" = "/bin/busybox"
+"bin/ash" = "/bin/busybox"
+
+# Core utilities
+"bin/echo" = "/bin/busybox"
+"bin/cat" = "/bin/busybox"
+"bin/ls" = "/bin/busybox"
+"bin/cp" = "/bin/busybox"
+"bin/mv" = "/bin/busybox"
+"bin/rm" = "/bin/busybox"
+"bin/mkdir" = "/bin/busybox"
+"bin/rmdir" = "/bin/busybox"
+"bin/ln" = "/bin/busybox"
+"bin/pwd" = "/bin/busybox"
+"bin/true" = "/bin/busybox"
+"bin/false" = "/bin/busybox"
+"bin/test" = "/bin/busybox"
+"bin/[" = "/bin/busybox"
+
+# Text processing
+"bin/head" = "/bin/busybox"
+"bin/tail" = "/bin/busybox"
+"bin/grep" = "/bin/busybox"
+"bin/sed" = "/bin/busybox"
+"bin/awk" = "/bin/busybox"
+"bin/cut" = "/bin/busybox"
+"bin/sort" = "/bin/busybox"
+"bin/wc" = "/bin/busybox"
+"bin/tr" = "/bin/busybox"
+
+# File inspection
+"bin/stat" = "/bin/busybox"
+"bin/find" = "/bin/busybox"
+"bin/xargs" = "/bin/busybox"
+"bin/touch" = "/bin/busybox"
+"bin/chmod" = "/bin/busybox"
+"bin/chown" = "/bin/busybox"
+
+# Process management
+"bin/ps" = "/bin/busybox"
+"bin/kill" = "/bin/busybox"
+"bin/sleep" = "/bin/busybox"
+"bin/date" = "/bin/busybox"
+"bin/uname" = "/bin/busybox"
+"bin/hostname" = "/bin/busybox"
+"bin/env" = "/bin/busybox"
+"bin/id" = "/bin/busybox"
+
+# Mount
+"bin/mount" = "/bin/busybox"
+"bin/umount" = "/bin/busybox"
+
+# System control
+"sbin/reboot" = "/bin/busybox"
+"sbin/poweroff" = "/bin/busybox"
+"sbin/halt" = "/bin/busybox"
+
+# Misc utilities
+"bin/clear" = "/bin/busybox"
+"bin/printf" = "/bin/busybox"
+"bin/seq" = "/bin/busybox"
+"bin/basename" = "/bin/busybox"
+"bin/dirname" = "/bin/busybox"
+"bin/readlink" = "/bin/busybox"
+"bin/tar" = "/bin/busybox"
+"bin/gzip" = "/bin/busybox"
+"bin/gunzip" = "/bin/busybox"
+
+# OpenRC dependencies
+"bin/md5sum" = "/bin/busybox"
+"sbin/modprobe" = "/bin/busybox"
+"sbin/ifconfig" = "/bin/busybox"
+"sbin/route" = "/bin/busybox"
+"bin/dmesg" = "/bin/busybox"
+"sbin/sysctl" = "/bin/busybox"
+"bin/expr" = "/bin/busybox"
+"bin/dd" = "/bin/busybox"
+"bin/mknod" = "/bin/busybox"
+"sbin/pivot_root" = "/bin/busybox"
+"sbin/switch_root" = "/bin/busybox"
+"sbin/blkid" = "/bin/busybox"
+"sbin/losetup" = "/bin/busybox"
+"sbin/fsck" = "/bin/busybox"
+"sbin/swapon" = "/bin/busybox"
+"sbin/swapoff" = "/bin/busybox"
+"bin/free" = "/bin/busybox"
+"sbin/hwclock" = "/bin/busybox"
+"sbin/getty" = "/bin/busybox"
+"bin/stty" = "/bin/busybox"
+"bin/tty" = "/bin/busybox"
+"bin/login" = "/bin/busybox"
+
+# Init symlinks
+"init" = "/bin/busybox"
+"sbin/init" = "/bin/busybox"
+
+# Runlevel symlinks
+"etc/runlevels/sysinit/devfs" = "/etc/init.d/devfs"
+"etc/runlevels/sysinit/dmesg" = "/etc/init.d/dmesg"
+"etc/runlevels/sysinit/procfs" = "/etc/init.d/procfs"
+"etc/runlevels/sysinit/sysfs" = "/etc/init.d/sysfs"
+"etc/runlevels/boot/hostname" = "/etc/init.d/hostname"
+"etc/runlevels/boot/localmount" = "/etc/init.d/localmount"
+"etc/runlevels/default/local" = "/etc/init.d/local"
+"etc/runlevels/shutdown/mount-ro" = "/etc/init.d/mount-ro"
+"etc/runlevels/shutdown/killprocs" = "/etc/init.d/killprocs"
+"etc/runlevels/shutdown/savecache" = "/etc/init.d/savecache"
+
+# =============================================================================
+# Configuration Files (inline content)
+# =============================================================================
+[files."etc/hostname"]
+content = "levitate\n"
+mode = "0644"
+
+[files."etc/passwd"]
+content = "root:x:0:0:root:/root:/bin/sh\n"
+mode = "0644"
+
+[files."etc/group"]
+content = "root:x:0:\n"
+mode = "0644"
+
+[files."etc/profile"]
+content = """# LevitateOS profile
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export HOME=/root
+export PS1='levitate# '
+alias ll='ls -la'
+"""
+mode = "0644"
+
+[files."etc/fstab"]
+content = """# LevitateOS fstab
+# <device>    <mount>    <type>    <options>    <dump>    <pass>
+devtmpfs      /dev       devtmpfs  rw,mode=0755 0         0
+proc          /proc      proc      rw           0         0
+sysfs         /sys       sysfs     rw           0         0
+tmpfs         /tmp       tmpfs     rw,mode=1777 0         0
+tmpfs         /run       tmpfs     rw,mode=0755 0         0
+"""
+mode = "0644"
+
+[files."etc/inittab"]
+content = """# LevitateOS OpenRC inittab
+# Mount devtmpfs first so /dev/ttyS0 exists
+::sysinit:/bin/mount -t devtmpfs devtmpfs /dev
+::sysinit:/sbin/openrc sysinit
+::wait:/sbin/openrc boot
+::wait:/sbin/openrc default
+# Serial console - spawn shell after runlevels complete
+::respawn:/sbin/getty -n -l /bin/ash 115200 ttyS0 vt100
+::shutdown:/sbin/openrc shutdown
+::ctrlaltdel:/sbin/reboot
+"""
+mode = "0644"
+
+[files."root/hello.txt"]
+content = "Welcome to LevitateOS with OpenRC!\n"
+mode = "0644"
+
+# =============================================================================
+# Device Nodes
+# =============================================================================
+[devices."dev/null"]
+type = "c"
+major = 1
+minor = 3
+mode = "0666"
+
+[devices."dev/zero"]
+type = "c"
+major = 1
+minor = 5
+mode = "0666"
+
+[devices."dev/random"]
+type = "c"
+major = 1
+minor = 8
+mode = "0666"
+
+[devices."dev/urandom"]
+type = "c"
+major = 1
+minor = 9
+mode = "0666"
+
+[devices."dev/tty"]
+type = "c"
+major = 5
+minor = 0
+mode = "0666"
+
+[devices."dev/console"]
+type = "c"
+major = 5
+minor = 1
+mode = "0600"
+
+# =============================================================================
+# OpenRC Directory Trees
+# Copy entire directory trees from the OpenRC build output
+# =============================================================================
+[trees]
+# lib/rc/bin - OpenRC helper binaries
+"lib/rc/bin" = "${toolchain}/openrc-out/${arch}/lib/rc/bin"
+
+# lib/rc/sbin - OpenRC helper sbinaries
+"lib/rc/sbin" = "${toolchain}/openrc-out/${arch}/lib/rc/sbin"
+
+# lib/rc/sh - OpenRC shell scripts
+"lib/rc/sh" = "${toolchain}/openrc-out/${arch}/lib/rc/sh"
+
+# etc/init.d - Init scripts
+"etc/init.d" = "${toolchain}/openrc-out/${arch}/etc/init.d"
+
+# etc/conf.d - Service configuration
+"etc/conf.d" = "${toolchain}/openrc-out/${arch}/etc/conf.d"
+
+# =============================================================================
+# OpenRC Config (minimal, defaults are fine)
+# =============================================================================
+[files."etc/rc.conf"]
+content = """# OpenRC configuration
+# Using defaults - see OpenRC documentation for options
+"""
+mode = "0644"

@@ -121,6 +121,10 @@ impl Dashboard {
                 self.phase_progress.0 += 1;
                 self.add_activity("⚙", path.clone(), None, ItemStatus::Done);
             }
+            BuildEvent::TreeCopied { dest, files } => {
+                self.phase_progress.0 += 1;
+                self.add_activity("📁", format!("{} ({} files)", dest, files), None, ItemStatus::Done);
+            }
             BuildEvent::BuildComplete {
                 output_path,
                 total_size,
@@ -323,6 +327,9 @@ pub fn print_simple_event(event: &BuildEvent) {
         }
         BuildEvent::FileAdded { path, .. } => {
             println!("    + {}", path);
+        }
+        BuildEvent::TreeCopied { dest, files } => {
+            println!("    📁 {} ({} files)", dest, files);
         }
         BuildEvent::BuildComplete {
             output_path,

@@ -3,13 +3,10 @@
 //! `TEAM_322`: Refactored to use `QemuBuilder` pattern.
 
 use crate::qemu::{Arch, QemuBuilder};
-use crate::{builder, disk};
+use crate::builder;
 use anyhow::{bail, Context, Result};
-// TEAM_370: Removed unused clap::Subcommand import
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-
-// TEAM_370: Removed dead RunCommands enum - main.rs uses RunArgs instead
 
 // Re-export for backwards compatibility with main.rs
 pub use crate::qemu::QemuProfile;
@@ -23,41 +20,23 @@ fn profile_for_arch(arch: &str) -> QemuProfile {
     }
 }
 
-/// `TEAM_322`: Run QEMU with default GUI display
-/// `TEAM_474`: Added linux parameter for Linux kernel support
-/// `TEAM_475`: Added openrc parameter for OpenRC initramfs
+/// Get the initramfs path for an architecture
+fn initramfs_path(arch: &str) -> String {
+    format!("target/initramfs/{}.cpio", arch)
+}
+
+/// Run QEMU with default GUI display
 pub fn run_qemu(
     profile: QemuProfile,
     headless: bool,
-    iso: bool,
     arch: &str,
     gpu_debug: bool,
-    linux: bool,
-    openrc: bool,
 ) -> Result<()> {
-    // TEAM_476: Only create disk for non-Linux boots (custom kernel needs disk)
-    if !linux {
-        disk::create_disk_image_if_missing()?;
-    }
-
     let arch_enum = Arch::try_from(arch)?;
-    // TEAM_330: Explicitly set GPU resolution for readable display
-    let mut builder = QemuBuilder::new(arch_enum, profile).gpu_resolution(1280, 800);
-
-    // TEAM_474: Use Linux kernel if requested
-    if linux {
-        builder = builder.linux_kernel();
-        // TEAM_475: Use OpenRC initramfs if requested
-        if openrc {
-            let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
-            builder = builder.initrd(&initrd_path);
-        }
-    }
-
-    // Boot configuration
-    if iso {
-        builder = builder.boot_iso();
-    }
+    let mut builder = QemuBuilder::new(arch_enum, profile)
+        .gpu_resolution(1280, 800)
+        
+        .initrd(&initramfs_path(arch));
 
     // Display configuration
     if headless {
@@ -85,34 +64,20 @@ pub fn run_qemu(
     Ok(())
 }
 
-/// `TEAM_116`: Run QEMU with GDB server enabled (port 1234)
-/// TEAM_476: Updated to support Linux kernel mode (default)
-pub fn run_qemu_gdb_linux(
-    profile: QemuProfile,
-    wait: bool,
-    arch: &str,
-    openrc: bool,
-) -> Result<()> {
-    let init_system = if openrc { "OpenRC" } else { "BusyBox" };
-    println!("🐛 Starting QEMU with GDB server on port 1234 (Linux + {init_system})...");
+/// Run QEMU with GDB server enabled (port 1234)
+pub fn run_qemu_gdb_linux(profile: QemuProfile, wait: bool, arch: &str) -> Result<()> {
+    println!("🐛 Starting QEMU with GDB server on port 1234...");
     if wait {
         println!("⏳ Waiting for GDB connection before starting...");
     }
 
-    // TEAM_476: Linux boots from initramfs, no disk needed
-
     let arch_enum = Arch::try_from(arch)?;
-    let mut builder = QemuBuilder::new(arch_enum, profile)
+    let builder = QemuBuilder::new(arch_enum, profile)
         .gpu_resolution(1280, 800)
         .enable_gdb(wait)
         .enable_qmp("./qmp.sock")
-        .linux_kernel();
-
-    // Use OpenRC initramfs if requested
-    if openrc {
-        let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
-        builder = builder.initrd(&initrd_path);
-    }
+        
+        .initrd(&initramfs_path(arch));
 
     let mut cmd = builder.build()?;
     cmd.stdout(Stdio::inherit())
@@ -124,12 +89,10 @@ pub fn run_qemu_gdb_linux(
 }
 
 /// Run QEMU with VNC for browser-based GPU display verification
-/// TEAM_476: Updated to use Linux + OpenRC
 pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     println!("🖥️  Starting QEMU with VNC for browser-based display verification...\n");
 
-    // TEAM_476: Build initramfs (no disk needed for Linux + initramfs)
-    builder::create_openrc_initramfs(arch)?;
+    builder::create_initramfs(arch)?;
 
     // Setup noVNC
     let novnc_path = PathBuf::from("/tmp/novnc");
@@ -204,15 +167,12 @@ pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     // Build QEMU
     let arch_enum = Arch::try_from(arch)?;
     let profile = profile_for_arch(arch);
-    // TEAM_330: Explicit resolution for VNC display
-    // TEAM_476: Use Linux kernel with OpenRC
-    let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
     let builder = QemuBuilder::new(arch_enum, profile)
         .gpu_resolution(1280, 800)
         .display_vnc()
         .enable_qmp("./qmp.sock")
-        .linux_kernel()
-        .initrd(&initrd_path);
+        
+        .initrd(&initramfs_path(arch));
 
     let mut cmd = builder.build()?;
     let qemu_result = cmd
@@ -267,24 +227,21 @@ fn find_websockify() -> Result<String> {
     )
 }
 
-/// `TEAM_374`: Run QEMU with test runner for automated OS testing
-/// TEAM_476: Updated to test Linux + OpenRC boot
+/// Run QEMU with test runner for automated OS testing
 pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("🧪 Running LevitateOS Boot Test for {arch}...\n");
 
-    // Build Linux + OpenRC (no disk needed for initramfs boot)
-    builder::create_openrc_initramfs(arch)?;
+    builder::create_initramfs(arch)?;
 
     let timeout_secs: u64 = 60;
     println!("Running QEMU (headless, {timeout_secs}s timeout)...\n");
 
     let arch_enum = Arch::try_from(arch)?;
     let profile = profile_for_arch(arch);
-    let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
     let builder = QemuBuilder::new(arch_enum, profile)
         .display_headless()
-        .linux_kernel()
-        .initrd(&initrd_path);
+        
+        .initrd(&initramfs_path(arch));
 
     let base_cmd = builder.build()?;
     let args: Vec<_> = base_cmd
@@ -324,12 +281,10 @@ pub fn run_qemu_test(arch: &str) -> Result<()> {
     }
 }
 
-/// TEAM_475: Run Linux kernel in terminal mode with optional OpenRC
-/// TEAM_476: This is now the only terminal mode (custom kernel removed)
-pub fn run_qemu_term_linux(arch: &str, openrc: bool) -> Result<()> {
-    let init_system = if openrc { "OpenRC" } else { "BusyBox" };
+/// Run QEMU in terminal mode
+pub fn run_qemu_term_linux(arch: &str) -> Result<()> {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║  LevitateOS + Linux Kernel ({init_system}) - {arch}         ");
+    println!("║  LevitateOS + Linux Kernel - {arch}                         ");
     println!("║                                                            ║");
     println!("║  Type directly here - keyboard goes to VM                  ║");
     println!("║  Ctrl+A X to exit QEMU                                     ║");
@@ -341,16 +296,11 @@ pub fn run_qemu_term_linux(arch: &str, openrc: bool) -> Result<()> {
 
     let arch_enum = Arch::try_from(arch)?;
     let profile = profile_for_arch(arch);
-    let mut builder = QemuBuilder::new(arch_enum, profile)
+    let builder = QemuBuilder::new(arch_enum, profile)
         .display_nographic()
         .enable_qmp("./qmp.sock")
-        .linux_kernel();
-
-    // Use OpenRC initramfs if requested
-    if openrc {
-        let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
-        builder = builder.initrd(&initrd_path);
-    }
+        
+        .initrd(&initramfs_path(arch));
 
     let mut cmd = builder.build()?;
     cmd.stdin(Stdio::inherit())
@@ -362,15 +312,13 @@ pub fn run_qemu_term_linux(arch: &str, openrc: bool) -> Result<()> {
     Ok(())
 }
 
-/// `TEAM_320`: Verify GPU display via VNC + Puppeteer
-/// TEAM_476: Updated to use Linux + OpenRC
+/// Verify GPU display via VNC
 pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
     println!("╔══════════════════════════════════════════════════════════╗");
     println!("║  [GPU VERIFY] Starting automated GPU verification...     ║");
     println!("╚══════════════════════════════════════════════════════════╝\n");
 
-    // TEAM_476: Build initramfs (no disk needed for Linux + initramfs)
-    builder::create_openrc_initramfs(arch)?;
+    builder::create_initramfs(arch)?;
 
     // Setup noVNC and websockify similar to run_qemu_vnc
     let novnc_path = PathBuf::from("/tmp/novnc");
@@ -419,15 +367,12 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
     // Start QEMU in background
     let arch_enum = Arch::try_from(arch)?;
     let profile = profile_for_arch(arch);
-    // TEAM_330: Explicit resolution for GPU verification
-    // TEAM_476: Use Linux kernel with OpenRC
-    let initrd_path = format!("target/initramfs/{}-openrc.cpio", arch);
     let builder = QemuBuilder::new(arch_enum, profile)
         .gpu_resolution(1280, 800)
         .display_vnc()
         .enable_qmp("./qmp.sock")
-        .linux_kernel()
-        .initrd(&initrd_path);
+        
+        .initrd(&initramfs_path(arch));
 
     let mut cmd = builder.build()?;
     let mut qemu = cmd
@@ -482,60 +427,3 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
     }
 }
 
-/// TEAM_477: Run QEMU with Wayland desktop (sway compositor)
-///
-/// # Display Backend Choice
-/// We use SDL instead of GTK for virgl (3D) acceleration because:
-/// - GTK with gl=on has display refresh issues (screen stays on bootloader)
-/// - SDL with gl=on properly updates the display during kernel boot
-/// - Both backends support virgl, but SDL rendering is more reliable
-///
-/// # Boot Flow
-/// 1. Kernel boots with virtio-gpu-gl-pci (3D accelerated)
-/// 2. OpenRC starts seatd service for seat management
-/// 3. User runs `start-wayland` to launch sway compositor
-/// 4. sway takes over DRM, renders to virtio-gpu via virgl
-///
-/// # Key Environment Variables (set in /etc/profile.d/wayland.sh)
-/// - WLR_BACKENDS=drm - Use DRM backend, not headless
-/// - WLR_RENDERER=gles2 - Use OpenGL ES 2 via virgl
-/// - LIBSEAT_BACKEND=seatd - Use seatd for seat management
-/// - MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu - Force virtio GPU driver
-pub fn run_qemu_wayland(arch: &str) -> Result<()> {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║  LevitateOS + Wayland (sway) - {arch}                       ");
-    println!("║                                                            ║");
-    println!("║  After boot, run 'start-wayland' to launch sway            ║");
-    println!("║  Or run 'sway' directly after setting up environment       ║");
-    println!("║                                                            ║");
-    println!("║  In sway: Mod+Enter = terminal, Mod+Shift+e = exit         ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
-
-    // Build Wayland initramfs
-    builder::create_wayland_initramfs(arch)?;
-
-    // Clean QMP socket
-    let _ = std::fs::remove_file("./qmp.sock");
-
-    let arch_enum = Arch::try_from(arch)?;
-    let profile = profile_for_arch(arch);
-    let initrd_path = format!("target/initramfs/{}-wayland.cpio", arch);
-
-    // Use virtio-gpu-gl for Wayland (SDL with OpenGL works better than GTK for virgl)
-    let builder = QemuBuilder::new(arch_enum, profile)
-        .gpu_resolution(1280, 800)
-        .display_sdl()
-        .enable_qmp("./qmp.sock")
-        .linux_kernel()
-        .initrd(&initrd_path)
-        .enable_virgl();  // Enable virgl for 3D acceleration
-
-    let mut cmd = builder.build()?;
-    cmd.stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .context("Failed to run QEMU")?;
-
-    Ok(())
-}

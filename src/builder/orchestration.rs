@@ -27,7 +27,7 @@ pub fn build_all(arch: &str) -> Result<()> {
     super::openrc::build(arch)?;
 
     // Create initramfs with OpenRC
-    super::initramfs::create_openrc_initramfs(arch)?;
+    super::initramfs::create_initramfs(arch)?;
 
     println!("\n✅ Build complete for {arch}");
     Ok(())

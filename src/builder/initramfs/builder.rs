@@ -2,38 +2,30 @@
 //!
 //! TEAM_474: Event-driven builder for TUI progress reporting.
 
-#![allow(dead_code)]
-
 use super::cpio::CpioArchive;
 use super::manifest::{parse_mode, FileEntry, Manifest};
 use anyhow::{Context, Result};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 /// Build events emitted during construction
 #[derive(Clone, Debug)]
+#[allow(dead_code)] // Fields read by TUI pattern matching
 pub enum BuildEvent {
-    /// Phase started
     PhaseStart { name: &'static str, total: usize },
-    /// Phase completed
     PhaseComplete { name: &'static str },
-    /// Directory created
     DirectoryCreated { path: String },
-    /// Binary added
     BinaryAdded { path: String, size: u64 },
-    /// Symlink created
     SymlinkCreated { link: String, target: String },
-    /// File added
     FileAdded { path: String, size: u64 },
-    /// Device node created
     DeviceCreated { path: String },
-    /// Build completed successfully
+    TreeCopied { dest: String, files: usize },
     BuildComplete {
         output_path: PathBuf,
         total_size: u64,
         duration: Duration,
     },
-    /// Build failed
     BuildFailed { error: String },
 }
 
@@ -51,11 +43,6 @@ impl InitramfsBuilder {
             arch: arch.to_string(),
             base_dir: base_dir.to_path_buf(),
         }
-    }
-
-    /// Build the initramfs without events (simple mode)
-    pub fn build(&self) -> Result<PathBuf> {
-        self.build_with_events(|_| {})
     }
 
     /// Build the initramfs, emitting events for progress
@@ -231,7 +218,29 @@ impl InitramfsBuilder {
             name: "Creating devices",
         });
 
-        // 6. Write archive
+        // 6. Copy directory trees
+        let trees = &self.manifest.trees;
+        if !trees.is_empty() {
+            emit(BuildEvent::PhaseStart {
+                name: "Copying trees",
+                total: trees.len(),
+            });
+            for (dest, source) in trees {
+                let source_path = PathBuf::from(source);
+                if source_path.exists() {
+                    let files = self.copy_tree(&mut archive, &source_path, dest)?;
+                    emit(BuildEvent::TreeCopied {
+                        dest: dest.clone(),
+                        files,
+                    });
+                }
+            }
+            emit(BuildEvent::PhaseComplete {
+                name: "Copying trees",
+            });
+        }
+
+        // 7. Write archive
         let output_dir = PathBuf::from("target/initramfs");
         std::fs::create_dir_all(&output_dir)?;
         let output_path = output_dir.join(format!("{}.cpio", self.arch));
@@ -246,5 +255,33 @@ impl InitramfsBuilder {
         });
 
         Ok(output_path)
+    }
+
+    /// Recursively copy a directory tree into the archive
+    fn copy_tree(&self, archive: &mut CpioArchive, src: &Path, dest_prefix: &str) -> Result<usize> {
+        let mut count = 0;
+
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let path = entry.path();
+            let name = path.file_name().unwrap().to_string_lossy();
+            let dest = format!("{}/{}", dest_prefix, name);
+
+            if path.is_symlink() {
+                let target = std::fs::read_link(&path)?;
+                archive.add_symlink(&dest, &target.to_string_lossy());
+                count += 1;
+            } else if path.is_dir() {
+                archive.add_directory(&dest, 0o755);
+                count += self.copy_tree(archive, &path, &dest)?;
+            } else if path.is_file() {
+                let data = std::fs::read(&path)?;
+                let mode = std::fs::metadata(&path)?.permissions().mode() & 0o7777;
+                archive.add_file(&dest, &data, mode);
+                count += 1;
+            }
+        }
+
+        Ok(count)
     }
 }
