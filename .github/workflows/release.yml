@@ -72,12 +72,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src, rust-std
-          targets: x86_64-unknown-none
-
-      - name: Install Eyra toolchain
-        run: |
-          rustup toolchain install nightly-2025-04-28 --profile minimal
-          rustup target add x86_64-unknown-linux-gnu --toolchain nightly-2025-04-28
+          targets: x86_64-unknown-none, x86_64-unknown-linux-musl
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -124,12 +119,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src, rust-std
-          targets: aarch64-unknown-none
-
-      - name: Install Eyra toolchain
-        run: |
-          rustup toolchain install nightly-2025-04-28 --profile minimal
-          rustup target add aarch64-unknown-linux-gnu --toolchain nightly-2025-04-28
+          targets: aarch64-unknown-none, aarch64-unknown-linux-musl
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
