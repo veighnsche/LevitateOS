@@ -21,9 +21,12 @@
 
 ```bash
 # The dream:
-$ ./some-linux-binary
+$ apk add nginx
+$ nginx
 # It just works.
 ```
+
+**Next milestone:** Run Alpine Linux's `apk` package manager. Since we share the same musl + BusyBox foundation as Alpine, their packages should just work.
 
 ---
 
@@ -116,12 +119,14 @@ substitution works
 
 ## 🏗️ Architecture
 
-### Dual Architecture Support
+### Platform Support
 
-| Architecture | Status | Targets |
-|--------------|--------|---------|
-| **x86_64** | ✅ Primary | QEMU q35, Intel NUC |
-| **AArch64** | ✅ Working | QEMU virt, Pixel 6 |
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **QEMU x86_64** | ✅ Primary | q35 machine, daily development |
+| **QEMU AArch64** | ✅ Working | virt machine, tested regularly |
+| Intel NUC | 🔮 Aspirational | Future real hardware target |
+| Pixel 6 | 🔮 Aspirational | Future ARM hardware target |
 
 ### Kernel Design
 
@@ -194,30 +199,36 @@ sudo dnf install musl-gcc musl-devel               # Fedora
 ### Build & Run
 
 ```bash
-# Build everything and run
+# Build and run (uses xtask under the hood)
+./run.sh                     # GUI mode (default x86_64)
+./run.sh --term              # Terminal mode (serial console)
+./run.sh --vnc               # VNC display (browser at localhost:6080)
+./run.sh --gdb               # Start GDB server
+./run.sh clean               # Clean artifacts
+
+# Alternative: direct xtask commands
 cargo xtask build all
 cargo xtask run
-
-# Or for AArch64
-cargo xtask --arch aarch64 build all
-cargo xtask --arch aarch64 run
 ```
 
-### Run Modes
+### Shell Scripts
 
-```bash
-cargo xtask run              # GUI window
-cargo xtask run --term       # Terminal mode (serial console)
-cargo xtask run --vnc        # VNC display (browser at localhost:6080)
-cargo xtask run --headless   # No display
-cargo xtask run --gdb        # Start GDB server on port 1234
-```
+| Script | Purpose |
+|--------|--------|
+| `./run.sh` | Main launcher (GUI, delegates to xtask) |
+| `./run-term.sh` | Terminal mode - serial console in this terminal |
+| `./run-vnc.sh` | VNC mode - view in browser at localhost:6080 |
+| `./run-test.sh` | Run internal OS tests |
+
+**Controls in terminal mode:**
+- `Ctrl+A X` - Exit QEMU
+- `Ctrl+A C` - Switch to QEMU monitor
 
 ### Testing
 
 ```bash
 cargo xtask test             # All tests
-cargo xtask test unit        # Host-side unit tests
+cargo xtask test unit        # Host-side unit tests  
 cargo xtask test behavior    # Golden log comparison
 cargo xtask test regress     # Static analysis
 ```
@@ -233,7 +244,7 @@ cargo xtask test regress     # Static analysis
 3. **BusyBox Integration** - Shell and 80+ utilities ✅
 4. **Basic VFS** - tmpfs, devtmpfs, initramfs, FAT32, ext4 (read) ✅
 5. **TTY/Job Control** - Interactive shell with proper terminal handling ✅
-6. **musl Migration** - Replaced c-gull with standard musl ✅
+6. **musl libc** - Standard musl, same as Alpine Linux ✅
 
 ### Current Work
 
@@ -255,13 +266,12 @@ cargo xtask test regress     # Static analysis
 
 ## 🔧 Technical Details
 
-### QEMU Profiles
+### QEMU Configuration
 
-| Profile | RAM | Cores | CPU | Notes |
-|---------|-----|-------|-----|-------|
-| Default (x86_64) | 32GB | 2 | i3 | Primary development |
-| Default (aarch64) | 512MB | 1 | cortex-a53 | Basic ARM testing |
-| Pixel 6 (aarch64) | 8GB | 8 | cortex-a76 | High-performance ARM |
+| Architecture | Machine | RAM | CPU |
+|--------------|---------|-----|-----|
+| x86_64 | q35 | 1GB | qemu64 |
+| AArch64 | virt | 1GB | cortex-a72 |
 
 ### Memory Layout
 
