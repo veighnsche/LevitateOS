@@ -5,21 +5,29 @@
 //! ## Usage
 //!
 //! ```bash
-//! builder all           # Build Linux + BusyBox + OpenRC + initramfs
-//! builder linux         # Build Linux kernel only
-//! builder busybox       # Build BusyBox only
-//! builder openrc        # Build OpenRC only
-//! builder initramfs     # Build initramfs CPIO only
+//! builder all           # Fetch + build all components + initramfs
+//! builder fetch <name>  # Fetch a source repository
+//! builder status        # Show cache status
+//! builder linux         # Build Linux kernel
+//! builder systemd       # Build systemd
+//! builder uutils        # Build uutils (coreutils)
+//! builder sudo-rs       # Build sudo-rs
+//! builder brush         # Build brush shell
+//! builder glibc         # Collect system libraries
+//! builder initramfs     # Create initramfs CPIO
+//! builder run           # Boot in QEMU
 //! ```
 //!
 //! ## Components Built
 //!
-//! - **Linux kernel** (from submodule)
-//! - **BusyBox** (shell + utilities, static musl)
-//! - **OpenRC** (init system, static musl)
-//! - **initramfs** (CPIO archive)
+//! - **Linux kernel** (v6.18)
+//! - **systemd** (init system, v259)
+//! - **glibc** (dynamic linking, from host)
+//! - **uutils** (coreutils replacement)
+//! - **sudo-rs** (sudo/su)
+//! - **brush** (shell)
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use clap::Parser;
 
 mod builder;
@@ -29,26 +37,34 @@ mod builder;
 struct Cli {
     #[command(subcommand)]
     command: builder::BuildCommands,
-
-    /// Target architecture
-    #[arg(long, global = true, default_value = "x86_64")]
-    arch: String,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let arch = cli.arch.as_str();
-
-    if arch != "aarch64" && arch != "x86_64" {
-        bail!("Unsupported architecture: {arch}. Use 'aarch64' or 'x86_64'");
-    }
 
     match cli.command {
-        builder::BuildCommands::All => builder::build_all(arch)?,
-        builder::BuildCommands::Initramfs => builder::create_initramfs(arch)?,
-        builder::BuildCommands::Busybox => builder::busybox::build(arch)?,
-        builder::BuildCommands::Linux => builder::linux::build_linux_kernel(arch)?,
-        builder::BuildCommands::Openrc => builder::openrc::build(arch)?,
+        builder::BuildCommands::All => builder::build_all()?,
+        builder::BuildCommands::Fetch { name } => {
+            if let Some(name) = name {
+                if name == "--all" {
+                    builder::vendor::fetch_all()?;
+                } else {
+                    builder::vendor::fetch(&name)?;
+                }
+            } else {
+                builder::vendor::list();
+            }
+        }
+        builder::BuildCommands::Status => builder::vendor::status()?,
+        builder::BuildCommands::Clean { name } => builder::vendor::clean(name.as_deref())?,
+        builder::BuildCommands::Linux => builder::linux::build()?,
+        builder::BuildCommands::Systemd => builder::systemd::build()?,
+        builder::BuildCommands::Uutils => builder::uutils::build()?,
+        builder::BuildCommands::SudoRs => builder::sudo_rs::build()?,
+        builder::BuildCommands::Brush => builder::brush::build()?,
+        builder::BuildCommands::Glibc => builder::glibc::collect()?,
+        builder::BuildCommands::Initramfs => builder::initramfs::create()?,
+        builder::BuildCommands::Run => builder::qemu::run()?,
     }
 
     Ok(())

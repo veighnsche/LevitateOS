@@ -1,21 +1,68 @@
-//! Build commands module
-//!
-//! TEAM_322: Organized into build submodule
-//! TEAM_451: Added busybox module (replaces coreutils + dash + custom init)
-//! TEAM_474: Refactored initramfs to pure Rust with TOML manifest and TUI
-//! TEAM_475: Added OpenRC and Linux kernel builders
-//! TEAM_476: Removed dead modules (kernel.rs, userspace.rs, apps.rs, iso.rs, etc.)
+//! Build system modules for LevitateOS components.
 
-mod commands;
-mod initramfs;
-mod orchestration;
-
-// Core builders
-pub mod busybox;
+pub mod brush;
+pub mod glibc;
+pub mod initramfs;
 pub mod linux;
-pub mod openrc;
+pub mod qemu;
+pub mod sudo_rs;
+pub mod systemd;
+pub mod uutils;
+pub mod vendor;
 
-// Re-export public API
-pub use commands::BuildCommands;
-pub use initramfs::create_initramfs;
-pub use orchestration::build_all;
+use anyhow::Result;
+use clap::Subcommand;
+
+/// Build commands for the CLI.
+#[derive(Subcommand)]
+pub enum BuildCommands {
+    /// Build everything (fetch + all components + initramfs)
+    All,
+    /// Fetch source repositories
+    Fetch {
+        /// Source name (or --all)
+        name: Option<String>,
+    },
+    /// Show cache status
+    Status,
+    /// Clean cached sources
+    Clean {
+        /// Source name (omit for all)
+        name: Option<String>,
+    },
+    /// Build Linux kernel
+    Linux,
+    /// Build systemd
+    Systemd,
+    /// Build uutils (coreutils)
+    Uutils,
+    /// Build sudo-rs
+    SudoRs,
+    /// Build brush shell
+    Brush,
+    /// Collect glibc libraries
+    Glibc,
+    /// Create initramfs CPIO
+    Initramfs,
+    /// Boot in QEMU
+    Run,
+}
+
+/// Build all components.
+pub fn build_all() -> Result<()> {
+    println!("=== Building LevitateOS ===\n");
+
+    vendor::fetch_all()?;
+    linux::build()?;
+    systemd::build()?;
+    uutils::build()?;
+    sudo_rs::build()?;
+    brush::build()?;
+    glibc::collect()?;
+    initramfs::create()?;
+
+    println!("\n=== Build complete ===");
+    println!("Run with: builder run");
+
+    Ok(())
+}
