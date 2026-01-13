@@ -75,7 +75,7 @@ line1
 
 LevitateOS# VAR=$(echo "substitution works") && echo $VAR
 substitution works
-
+```
 
 ## LevitateOS Syscall Implementation
 
