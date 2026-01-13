@@ -3,9 +3,13 @@
 #
 # TEAM_243: Test runner mode for AI agent verification
 # TEAM_326: Updated for refactored xtask commands.
+# TEAM_474: Uses custom kernel (internal tests are kernel-specific).
 #
 # Boots the OS with a test-specific initramfs that runs all internal
 # tests (*_test binaries) automatically and outputs results to stdout.
+#
+# NOTE: This uses the custom LevitateOS kernel, not Linux, because
+# the internal tests are specific to the custom kernel implementation.
 #
 # Flags:
 #   --aarch64  - Run on AArch64 instead of x86_64 (default)

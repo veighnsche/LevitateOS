@@ -2,10 +2,11 @@
 # run-vnc.sh - Run LevitateOS in QEMU with VNC for browser viewing
 #
 # TEAM_111: Created to enable browser-based QEMU display debugging
-# TEAM_326: Consider using: cargo xtask run --vnc
+# TEAM_474: Now uses Linux kernel by default (race mode pivot).
 #
 # Flags:
-#   --aarch64  - Run on AArch64 instead of x86_64 (default)
+#   --aarch64  - Run on AArch64 instead of x86_64 (custom kernel, Linux not ready)
+#   --custom   - Run with custom LevitateOS kernel (legacy)
 #
 # Usage:
 #   1. Run this script: ./run-vnc.sh
@@ -18,26 +19,22 @@
 
 set -e
 
-# Default to x86_64, use --aarch64 for AArch64
+# Default to x86_64 with Linux
 ARCH="x86_64"
+USE_LINUX="--linux"
+ARGS=()
+
 for arg in "$@"; do
     case $arg in
-        --aarch64) ARCH="aarch64" ;;
+        --aarch64) ARCH="aarch64"; USE_LINUX="" ;;  # Linux not ready for aarch64
+        --custom) USE_LINUX="" ;;
+        *) ARGS+=("$arg") ;;
     esac
 done
 
 NOVNC_PATH="/tmp/novnc"
 
 echo "=== LevitateOS VNC Mode ($ARCH) ==="
-echo "Building kernel..."
-
-if [ "$ARCH" = "aarch64" ]; then
-    cargo build -p levitate-kernel --release --target aarch64-unknown-none --features verbose
-    ELF="target/aarch64-unknown-none/release/levitate-kernel"
-    BIN="kernel64_rust.bin"
-    echo "Converting to raw binary..."
-    aarch64-linux-gnu-objcopy -O binary "$ELF" "$BIN"
-fi
 
 # Kill any existing QEMU and websockify
 pkill -f "qemu-system-aarch64" 2>/dev/null || true
@@ -77,52 +74,6 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Launching QEMU with VNC on :5900..."
-# Ensure disk image exists
-# TEAM_121: Use xtask to ensure disk image is correctly partitioned and populated
-cargo xtask build --arch "$ARCH"
 
-if [ "$ARCH" = "aarch64" ]; then
-    qemu-system-aarch64 \
-        -M virt \
-        -cpu cortex-a72 \
-        -m 1G \
-        -kernel "$BIN" \
-        -display none \
-        -vnc :0 \
-        -device virtio-gpu-pci,xres=1280,yres=800 \
-        -device virtio-keyboard-device \
-        -device virtio-tablet-device \
-        -device virtio-net-device,netdev=net0 \
-        -netdev user,id=net0 \
-        -drive file=tinyos_disk.img,format=raw,if=none,id=hd0 \
-        -device virtio-blk-device,drive=hd0 \
-        -initrd initramfs.cpio \
-        -serial mon:stdio \
-        -qmp unix:./qmp.sock,server,nowait \
-        -no-reboot
-else
-    # x86_64 uses Limine ISO boot
-    ISO="levitate.iso"
-    if [ ! -f "$ISO" ]; then
-        echo "Building Limine ISO..."
-        cargo xtask build iso --arch x86_64
-    fi
-    qemu-system-x86_64 \
-        -M q35 \
-        -cpu qemu64 \
-        -m 1G \
-        -boot d \
-        -cdrom "$ISO" \
-        -display none \
-        -vnc :0 \
-        -device virtio-gpu-pci,xres=1280,yres=800 \
-        -device virtio-keyboard-pci \
-        -device virtio-tablet-pci \
-        -device virtio-net-pci,netdev=net0 \
-        -netdev user,id=net0 \
-        -drive file=tinyos_disk.img,format=raw,if=none,id=hd0 \
-        -device virtio-blk-pci,drive=hd0 \
-        -serial mon:stdio \
-        -qmp unix:./qmp.sock,server,nowait \
-        -no-reboot
-fi
+# TEAM_474: Use xtask for consistent builds
+exec cargo xtask run --vnc --arch "$ARCH" $USE_LINUX "${ARGS[@]}"
