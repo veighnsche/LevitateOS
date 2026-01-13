@@ -85,9 +85,18 @@ pub fn build(arch: &str) -> Result<()> {
     // Build script for distrobox Alpine
     // foot needs: wayland, fcft (font library), pixman, utf8proc
     // Use system packages from distrobox Alpine
+    // TEAM_477: Build against v3.21 to match runtime library versions
     let build_script = format!(
         r#"
 set -e
+
+# Ensure we're using Alpine v3.21 repos
+if grep -q "/edge/" /etc/apk/repositories 2>/dev/null; then
+    echo "  Switching Alpine repos to v3.21..."
+    sudo sed -i 's|/edge/|/v3.21/|g' /etc/apk/repositories
+    sudo apk update
+fi
+
 cd "{src}"
 
 # Install foot-specific dependencies in Alpine

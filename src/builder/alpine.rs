@@ -18,7 +18,7 @@ const ALPINE_MIRRORS: &[&str] = &[
 ];
 
 /// Alpine version to use
-/// Use "edge" to match distrobox Alpine edge where wlroots/sway/foot are built
+/// TEAM_477: Must match distrobox Alpine version (edge) since builds use distrobox libs
 const ALPINE_VERSION: &str = "edge";
 
 /// Max retries per mirror
@@ -61,7 +61,6 @@ pub const WAYLAND_PACKAGES: &[&str] = &[
     "wayland-libs-client",
     "wayland-libs-server",
     "wayland-libs-cursor",
-    "wayland-libs-egl",
     "wayland-protocols",
     "libxkbcommon",
 ];
@@ -73,6 +72,7 @@ pub const MESA_PACKAGES: &[&str] = &[
     "mesa-egl",
     "mesa-gl",
     "mesa-glapi",
+    "mesa-gles",
     "mesa-dri-gallium",
     "libdrm",
 ];
@@ -110,6 +110,7 @@ pub const FONT_PACKAGES: &[&str] = &[
 ];
 
 /// Additional library dependencies
+/// TEAM_477: Full deps for Mesa/GLES2 rendering with v3.21 stable
 pub const LIB_PACKAGES: &[&str] = &[
     // Core libraries
     "libffi",
@@ -121,7 +122,7 @@ pub const LIB_PACKAGES: &[&str] = &[
     "bzip2",
     "expat",
     "libxml2",
-    // X11/xcb libraries
+    // X11/xcb libraries (needed by cairo/pango/mesa)
     "libxcb",
     "xcb-util",
     "xcb-util-wm",
@@ -141,33 +142,38 @@ pub const LIB_PACKAGES: &[&str] = &[
     "libxshmfence",
     // JSON for sway
     "json-c",
-    // Internationalization (libintl from gettext)
+    // Internationalization
     "libintl",
-    // Mesa/OpenGL dependencies
-    "mesa-gles",
+    // wlroots display-info dependency
     "libdisplay-info",
     // Compression libraries
-    "libbz2",              // bzip2 library
+    "libbz2",
     "brotli-libs",
     "zstd-libs",
-    // System utilities
-    "libmount",            // from util-linux, for gio
-    "libblkid",            // block device ID library
     // Font/text rendering
     "graphite2",
     // GCC runtime libraries
     "libgcc",
     "libstdc++",
-    // Logind for seat management (from community repo)
+    // Seat management deps
+    "libcap",              // Linux capabilities for elogind
     "libelogind",
     // BSD compatibility
     "libbsd",
-    // ELF handling
-    "elfutils",            // provides libelf
+    "libmd",               // message digest for libbsd
     // PCI access for DRM
     "libpciaccess",
-    // LLVM for Mesa gallium shader compilation
-    "llvm19-libs",
+    // LLVM for Mesa gallium (edge has llvm21)
+    "llvm21-libs",
+    // SPIRV tools for Mesa shader compilation
+    "spirv-tools",
+    // ELF handling
+    "elfutils",
+    // libblkid/libmount for gio
+    "libblkid",
+    "libmount",
+    // libeconf for util-linux
+    "libeconf",
 ];
 
 /// Get all packages needed for Wayland support

@@ -91,9 +91,18 @@ pub fn build(arch: &str) -> Result<()> {
     // Build script for distrobox Alpine
     // Note: Use system-installed packages via pkg-config, not extracted Alpine packages
     // The extracted packages are for runtime in initramfs, not for building
+    // TEAM_477: Build against v3.21 to match runtime library versions
     let build_script = format!(
         r#"
 set -e
+
+# Ensure we're using Alpine v3.21 repos (not edge) for consistent library versions
+if grep -q "/edge/" /etc/apk/repositories 2>/dev/null; then
+    echo "  Switching Alpine repos to v3.21..."
+    sudo sed -i 's|/edge/|/v3.21/|g' /etc/apk/repositories
+    sudo apk update
+fi
+
 cd "{src}"
 
 # Clean previous build
