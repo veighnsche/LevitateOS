@@ -77,10 +77,42 @@ pub fn create_busybox_initramfs(arch: &str) -> Result<()> {
     std::fs::create_dir_all(root.join("tmp"))?;
     std::fs::create_dir_all(root.join("dev"))?;
     std::fs::create_dir_all(root.join("root"))?;
+    // TEAM_470: Add /lib for dynamic linker support
+    std::fs::create_dir_all(root.join("lib"))?;
 
     // Copy BusyBox binary
     std::fs::copy(&busybox_path, root.join("bin/busybox"))?;
     make_executable(&root.join("bin/busybox"))?;
+
+    // TEAM_470: Copy musl dynamic linker for dynamically-linked binary support
+    let musl_linker = if arch == "x86_64" {
+        Path::new("/lib/ld-musl-x86_64.so.1")
+    } else {
+        Path::new("/lib/ld-musl-aarch64.so.1")
+    };
+    if musl_linker.exists() {
+        let linker_name = musl_linker.file_name().unwrap();
+        std::fs::copy(musl_linker, root.join("lib").join(linker_name))?;
+        make_executable(&root.join("lib").join(linker_name))?;
+        println!("  📚 musl dynamic linker installed");
+    } else {
+        println!("  ⚠️  musl linker not found at {}, dynamic binaries may not work", musl_linker.display());
+    }
+
+    // TEAM_470: Copy additional test binaries from xtask/initrd_resources/bin/
+    let extra_bin_dir = Path::new("xtask/initrd_resources/bin");
+    if extra_bin_dir.exists() {
+        for entry in std::fs::read_dir(extra_bin_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                let name = path.file_name().unwrap();
+                std::fs::copy(&path, root.join("bin").join(name))?;
+                make_executable(&root.join("bin").join(name))?;
+                println!("  📄 Extra binary: /bin/{}", name.to_string_lossy());
+            }
+        }
+    }
 
     // Create symlinks for all applets
     #[cfg(unix)]
