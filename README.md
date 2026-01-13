@@ -75,47 +75,139 @@ line1
 
 LevitateOS# VAR=$(echo "substitution works") && echo $VAR
 substitution works
-```
 
-### Implemented Syscalls (70+)
 
-**Process Management:**
-- `fork`, `execve`, `wait4`, `waitpid`, `exit`, `exit_group`
-- `getpid`, `getppid`, `gettid`, `getpgid`, `setpgid`, `setsid`
-- `clone` (basic), `sched_yield`, `sched_getaffinity`, `sched_setaffinity`
+## LevitateOS Syscall Implementation
 
-**File Operations:**
-- `open`, `openat`, `close`, `read`, `write`, `readv`, `writev`
-- `lseek`, `pread64`, `pwrite64`, `sendfile`
-- `stat`, `fstat`, `lstat`, `fstatat`, `access`, `faccessat`
-- `getdents`, `getdents64`
-- `dup`, `dup2`, `dup3`, `fcntl`
+### Overview
+The dispatcher handles **124 syscalls** via a massive match statement.
 
-**Filesystem:**
-- `mkdir`, `mkdirat`, `rmdir`, `unlink`, `unlinkat`
-- `rename`, `renameat`, `symlink`, `symlinkat`, `readlink`, `readlinkat`
-- `chdir`, `getcwd`, `fchdir` (stub)
-- `mount`, `umount2`
-- `chmod`, `chown` (stubs - single user)
 
-**Memory:**
-- `mmap`, `munmap`, `mprotect`, `brk`, `mremap`
+### File System Syscalls (23)
 
-**Pipes & TTY:**
-- `pipe`, `pipe2`
-- `ioctl` (TIOCGWINSZ, TIOCSPGRP, TIOCGPGRP, TIOCSCTTY, TCGETS, TCSETS)
-- `poll`, `ppoll`
+| Category | Syscalls |
+|----------|----------|
+| **Basic I/O** | `read`, `write`, `open`¹, `close` |
+| **Stat Operations** | `stat`¹, `fstat`, `lstat`¹, `fstatat`, `statx` |
+| **Seek Operations** | `lseek`, `pread64`, `pwrite64` |
+| **Directory Ops** | `openat`, `getdents`, `getdents64`² |
+| **Working Dir** | `getcwd`, `chdir`, `fchdir` |
+| **Permissions** | `chmod`, `fchmod`, `fchmodat` |
+| **Ownership** | `chown`, `fchown`, `fchownat` |
+| **Size Control** | `truncate`, `ftruncate` |
+| **Access Check** | `access`¹, `faccessat` |
 
-**Signals:**
-- `rt_sigaction`, `rt_sigprocmask`, `rt_sigreturn`, `rt_sigtimedwait`
-- `kill`, `tkill`, `tgkill`
+### Directory Syscalls (6)
 
-**Time:**
-- `clock_gettime`, `nanosleep`, `gettimeofday`
+- `mkdir`¹, `mkdirat`
+- `unlink`¹, `unlinkat`
+- `rmdir`¹
+- `rename`¹, `renameat`
 
-**Identity (stubs for single-user):**
-- `getuid`, `geteuid`, `getgid`, `getegid`, `getgroups`
-- `setuid`, `setgid` (stubs)
+### Link Operations (5)
+
+| Type | Syscalls |
+|------|----------|
+| **Symlinks** | `symlink`¹, `symlinkat`, `readlinkat` |
+| **Hard Links** | `link` (via linkat), `linkat` |
+
+### Time Syscalls (5)
+
+- `gettimeofday` (legacy)
+- `clock_gettime`, `clock_getres`
+- `nanosleep`, `clock_nanosleep`
+
+### Process Management (20)
+
+| Category | Syscalls |
+|----------|----------|
+| **Identity** | `getpid`, `getppid`, `gettid` |
+| **Spawn** | `spawn`³, `spawn_args`³ |
+| **Exec/Exit** | `execve`, `exit`, `exit_group` |
+| **Fork** | `clone`, `fork`, `vfork` |
+| **Wait** | `waitpid`, `wait4` |
+| **Process Groups** | `getpgid`, `getpgrp`², `setpgid`, `setsid` |
+| **Thread Setup** | `set_tid_address` |
+| **Terminal Control** | `set_foreground`³, `get_foreground`³ |
+
+### User/Group Identity (12)
+
+| Get | Set | Advanced |
+|-----|-----|----------|
+| `getuid` | `setuid` | `setreuid` |
+| `geteuid` | `setgid` | `setregid` |
+| `getgid` | | `setresuid`, `getresuid` |
+| `getegid` | | `setresgid`, `getresgid` |
+
+### Signal Handling (7)
+
+- **Send**: `kill`, `tkill`
+- **Wait**: `pause`, `rt_sigtimedwait`²
+- **Management**: `sigaction`, `sigprocmask`, `sigreturn`, `sigaltstack`
+
+### Memory Management (6)
+
+| Core | Advanced |
+|------|----------|
+| `mmap`, `munmap`, `mprotect` | `madvise` |
+| `brk`, `sbrk` | `pkey_alloc`⁴, `pkey_mprotect`⁴ |
+
+### File Descriptor Operations (8)
+
+- **Duplication**: `dup`, `dup2`, `dup3`
+- **IPC**: `pipe2`
+- **Control**: `fcntl`, `ioctl`
+- **Utility**: `isatty`³
+
+### Mount Operations (2)
+
+- `mount`, `umount`
+
+### Synchronization & I/O Multiplexing (8)
+
+| Type | Syscalls |
+|------|----------|
+| **Futex** | `futex` |
+| **Poll** | `poll`, `ppoll` |
+| **Epoll** | `epoll_create1`, `epoll_ctl`, `epoll_wait` |
+| **Events** | `eventfd2` |
+
+### Socket Operations (4) - Mostly Stubbed
+
+| Syscall | Status |
+|---------|--------|
+| `socket` | Stub → `EAFNOSUPPORT` |
+| `socketpair` | Partial (pipe pair fallback) |
+| `sendto` | Stub → `ENOTSOCK` |
+| `sendfile` | Implemented |
+
+### Vectored I/O (2)
+
+- `readv`, `writev`
+
+### Resource Management (3)
+
+- `prlimit64`
+- `getrusage`
+- `getrandom`
+
+### System Operations (4)
+
+- `uname`
+- `umask`
+- `shutdown`, `reboot`
+- `arch_prctl`² - TLS/GS register management
+
+### Scheduler Operations (2)
+
+- `sched_getaffinity`, `sched_setaffinity`
+
+### Legend
+
+- ¹ x86_64 legacy syscall
+- ² x86_64 only
+- ³ Custom LevitateOS syscall
+- ⁴ Stub implementation
 
 ---
 
