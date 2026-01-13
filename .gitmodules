@@ -4,4 +4,5 @@
 	branch = tested
 [submodule "linux"]
 	path = linux
-	url = https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+	url = git@github.com:LevitateOS/linux.git
+	branch = levitate
