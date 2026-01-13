@@ -59,14 +59,21 @@ Fixed relative paths in `toolchain/openrc-out/x86_64/lib/rc/sh/gendepends.sh`:
 
 **wlroots/sway/foot are built in distrobox Alpine edge.** The runtime libraries must ALSO come from Alpine edge, not a stable release (v3.21, v3.20, etc).
 
-**Why?** Libraries like `libdisplay-info` have different soname versions:
-- Alpine v3.21: `libdisplay-info.so.2`
-- Alpine edge: `libdisplay-info.so.3` ← wlroots needs this
+**Why?** Libraries have different soname versions between stable and edge:
+- Alpine v3.21: `libdisplay-info.so.2`, `libLLVM.so.18`
+- Alpine edge: `libdisplay-info.so.3`, `libLLVM.so.21` ← builds need these
 
 In `src/builder/alpine.rs`:
 ```rust
 const ALPINE_VERSION: &str = "edge";  // NOT "v3.21"!
 ```
+
+### Required edge packages for Mesa/GLES2:
+- `llvm21-libs` - LLVM for Mesa gallium shader compilation
+- `spirv-tools` - SPIR-V shader tools
+- `libcap` - Linux capabilities for elogind
+- `libmd` - Message digest for libbsd
+- `libeconf` - Enhanced config for util-linux
 
 ## Alpine Package Names (IMPORTANT)
 
