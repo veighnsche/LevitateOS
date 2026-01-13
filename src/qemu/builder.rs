@@ -75,6 +75,8 @@ pub enum DisplayMode {
     /// GTK window
     #[default]
     Gtk,
+    /// SDL window (better virgl support - GTK has display refresh issues with gl=on)
+    Sdl,
     /// VNC server on :0
     Vnc,
     /// Headless (display=none)
@@ -122,6 +124,8 @@ pub struct QemuBuilder {
     use_linux_kernel: bool,
     // TEAM_476: Serial output to file (for behavior tests)
     serial_file: Option<String>,
+    // TEAM_477: Enable virgl for 3D acceleration (Wayland)
+    enable_virgl: bool,
 }
 
 impl QemuBuilder {
@@ -148,6 +152,7 @@ impl QemuBuilder {
             initrd: Some(initrd_name.to_string()),
             use_linux_kernel: false,
             serial_file: None,
+            enable_virgl: false,
         }
     }
 
@@ -172,6 +177,12 @@ impl QemuBuilder {
         self
     }
 
+    /// TEAM_477: Enable virgl for 3D acceleration (needed for Wayland)
+    pub fn enable_virgl(mut self) -> Self {
+        self.enable_virgl = true;
+        self
+    }
+
     /// Set boot mode to ISO
     pub fn boot_iso(mut self) -> Self {
         self.boot_mode = BootMode::Iso;
@@ -189,6 +200,12 @@ impl QemuBuilder {
     /// Set display to GTK
     pub fn display_gtk(mut self) -> Self {
         self.display = DisplayMode::Gtk;
+        self
+    }
+
+    /// Set display to SDL (better virgl support for Wayland)
+    pub fn display_sdl(mut self) -> Self {
+        self.display = DisplayMode::Sdl;
         self
     }
 
@@ -296,36 +313,47 @@ impl QemuBuilder {
         // - GTK/SDL: Use -vga std (Limine framebuffer, proper window size)
         // - VNC/headless: Use virtio-gpu-pci (proper resolution via edid)
         // - Nographic: Use virtio-gpu but no VGA (TEAM_444)
-        match (&self.arch, &self.display) {
-            (Arch::X86_64, DisplayMode::Gtk) => {
-                // Use VGA std - Limine gets framebuffer, GTK shows correct window size
-                cmd.args(["-vga", "std"]);
-            }
-            (Arch::X86_64, DisplayMode::Nographic) => {
-                // TEAM_444: For nographic, still add virtio-gpu for GPU init but no VGA
-                cmd.args(["-vga", "none"]);
-                let gpu_spec = format!(
-                    "virtio-gpu-pci,xres={},yres={},edid=on",
-                    self.gpu_resolution.width, self.gpu_resolution.height
-                );
-                cmd.args(["-device", &gpu_spec]);
-            }
-            (Arch::X86_64, _) => {
-                // VNC/headless: use virtio-gpu for proper resolution
-                cmd.args(["-vga", "none"]);
-                let gpu_spec = format!(
-                    "virtio-gpu-pci,xres={},yres={},edid=on",
-                    self.gpu_resolution.width, self.gpu_resolution.height
-                );
-                cmd.args(["-device", &gpu_spec]);
-            }
-            _ => {
-                // aarch64: always use virtio-gpu-pci
-                let gpu_spec = format!(
-                    "virtio-gpu-pci,xres={},yres={}",
-                    self.gpu_resolution.width, self.gpu_resolution.height
-                );
-                cmd.args(["-device", &gpu_spec]);
+        // TEAM_477: virgl mode uses virtio-gpu-gl for 3D acceleration
+        if self.enable_virgl {
+            // Wayland mode: use virtio-gpu-gl for 3D acceleration
+            cmd.args(["-vga", "none"]);
+            let gpu_spec = format!(
+                "virtio-gpu-gl-pci,xres={},yres={}",
+                self.gpu_resolution.width, self.gpu_resolution.height
+            );
+            cmd.args(["-device", &gpu_spec]);
+        } else {
+            match (&self.arch, &self.display) {
+                (Arch::X86_64, DisplayMode::Gtk) => {
+                    // Use VGA std - Limine gets framebuffer, GTK shows correct window size
+                    cmd.args(["-vga", "std"]);
+                }
+                (Arch::X86_64, DisplayMode::Nographic) => {
+                    // TEAM_444: For nographic, still add virtio-gpu for GPU init but no VGA
+                    cmd.args(["-vga", "none"]);
+                    let gpu_spec = format!(
+                        "virtio-gpu-pci,xres={},yres={},edid=on",
+                        self.gpu_resolution.width, self.gpu_resolution.height
+                    );
+                    cmd.args(["-device", &gpu_spec]);
+                }
+                (Arch::X86_64, _) => {
+                    // VNC/headless: use virtio-gpu for proper resolution
+                    cmd.args(["-vga", "none"]);
+                    let gpu_spec = format!(
+                        "virtio-gpu-pci,xres={},yres={},edid=on",
+                        self.gpu_resolution.width, self.gpu_resolution.height
+                    );
+                    cmd.args(["-device", &gpu_spec]);
+                }
+                _ => {
+                    // aarch64: always use virtio-gpu-pci
+                    let gpu_spec = format!(
+                        "virtio-gpu-pci,xres={},yres={}",
+                        self.gpu_resolution.width, self.gpu_resolution.height
+                    );
+                    cmd.args(["-device", &gpu_spec]);
+                }
             }
         }
 
@@ -351,8 +379,22 @@ impl QemuBuilder {
         // Display
         match self.display {
             DisplayMode::Gtk => {
-                // TEAM_330: Use SDL instead of GTK - GTK ignores virtio-gpu resolution
-                cmd.args(["-display", "sdl"]);
+                if self.enable_virgl {
+                    // TEAM_477: GTK with OpenGL for virgl acceleration
+                    cmd.args(["-display", "gtk,gl=on"]);
+                } else {
+                    // TEAM_330: Use SDL instead of GTK - GTK ignores virtio-gpu resolution
+                    cmd.args(["-display", "sdl"]);
+                }
+                cmd.args(["-serial", "mon:stdio"]);
+            }
+            DisplayMode::Sdl => {
+                // TEAM_477: SDL with OpenGL - better virgl support than GTK
+                if self.enable_virgl {
+                    cmd.args(["-display", "sdl,gl=on"]);
+                } else {
+                    cmd.args(["-display", "sdl"]);
+                }
                 cmd.args(["-serial", "mon:stdio"]);
             }
             DisplayMode::Vnc => {

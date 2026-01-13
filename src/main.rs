@@ -138,6 +138,10 @@ pub struct RunArgs {
     /// TEAM_476: Use minimal BusyBox init instead of OpenRC (for debugging)
     #[arg(long)]
     pub minimal: bool,
+
+    /// TEAM_477: Run with Wayland desktop (sway compositor)
+    #[arg(long)]
+    pub wayland: bool,
 }
 
 #[derive(clap::Args)]
@@ -195,6 +199,9 @@ fn main() -> Result<()> {
                 run::verify_gpu(arch, args.timeout)?;
             } else if args.vnc {
                 run::run_qemu_vnc(arch)?;
+            } else if args.wayland {
+                // TEAM_477: Run with Wayland desktop
+                run::run_qemu_wayland(arch)?;
             } else if args.term {
                 // TEAM_476: Linux kernel with OpenRC (or BusyBox if --minimal)
                 if args.minimal {
@@ -251,6 +258,20 @@ fn main() -> Result<()> {
                 builder::BuildCommands::Linux => builder::linux::build_linux_kernel(arch)?,
                 builder::BuildCommands::Openrc => builder::openrc::build(arch)?,
                 builder::BuildCommands::OpenrcInitramfs => { builder::create_openrc_initramfs(arch)?; }
+                // TEAM_477: Wayland components
+                builder::BuildCommands::Alpine => builder::alpine::ensure_wayland_packages(arch)?,
+                builder::BuildCommands::Wlroots => builder::wlroots::build(arch)?,
+                builder::BuildCommands::Sway => builder::sway::build(arch)?,
+                builder::BuildCommands::Foot => builder::foot::build(arch)?,
+                builder::BuildCommands::Wayland => {
+                    println!("Building all Wayland components...");
+                    builder::alpine::ensure_wayland_packages(arch)?;
+                    builder::wlroots::build(arch)?;
+                    builder::sway::build(arch)?;
+                    builder::foot::build(arch)?;
+                    println!("All Wayland components built!");
+                }
+                builder::BuildCommands::WaylandInitramfs => { builder::create_wayland_initramfs(arch)?; }
             }
         },
         Commands::Vm(cmd) => match cmd {

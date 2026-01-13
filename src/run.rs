@@ -481,3 +481,61 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
         bail!("❌ GPU verification failed: Could not capture screenshot");
     }
 }
+
+/// TEAM_477: Run QEMU with Wayland desktop (sway compositor)
+///
+/// # Display Backend Choice
+/// We use SDL instead of GTK for virgl (3D) acceleration because:
+/// - GTK with gl=on has display refresh issues (screen stays on bootloader)
+/// - SDL with gl=on properly updates the display during kernel boot
+/// - Both backends support virgl, but SDL rendering is more reliable
+///
+/// # Boot Flow
+/// 1. Kernel boots with virtio-gpu-gl-pci (3D accelerated)
+/// 2. OpenRC starts seatd service for seat management
+/// 3. User runs `start-wayland` to launch sway compositor
+/// 4. sway takes over DRM, renders to virtio-gpu via virgl
+///
+/// # Key Environment Variables (set in /etc/profile.d/wayland.sh)
+/// - WLR_BACKENDS=drm - Use DRM backend, not headless
+/// - WLR_RENDERER=gles2 - Use OpenGL ES 2 via virgl
+/// - LIBSEAT_BACKEND=seatd - Use seatd for seat management
+/// - MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu - Force virtio GPU driver
+pub fn run_qemu_wayland(arch: &str) -> Result<()> {
+    println!("╔════════════════════════════════════════════════════════════╗");
+    println!("║  LevitateOS + Wayland (sway) - {arch}                       ");
+    println!("║                                                            ║");
+    println!("║  After boot, run 'start-wayland' to launch sway            ║");
+    println!("║  Or run 'sway' directly after setting up environment       ║");
+    println!("║                                                            ║");
+    println!("║  In sway: Mod+Enter = terminal, Mod+Shift+e = exit         ║");
+    println!("╚════════════════════════════════════════════════════════════╝\n");
+
+    // Build Wayland initramfs
+    builder::create_wayland_initramfs(arch)?;
+
+    // Clean QMP socket
+    let _ = std::fs::remove_file("./qmp.sock");
+
+    let arch_enum = Arch::try_from(arch)?;
+    let profile = profile_for_arch(arch);
+    let initrd_path = format!("target/initramfs/{}-wayland.cpio", arch);
+
+    // Use virtio-gpu-gl for Wayland (SDL with OpenGL works better than GTK for virgl)
+    let builder = QemuBuilder::new(arch_enum, profile)
+        .gpu_resolution(1280, 800)
+        .display_sdl()
+        .enable_qmp("./qmp.sock")
+        .linux_kernel()
+        .initrd(&initrd_path)
+        .enable_virgl();  // Enable virgl for 3D acceleration
+
+    let mut cmd = builder.build()?;
+    cmd.stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .context("Failed to run QEMU")?;
+
+    Ok(())
+}

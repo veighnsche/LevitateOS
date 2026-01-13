@@ -1,11 +1,25 @@
-Linux version 6.19.0-rc5-levitate (vince@blep) (gcc (GCC) 15.2.1 20251211 (Red Hat 15.2.1-5), GNU ld version 2.45.1-1.fc43) #2 SMP PREEMPT_DYNAMIC Tue Jan 13 11:35:32 CET 2026
+No EFI environment detected.
+early console in extract_kernel
+input_data: 0x000000000214f2c4
+input_len: 0x00000000006c54f7
+output: 0x0000000001000000
+output_len: 0x00000000017dbdb8
+kernel_total_size: 0x0000000001630000
+needed_size: 0x0000000001800000
+trampoline_32bit: 0x0000000000000000
+Physical KASLR using RDTSC...
+Virtual KASLR using RDTSC...
+
+Decompressing Linux... Parsing ELF... Performing relocations... done.
+Booting the kernel (entry_offset: 0x00000000013bf910).
+Linux version 6.19.0-rc5-levitate-00001-g3045a3ee9f8d (vince@blep) (gcc (GCC) 15.2.1 20251211 (Red Hat 15.2.1-5), GNU ld version 2.45.1-1.fc43) #3 SMP PREEMPT_DYNAMIC Tue Jan 13 14:59:17 CET 2026
 Command line: console=ttyS0 earlyprintk=serial,ttyS0,115200 rdinit=/init
 BIOS-provided physical RAM map:
 BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable
 BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff] reserved
 BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff] reserved
-BIOS-e820: [mem 0x0000000000100000-0x000000007ffdbfff] usable
-BIOS-e820: [mem 0x000000007ffdc000-0x000000007fffffff] reserved
+BIOS-e820: [mem 0x0000000000100000-0x000000007ffdefff] usable
+BIOS-e820: [mem 0x000000007ffdf000-0x000000007fffffff] reserved
 BIOS-e820: [mem 0x00000000b0000000-0x00000000bfffffff] reserved
 BIOS-e820: [mem 0x00000000fed1c000-0x00000000fed1ffff] reserved
 BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff] reserved
@@ -17,42 +31,42 @@ SMBIOS 2.8 present.
 DMI: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.17.0-9.fc43 06/10/2025
 DMI: Memory slots populated: 1/1
 tsc: Fast TSC calibration using PIT
-tsc: Detected 2112.010 MHz processor
-last_pfn = 0x7ffdc max_arch_pfn = 0x400000000
+tsc: Detected 2111.976 MHz processor
+last_pfn = 0x7ffdf max_arch_pfn = 0x400000000
 MTRR map: 4 entries (3 fixed + 1 variable; max 19), built from 8 variable MTRRs
 x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
 Memory KASLR using RDTSC...
-found SMP MP-table at [mem 0x000f54d0-0x000f54df]
+found SMP MP-table at [mem 0x000f54c0-0x000f54cf]
 RAMDISK: [mem 0x7cac7000-0x7ffcffff]
 ACPI: Early table checksum verification disabled
-ACPI: RSDP 0x00000000000F5310 000014 (v00 BOCHS )
-ACPI: RSDT 0x000000007FFE2347 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
-ACPI: FACP 0x000000007FFE213F 0000F4 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
-ACPI: DSDT 0x000000007FFE0040 0020FF (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: RSDP 0x00000000000F5300 000014 (v00 BOCHS )
+ACPI: RSDT 0x000000007FFE2358 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: FACP 0x000000007FFE2150 0000F4 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: DSDT 0x000000007FFE0040 002110 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
 ACPI: FACS 0x000000007FFE0000 000040
-ACPI: APIC 0x000000007FFE2233 000078 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
-ACPI: HPET 0x000000007FFE22AB 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
-ACPI: MCFG 0x000000007FFE22E3 00003C (v01 BOCHS  BXPC     00000001 BXPC 00000001)
-ACPI: WAET 0x000000007FFE231F 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
-ACPI: Reserving FACP table memory at [mem 0x7ffe213f-0x7ffe2232]
-ACPI: Reserving DSDT table memory at [mem 0x7ffe0040-0x7ffe213e]
+ACPI: APIC 0x000000007FFE2244 000078 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: HPET 0x000000007FFE22BC 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: MCFG 0x000000007FFE22F4 00003C (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: WAET 0x000000007FFE2330 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+ACPI: Reserving FACP table memory at [mem 0x7ffe2150-0x7ffe2243]
+ACPI: Reserving DSDT table memory at [mem 0x7ffe0040-0x7ffe214f]
 ACPI: Reserving FACS table memory at [mem 0x7ffe0000-0x7ffe003f]
-ACPI: Reserving APIC table memory at [mem 0x7ffe2233-0x7ffe22aa]
-ACPI: Reserving HPET table memory at [mem 0x7ffe22ab-0x7ffe22e2]
-ACPI: Reserving MCFG table memory at [mem 0x7ffe22e3-0x7ffe231e]
-ACPI: Reserving WAET table memory at [mem 0x7ffe231f-0x7ffe2346]
+ACPI: Reserving APIC table memory at [mem 0x7ffe2244-0x7ffe22bb]
+ACPI: Reserving HPET table memory at [mem 0x7ffe22bc-0x7ffe22f3]
+ACPI: Reserving MCFG table memory at [mem 0x7ffe22f4-0x7ffe232f]
+ACPI: Reserving WAET table memory at [mem 0x7ffe2330-0x7ffe2357]
 Zone ranges:
   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
-  DMA32    [mem 0x0000000001000000-0x000000007ffdbfff]
+  DMA32    [mem 0x0000000001000000-0x000000007ffdefff]
   Normal   empty
 Movable zone start for each node
 Early memory node ranges
   node   0: [mem 0x0000000000001000-0x000000000009efff]
-  node   0: [mem 0x0000000000100000-0x000000007ffdbfff]
-Initmem setup node 0 [mem 0x0000000000001000-0x000000007ffdbfff]
+  node   0: [mem 0x0000000000100000-0x000000007ffdefff]
+Initmem setup node 0 [mem 0x0000000000001000-0x000000007ffdefff]
 On node 0, zone DMA: 1 pages in unavailable ranges
 On node 0, zone DMA: 97 pages in unavailable ranges
-On node 0, zone DMA32: 36 pages in unavailable ranges
+On node 0, zone DMA32: 33 pages in unavailable ranges
 ACPI: PM-Timer IO Port: 0x608
 ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
 IOAPIC[0]: apic_id 0, version 32, address 0xfec00000, GSI 0-23
@@ -78,7 +92,7 @@ Kernel command line: console=ttyS0 earlyprintk=serial,ttyS0,115200 rdinit=/init
 printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
 Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
 Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
-Built 1 zonelists, mobility grouping on.  Total pages: 524154
+Built 1 zonelists, mobility grouping on.  Total pages: 524157
 mem auto-init: stack:all(zero), heap alloc:off, heap free:off
 SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
 Poking KASLR using RDTSC...
@@ -98,8 +112,8 @@ ACPI: Core revision 20250807
 clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
 APIC: Switch to symmetric I/O mode setup
 ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
-clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x1e7181df346, max_idle_ns: 440795224594 ns
-Calibrating delay loop (skipped), value calculated using timer frequency.. 4224.02 BogoMIPS (lpj=8448040)
+clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x1e7161bdfcf, max_idle_ns: 440795233580 ns
+Calibrating delay loop (skipped), value calculated using timer frequency.. 4223.95 BogoMIPS (lpj=8447904)
 Last level iTLB entries: 4KB 512, 2MB 255, 4MB 127
 Last level dTLB entries: 4KB 512, 2MB 255, 4MB 127, 1GB 0
 mitigations: Enabled attack vectors: user_kernel, user_user, SMT mitigations: auto
@@ -118,8 +132,8 @@ rcu: Hierarchical SRCU implementation.
 rcu: 	Max phase no-delay instances is 1000.
 smp: Bringing up secondary CPUs ...
 smp: Brought up 1 node, 1 CPU
-smpboot: Total of 1 processors activated (4224.02 BogoMIPS)
-Memory: 1980372K/2096616K available (10565K kernel code, 974K rwdata, 2884K rodata, 1840K init, 476K bss, 113564K reserved, 0K cma-reserved)
+smpboot: Total of 1 processors activated (4223.95 BogoMIPS)
+Memory: 1980384K/2096628K available (10565K kernel code, 974K rwdata, 2884K rodata, 1840K init, 476K bss, 113564K reserved, 0K cma-reserved)
 devtmpfs: initialized
 clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
 posixtimers hash table entries: 512 (order: 1, 8192 bytes, linear)
@@ -153,21 +167,23 @@ pci_bus 0000:00: root bus resource [bus 00-ff]
 pci 0000:00:00.0: [8086:29c0] type 00 class 0x060000 conventional PCI endpoint
 pci 0000:00:01.0: [1af4:1050] type 00 class 0x038000 conventional PCI endpoint
 pci 0000:00:01.0: BAR 1 [mem 0xfebc0000-0xfebc0fff]
-pci 0000:00:01.0: BAR 4 [mem 0xfebf4000-0xfebf7fff 64bit pref]
-pci 0000:00:02.0: [1af4:1000] type 00 class 0x020000 conventional PCI endpoint
-pci 0000:00:02.0: BAR 0 [io  0xc0c0-0xc0df]
+pci 0000:00:01.0: BAR 4 [mem 0xfebf0000-0xfebf3fff 64bit pref]
+pci 0000:00:02.0: [1af4:1052] type 00 class 0x090000 conventional PCI endpoint
 pci 0000:00:02.0: BAR 1 [mem 0xfebc1000-0xfebc1fff]
-pci 0000:00:02.0: BAR 4 [mem 0xfebf8000-0xfebfbfff 64bit pref]
-pci 0000:00:02.0: ROM [mem 0xfeb80000-0xfebbffff pref]
-pci 0000:00:03.0: [1af4:1001] type 00 class 0x010000 conventional PCI endpoint
-pci 0000:00:03.0: BAR 0 [io  0xc000-0xc07f]
+pci 0000:00:02.0: BAR 4 [mem 0xfebf4000-0xfebf7fff 64bit pref]
+pci 0000:00:03.0: [1af4:1052] type 00 class 0x098000 conventional PCI endpoint
 pci 0000:00:03.0: BAR 1 [mem 0xfebc2000-0xfebc2fff]
-pci 0000:00:03.0: BAR 4 [mem 0xfebfc000-0xfebfffff 64bit pref]
+pci 0000:00:03.0: BAR 4 [mem 0xfebf8000-0xfebfbfff 64bit pref]
+pci 0000:00:04.0: [1af4:1000] type 00 class 0x020000 conventional PCI endpoint
+pci 0000:00:04.0: BAR 0 [io  0xc040-0xc05f]
+pci 0000:00:04.0: BAR 1 [mem 0xfebc3000-0xfebc3fff]
+pci 0000:00:04.0: BAR 4 [mem 0xfebfc000-0xfebfffff 64bit pref]
+pci 0000:00:04.0: ROM [mem 0xfeb80000-0xfebbffff pref]
 pci 0000:00:1f.0: [8086:2918] type 00 class 0x060100 conventional PCI endpoint
 pci 0000:00:1f.0: quirk: [io  0x0600-0x067f] claimed by ICH6 ACPI/GPIO/TCO
 pci 0000:00:1f.2: [8086:2922] type 00 class 0x010601 conventional PCI endpoint
-pci 0000:00:1f.2: BAR 4 [io  0xc0e0-0xc0ff]
-pci 0000:00:1f.2: BAR 5 [mem 0xfebc3000-0xfebc3fff]
+pci 0000:00:1f.2: BAR 4 [io  0xc060-0xc07f]
+pci 0000:00:1f.2: BAR 5 [mem 0xfebc4000-0xfebc4fff]
 pci 0000:00:1f.3: [8086:2930] type 00 class 0x0c0500 conventional PCI endpoint
 pci 0000:00:1f.3: BAR 4 [io  0x0700-0x073f]
 ACPI: PCI: Interrupt link LNKA configured for IRQ 10
@@ -230,21 +246,21 @@ ACPI: button: Power Button [PWRF]
 ACPI: \_SB_.GSIF: Enabled at IRQ 21
 ACPI: \_SB_.GSIG: Enabled at IRQ 22
 ACPI: \_SB_.GSIH: Enabled at IRQ 23
+ACPI: \_SB_.GSIE: Enabled at IRQ 20
+input: QEMU Virtio Keyboard as /devices/pci0000:00/0000:00:02.0/virtio1/input/input1
+input: QEMU Virtio Tablet as /devices/pci0000:00/0000:00:03.0/virtio2/input/input2
 Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
 00:03: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
 ACPI: bus type drm_connector registered
 [drm] pci: virtio-gpu-pci detected at 0000:00:01.0
 [drm] features: -virgl +edid -resource_blob -host_visible
 [drm] features: -context_init
-Freeing initrd memory: 54308K
 [drm] number of scanouts: 1
 [drm] number of cap sets: 0
+Freeing initrd memory: 54308K
 [drm] Initialized virtio_gpu 0.1.0 for 0000:00:01.0 on minor 0
 Console: switching to colour frame buffer device 160x50
 virtio-pci 0000:00:01.0: [drm] fb0: virtio_gpudrmfb frame buffer device
-virtio_blk virtio2: 1/0/0 default/read/poll queues
-virtio_blk virtio2: [vda] 32768 512-byte logical blocks (16.8 MB/16.0 MiB)
- vda: vda1
 usbcore: registered new interface driver usb-storage
 i8042: PNP: PS/2 Controller [PNP0303:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
 serio: i8042 KBD port at 0x60,0x64 irq 1
@@ -253,64 +269,40 @@ amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
 usbcore: registered new interface driver usbhid
 usbhid: USB HID core driver
 NET: Registered PF_INET6 protocol family
-input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input1
+input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input3
 Segment Routing with IPv6
 In-situ OAM (IOAM) with IPv6
 sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
 NET: Registered PF_PACKET protocol family
 IPI shorthand broadcast: enabled
-sched_clock: Marking stable (1712177835, 18459862)->(1732452828, -1815131)
+sched_clock: Marking stable (1356117144, 23985333)->(1381576456, -1473979)
 Freeing unused kernel image (initmem) memory: 1840K
 Write protecting the kernel read-only data: 16384k
 Freeing unused kernel image (text/rodata gap) memory: 1720K
 Freeing unused kernel image (rodata/data gap) memory: 1212K
 Run /init as init process
 
-   OpenRC 0.54 is starting up Linux 6.19.0-rc5-levitate (x86_64)
+   OpenRC 0.54 is starting up Linux 6.19.0-rc5-levitate-00001-g3045a3ee9f8d (x86_64)
 
- * Mounting /proc ...tsc: Refined TSC clocksource calibration: 2111.991 MHz
-clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x1e716fff2bd, max_idle_ns: 440795203249 ns
-clocksource: Switched to clocksource tsc
- [ ok ]
-input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input3
+ * Mounting /proc ... [ ok ]
  * Mounting /run ... [ ok ]
  * /run/openrc: creating directory
  * checkpath: owner `root:uucp' not found
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/agetty: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/binfmt: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/bootmisc: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/cgroups: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/consolefont: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/devfs: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/dmesg: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/fsck: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/hostname: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/hwclock: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/keymaps: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/killprocs: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/local: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/localmount: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/loopback: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/modules: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/mount-ro: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/mtab: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/net-online: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/netmount: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/numlock: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/osclock: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/procfs: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/root: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/runsvdir: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/s6-svscan: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/save-keymaps: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/save-termencoding: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/savecache: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/seedrng: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/swap: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/swclock: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/sysctl: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/sysfs: no such file
-/lib/rc/sh/gendepends.sh: .: line 123: can't open etc/init.d/termencoding: no such file
+input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input5
+tsc: Refined TSC clocksource calibration: 2111.993 MHz
+clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x1e7171ce903, max_idle_ns: 440795229087 ns
+clocksource: Switched to clocksource tsc
+Service `netmount' needs non existent service `net'
  * Caching service dependencies ... [ ok ]
+ * Remounting /dev according to fstab ... [ ok ]
+ * Mounting /dev/pts ... [ ok ]
+ * Mounting /dev/shm ... [ ok ]
+ * Mounting /sys ... [ ok ]
+ * Mounting fuse control filesystem ... [ ok ]
+ * Setting hostname to levitate from etc/hostname ... [ ok ]
+ * Checking local filesystems  ... [ ok ]
+ * Remounting filesystems ... [ ok ]
+ * Mounting local filesystems ... [ ok ]
+ * Starting local ... [ ok ]
 
-~ # qemu-system-x86_64: terminating on signal 15 from pid 177702 (timeout)
+~ # 

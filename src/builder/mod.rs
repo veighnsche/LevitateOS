@@ -5,6 +5,7 @@
 //! TEAM_474: Refactored initramfs to pure Rust with TOML manifest and TUI
 //! TEAM_475: Added OpenRC and Linux kernel builders
 //! TEAM_476: Removed dead modules (kernel.rs, userspace.rs, apps.rs, iso.rs, etc.)
+//! TEAM_477: Added Wayland support (alpine, wlroots, sway, foot)
 
 mod commands;
 mod initramfs;
@@ -15,7 +16,13 @@ pub mod busybox;
 pub mod linux;
 pub mod openrc;
 
+// Wayland builders
+pub mod alpine;
+pub mod foot;
+pub mod sway;
+pub mod wlroots;
+
 // Re-export public API
 pub use commands::BuildCommands;
-pub use initramfs::{create_busybox_initramfs, create_openrc_initramfs};
+pub use initramfs::{create_busybox_initramfs, create_openrc_initramfs, create_wayland_initramfs};
 pub use orchestration::build_all;
