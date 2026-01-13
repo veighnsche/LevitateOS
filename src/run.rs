@@ -35,7 +35,10 @@ pub fn run_qemu(
     linux: bool,
     openrc: bool,
 ) -> Result<()> {
-    disk::create_disk_image_if_missing()?;
+    // TEAM_476: Only create disk for non-Linux boots (custom kernel needs disk)
+    if !linux {
+        disk::create_disk_image_if_missing()?;
+    }
 
     let arch_enum = Arch::try_from(arch)?;
     // TEAM_330: Explicitly set GPU resolution for readable display
@@ -96,7 +99,7 @@ pub fn run_qemu_gdb_linux(
         println!("⏳ Waiting for GDB connection before starting...");
     }
 
-    disk::create_disk_image_if_missing()?;
+    // TEAM_476: Linux boots from initramfs, no disk needed
 
     let arch_enum = Arch::try_from(arch)?;
     let mut builder = QemuBuilder::new(arch_enum, profile)
@@ -125,8 +128,7 @@ pub fn run_qemu_gdb_linux(
 pub fn run_qemu_vnc(arch: &str) -> Result<()> {
     println!("🖥️  Starting QEMU with VNC for browser-based display verification...\n");
 
-    disk::create_disk_image_if_missing()?;
-    // TEAM_476: Always use Linux + OpenRC
+    // TEAM_476: Build initramfs (no disk needed for Linux + initramfs)
     builder::create_openrc_initramfs(arch)?;
 
     // Setup noVNC
@@ -270,9 +272,8 @@ fn find_websockify() -> Result<String> {
 pub fn run_qemu_test(arch: &str) -> Result<()> {
     println!("🧪 Running LevitateOS Boot Test for {arch}...\n");
 
-    // Build Linux + OpenRC
+    // Build Linux + OpenRC (no disk needed for initramfs boot)
     builder::create_openrc_initramfs(arch)?;
-    disk::create_disk_image_if_missing()?;
 
     let timeout_secs: u64 = 60;
     println!("Running QEMU (headless, {timeout_secs}s timeout)...\n");
@@ -368,8 +369,7 @@ pub fn verify_gpu(arch: &str, timeout: u32) -> Result<()> {
     println!("║  [GPU VERIFY] Starting automated GPU verification...     ║");
     println!("╚══════════════════════════════════════════════════════════╝\n");
 
-    disk::create_disk_image_if_missing()?;
-    // TEAM_476: Always use Linux + OpenRC
+    // TEAM_476: Build initramfs (no disk needed for Linux + initramfs)
     builder::create_openrc_initramfs(arch)?;
 
     // Setup noVNC and websockify similar to run_qemu_vnc

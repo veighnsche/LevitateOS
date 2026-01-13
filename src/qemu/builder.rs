@@ -158,8 +158,11 @@ impl QemuBuilder {
     }
 
     /// TEAM_474: Use Linux kernel instead of custom kernel
+    /// TEAM_476: Linux boots from initramfs, disk is optional
     pub fn linux_kernel(mut self) -> Self {
         self.use_linux_kernel = true;
+        // Linux + initramfs doesn't need disk - disable by default
+        self.disk_image = None;
         self
     }
 

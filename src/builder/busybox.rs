@@ -81,12 +81,55 @@ pub fn build(arch: &str) -> Result<()> {
 }
 
 /// Check if we can build natively without distrobox
+/// NOTE: On Fedora/RHEL, musl-gcc exists but lacks kernel headers needed for BusyBox.
+/// We only enable native builds when we detect a proper musl environment (Alpine-like).
 fn can_build_native(arch: &str) -> bool {
     match arch {
-        "x86_64" => musl_gcc_available(),
-        "aarch64" => true, // We can download the cross-compiler
+        "x86_64" => musl_gcc_available() && has_musl_kernel_headers(),
+        "aarch64" => true, // We can download the cross-compiler with complete sysroot
         _ => false,
     }
+}
+
+/// Check if musl kernel headers are available (not just musl-gcc)
+/// Fedora's musl-gcc doesn't include linux/types.h etc, so builds fail.
+/// Alpine and proper musl environments have these headers.
+fn has_musl_kernel_headers() -> bool {
+    // Check for a header that BusyBox needs but Fedora musl lacks
+    // On Alpine: /usr/include/linux/types.h exists (musl-native)
+    // On Fedora: /usr/include/linux/types.h exists but is glibc, not musl
+    //
+    // The safest check: see if musl's include path has kernel headers
+    // musl-gcc typically uses /usr/lib/musl/include or similar
+    let output = std::process::Command::new("musl-gcc")
+        .args(["-print-search-dirs"])
+        .output();
+
+    if let Ok(output) = output {
+        let dirs = String::from_utf8_lossy(&output.stdout);
+        // Look for the musl include directory
+        for line in dirs.lines() {
+            if line.starts_with("libraries:") {
+                // Extract path and check for kernel headers nearby
+                if let Some(path) = line.strip_prefix("libraries: =") {
+                    let musl_base = std::path::Path::new(path.split(':').next().unwrap_or(""));
+                    // Check /usr/include/linux/types.h relative to musl sysroot
+                    // On a proper musl system, this would be in the musl include path
+                    if musl_base.join("../include/linux/types.h").exists() {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: check if we're on Alpine (musl-native)
+    if std::path::Path::new("/etc/alpine-release").exists() {
+        return true;
+    }
+
+    // Default: assume incomplete musl environment, use distrobox
+    false
 }
 
 /// Build `BusyBox` natively without containers (CI-compatible)
@@ -148,6 +191,7 @@ fn build_native(arch: &str) -> Result<()> {
             num_cpus()
         )
     } else {
+        // Native musl build (only runs if has_musl_kernel_headers() returned true)
         format!("make CC=musl-gcc LDFLAGS=-static -j{}", num_cpus())
     };
 
