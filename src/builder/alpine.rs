@@ -121,6 +121,7 @@ pub const LIB_PACKAGES: &[&str] = &[
     "xz-libs",
     "bzip2",
     "expat",
+    "libexpat",          // libexpat.so.1 - XML parser library
     "libxml2",
     // X11/xcb libraries (needed by cairo/pango/mesa)
     "libxcb",
