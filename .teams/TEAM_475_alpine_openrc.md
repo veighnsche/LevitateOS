@@ -56,6 +56,8 @@ User requested building OpenRC from source instead of downloading Alpine package
 
 5. **rc-status in bin/**: Unlike other OpenRC binaries in sbin/, rc-status installs to bin/
 
+6. **BusyBox tty setup with serial console**: When using `console=ttyS0` kernel parameter, the inittab entry `::wait:-/bin/ash` doesn't properly set up a controlling terminal. Use `getty -n -l /bin/ash 0 ttyS0 vt100` instead for auto-login with proper job control.
+
 ## Files Created/Modified
 
 | File | Action |
@@ -81,12 +83,26 @@ cargo xtask build openrc-initramfs
 cargo xtask run --linux --openrc --term
 ```
 
+### Session 3 (2026-01-13) - BusyBox TTY Fix
+
+Fixed the BusyBox-based initramfs (non-OpenRC) shell not being interactive.
+
+**Problem**: Shell started but showed "can't access tty; job control turned off"
+
+**Root Cause**:
+- `::wait:-/bin/ash` in inittab doesn't properly set up controlling terminal
+- With `console=ttyS0`, the serial device needs explicit handling
+
+**Solution**:
+1. Mount devtmpfs early so `/dev/ttyS0` exists
+2. Use `getty -n -l /bin/ash 0 ttyS0 vt100` for auto-login with proper tty
+3. Added terminal applets to manifest: getty, login, setsid, cttyhack, stty, tty
+
 ## Remaining Work
 
 1. **Fix gendepends.sh warnings**: Init scripts need proper path handling
 2. **Add more services**: hostname, localmount need to work
-3. **Getty service**: Get console login via getty
-4. **Documentation**: Update CLAUDE.md with OpenRC usage
+3. **Documentation**: Update CLAUDE.md with OpenRC usage
 
 ## Boot Output (Success)
 
