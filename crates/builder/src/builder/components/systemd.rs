@@ -47,17 +47,7 @@ pub fn build() -> Result<()> {
     Ok(())
 }
 
-/// Get path to systemd binary.
-pub fn binary_path() -> &'static str {
-    "vendor/systemd/build/systemd"
-}
-
-/// Get path to systemd-executor binary.
-pub fn executor_path() -> &'static str {
-    "vendor/systemd/build/systemd-executor"
-}
-
-/// Get paths to systemd shared libraries.
+/// Get paths to systemd shared libraries (used by glibc collection).
 pub fn lib_paths() -> Vec<&'static str> {
     vec![
         "vendor/systemd/build/src/core/libsystemd-core-259.so",

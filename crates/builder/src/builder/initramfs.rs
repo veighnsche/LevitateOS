@@ -1,7 +1,7 @@
 //! Initramfs CPIO archive builder.
 
 use crate::builder::auth;
-use crate::builder::components::{brush, glibc, sudo_rs, systemd, util_linux, uutils};
+use crate::builder::components::{glibc, registry};
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Command;
@@ -22,7 +22,7 @@ pub fn create() -> Result<()> {
     glibc::collect()?;
     copy_binaries()?;
     create_init_symlink()?;
-    create_coreutils_symlinks()?;
+    create_symlinks()?;
     create_etc_files()?;
     create_systemd_units()?;
     create_cpio()?;
@@ -80,47 +80,31 @@ fn create_directories() -> Result<()> {
 fn copy_binaries() -> Result<()> {
     let root = Path::new(ROOT);
 
-    let copies: &[(&str, &str)] = &[
-        // Core system
-        (uutils::binary_path(), "bin/coreutils"),
-        (sudo_rs::sudo_path(), "bin/sudo"),
-        (sudo_rs::su_path(), "bin/su"),
-        (brush::binary_path(), "bin/brush"),
-        (systemd::binary_path(), "sbin/init"),
-        (systemd::executor_path(), "usr/lib/systemd/systemd-executor"),
-        // Login utilities (util-linux)
-        (util_linux::agetty_path(), "sbin/agetty"),
-        (util_linux::login_path(), "bin/login"),
-        (util_linux::sulogin_path(), "sbin/sulogin"),
-        (util_linux::nologin_path(), "sbin/nologin"),
-        // Disk utilities (util-linux)
-        (util_linux::fdisk_path(), "sbin/fdisk"),
-        (util_linux::sfdisk_path(), "sbin/sfdisk"),
-        (util_linux::mkfs_path(), "sbin/mkfs"),
-        (util_linux::blkid_path(), "sbin/blkid"),
-        (util_linux::lsblk_path(), "bin/lsblk"),
-        (util_linux::mount_path(), "bin/mount"),
-        (util_linux::umount_path(), "bin/umount"),
-        (util_linux::losetup_path(), "sbin/losetup"),
-    ];
+    // Copy all binaries from registry
+    for component in registry::COMPONENTS {
+        for (src, dest) in component.binaries {
+            let src_path = Path::new(src);
+            let dest_path = root.join(dest);
 
-    for (src, dest) in copies {
-        let src_path = Path::new(src);
-        let dest_path = root.join(dest);
-
-        if src_path.exists() {
-            std::fs::copy(src_path, &dest_path)?;
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                std::fs::set_permissions(&dest_path, std::fs::Permissions::from_mode(0o755))?;
+            // Ensure parent directory exists
+            if let Some(parent) = dest_path.parent() {
+                std::fs::create_dir_all(parent)?;
             }
-            println!("  Copied: {} -> {}", src, dest);
-        } else {
-            println!(
-                "  Warning: {} not found (run builder <component> first)",
-                src
-            );
+
+            if src_path.exists() {
+                std::fs::copy(src_path, &dest_path)?;
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    std::fs::set_permissions(&dest_path, std::fs::Permissions::from_mode(0o755))?;
+                }
+                println!("  Copied: {} -> {}", src, dest);
+            } else {
+                println!(
+                    "  Warning: {} not found (run builder build {} first)",
+                    src, component.name
+                );
+            }
         }
     }
 
@@ -140,23 +124,33 @@ fn create_init_symlink() -> Result<()> {
     Ok(())
 }
 
-fn create_coreutils_symlinks() -> Result<()> {
+fn create_symlinks() -> Result<()> {
     let root = Path::new(ROOT);
 
-    for cmd in uutils::commands() {
-        let link_path = root.join("bin").join(cmd);
-        if !link_path.exists() {
-            std::os::unix::fs::symlink("coreutils", &link_path)?;
+    // Create all symlinks from registry
+    for component in registry::COMPONENTS {
+        for (link_name, target) in component.symlinks {
+            let link_path = root.join("bin").join(link_name);
+            if !link_path.exists() {
+                std::os::unix::fs::symlink(target, &link_path)?;
+            }
+        }
+        if !component.symlinks.is_empty() {
+            println!("  Created {} symlinks for {}", component.symlinks.len(), component.name);
         }
     }
-    println!("  Created symlinks for coreutils");
 
-    // Also create /bin/sh -> brush
-    let sh_link = root.join("bin/sh");
-    if !sh_link.exists() {
-        std::os::unix::fs::symlink("brush", &sh_link)?;
+    // Copy runtime directories from registry
+    for component in registry::COMPONENTS {
+        for (src, dest) in component.runtime_dirs {
+            let src_path = Path::new(src);
+            let dest_path = root.join(dest);
+            if src_path.exists() {
+                copy_dir_recursive(src_path, &dest_path)?;
+                println!("  Copied {} runtime: {}", component.name, dest);
+            }
+        }
     }
-    println!("  Created /bin/sh -> brush symlink");
 
     Ok(())
 }
@@ -170,7 +164,7 @@ fn create_etc_files() -> Result<()> {
 
     // Non-auth system files
     std::fs::write(root.join("etc/hostname"), "levitate\n")?;
-    std::fs::write(root.join("etc/shells"), "/bin/sh\n/bin/brush\n/bin/shell-wrapper\n")?;
+    std::fs::write(root.join("etc/shells"), "/bin/sh\n/bin/brush\n")?;
 
     // /etc/profile - basic shell environment
     std::fs::write(
@@ -180,53 +174,6 @@ fn create_etc_files() -> Result<()> {
          export HOME=${HOME:-/root}\n\
          export PS1='\\u@\\h:\\w\\$ '\n",
     )?;
-
-    // /bin/shell-wrapper - simple wrapper for serial console
-    // Reads commands and executes them, avoiding brush's terminal initialization
-    std::fs::write(
-        root.join("bin/shell-wrapper"),
-        "#!/bin/sh\n\
-         # Simple shell wrapper for serial consoles\n\
-         # Avoids brush's terminal initialization by running commands via -c\n\
-         export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin\n\
-         export HOME=/root\n\
-         export TERM=${TERM:-vt100}\n\
-         cd \"$HOME\"\n\
-         while true; do\n\
-             printf '%s@%s:%s# ' \"$(id -un 2>/dev/null || echo root)\" \"$(cat /etc/hostname 2>/dev/null || echo levitate)\" \"$(pwd)\"\n\
-             read -r cmd || exit 0\n\
-             /bin/brush -c \"$cmd\"\n\
-         done\n",
-    )?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(
-            root.join("bin/shell-wrapper"),
-            std::fs::Permissions::from_mode(0o755),
-        )?;
-    }
-
-    // /bin/brush-login - wrapper for agetty's --login-program
-    // Ignores arguments (agetty passes username) and runs brush interactively
-    std::fs::write(
-        root.join("bin/brush-login"),
-        "#!/bin/sh\n\
-         # Login wrapper for brush - ignores agetty's username argument\n\
-         export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin\n\
-         export HOME=/root\n\
-         export TERM=${TERM:-linux}\n\
-         cd \"$HOME\"\n\
-         exec /bin/brush\n",
-    )?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(
-            root.join("bin/brush-login"),
-            std::fs::Permissions::from_mode(0o755),
-        )?;
-    }
 
     // Terminfo entries for terminal handling
     let terminfo_dirs = ["usr/share/terminfo/l", "usr/share/terminfo/v"];
@@ -501,5 +448,21 @@ fn create_cpio() -> Result<()> {
         size as f64 / 1_000_000.0
     );
 
+    Ok(())
+}
+
+/// Recursively copy a directory.
+fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<()> {
+    std::fs::create_dir_all(dest)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dest_path = dest.join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dest_path)?;
+        } else {
+            std::fs::copy(&src_path, &dest_path)?;
+        }
+    }
     Ok(())
 }

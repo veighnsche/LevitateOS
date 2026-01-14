@@ -23,11 +23,6 @@ pub fn build() -> Result<()> {
     Ok(())
 }
 
-/// Get kernel image path.
-pub fn kernel_path() -> &'static str {
-    "vendor/linux/arch/x86/boot/bzImage"
-}
-
 fn run_make(dir: &Path, args: &[&str]) -> Result<()> {
     let status = Command::new("make")
         .args(args)

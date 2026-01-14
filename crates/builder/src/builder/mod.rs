@@ -2,6 +2,7 @@
 //!
 //! Structure:
 //! - `components/` - Buildable components (linux, systemd, brush, etc.)
+//!   - `registry` - Single source of truth for all components
 //! - `auth/` - Authentication configuration
 //! - `initramfs` - Initramfs CPIO builder
 //! - `vendor` - Source fetching
@@ -11,8 +12,8 @@ pub mod components;
 pub mod initramfs;
 pub mod vendor;
 
-// Re-export components for convenience
-pub use components::{brush, glibc, linux, sudo_rs, systemd, util_linux, uutils};
+// Re-export for direct access
+pub use components::{glibc, registry};
 
 use anyhow::Result;
 use clap::Subcommand;
@@ -34,18 +35,13 @@ pub enum BuildCommands {
         /// Source name (omit for all)
         name: Option<String>,
     },
-    /// Build Linux kernel
-    Linux,
-    /// Build systemd
-    Systemd,
-    /// Build util-linux (agetty, login, disk utilities)
-    UtilLinux,
-    /// Build uutils (coreutils)
-    Uutils,
-    /// Build sudo-rs
-    SudoRs,
-    /// Build brush shell
-    Brush,
+    /// Build a specific component by name
+    Build {
+        /// Component name (use 'list' to see available)
+        name: String,
+    },
+    /// List available components
+    List,
     /// Collect glibc libraries
     Glibc,
     /// Create initramfs CPIO
@@ -57,16 +53,43 @@ pub fn build_all() -> Result<()> {
     println!("=== Building LevitateOS ===\n");
 
     vendor::fetch_all()?;
-    linux::build()?;
-    systemd::build()?;
-    util_linux::build()?;
-    uutils::build()?;
-    sudo_rs::build()?;
-    brush::build()?;
+
+    // Build all registered components
+    for component in registry::COMPONENTS {
+        (component.build)()?;
+    }
+
     initramfs::create()?;
 
     println!("\n=== Build complete ===");
     println!("Run with: cargo xtask vm start");
 
     Ok(())
+}
+
+/// Build a single component by name.
+pub fn build_component(name: &str) -> Result<()> {
+    match registry::get(name) {
+        Some(component) => (component.build)(),
+        None => {
+            eprintln!("Unknown component: {}", name);
+            eprintln!("Available components:");
+            for name in registry::names() {
+                eprintln!("  - {}", name);
+            }
+            anyhow::bail!("Unknown component: {}", name)
+        }
+    }
+}
+
+/// List all available components.
+pub fn list_components() {
+    println!("Available components:");
+    for component in registry::COMPONENTS {
+        println!("  {} - {} binaries, {} symlinks",
+            component.name,
+            component.binaries.len(),
+            component.symlinks.len()
+        );
+    }
 }

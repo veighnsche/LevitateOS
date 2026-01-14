@@ -17,11 +17,6 @@ pub fn build() -> Result<()> {
     Ok(())
 }
 
-/// Get path to brush binary.
-pub fn binary_path() -> &'static str {
-    "vendor/brush/target/release/brush"
-}
-
 fn run_cargo(dir: &Path, args: &[&str]) -> Result<()> {
     let status = Command::new("cargo")
         .args(args)

@@ -17,16 +17,6 @@ pub fn build() -> Result<()> {
     Ok(())
 }
 
-/// Get path to sudo binary.
-pub fn sudo_path() -> &'static str {
-    "vendor/sudo-rs/target/release/sudo"
-}
-
-/// Get path to su binary.
-pub fn su_path() -> &'static str {
-    "vendor/sudo-rs/target/release/su"
-}
-
 fn run_cargo(dir: &Path, args: &[&str]) -> Result<()> {
     let status = Command::new("cargo")
         .args(args)

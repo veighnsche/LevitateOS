@@ -5,27 +5,18 @@
 //! ## Usage
 //!
 //! ```bash
-//! builder all           # Fetch + build all components + initramfs
-//! builder fetch <name>  # Fetch a source repository
-//! builder status        # Show cache status
-//! builder linux         # Build Linux kernel
-//! builder systemd       # Build systemd
-//! builder uutils        # Build uutils (coreutils)
-//! builder sudo-rs       # Build sudo-rs
-//! builder brush         # Build brush shell
-//! builder glibc         # Collect system libraries
-//! builder initramfs     # Create initramfs CPIO
-//! builder run           # Boot in QEMU
+//! builder all            # Fetch + build all components + initramfs
+//! builder list           # List available components
+//! builder build <name>   # Build a specific component
+//! builder fetch <name>   # Fetch a source repository
+//! builder status         # Show cache status
+//! builder glibc          # Collect system libraries
+//! builder initramfs      # Create initramfs CPIO
 //! ```
 //!
-//! ## Components Built
+//! ## Components
 //!
-//! - **Linux kernel** (v6.18)
-//! - **systemd** (init system, v259)
-//! - **glibc** (dynamic linking, from host)
-//! - **uutils** (coreutils replacement)
-//! - **sudo-rs** (sudo/su)
-//! - **brush** (shell)
+//! All components are defined in `registry.rs`. Use `builder list` to see them.
 
 use anyhow::Result;
 use clap::Parser;
@@ -57,12 +48,8 @@ fn main() -> Result<()> {
         }
         builder::BuildCommands::Status => builder::vendor::status()?,
         builder::BuildCommands::Clean { name } => builder::vendor::clean(name.as_deref())?,
-        builder::BuildCommands::Linux => builder::linux::build()?,
-        builder::BuildCommands::Systemd => builder::systemd::build()?,
-        builder::BuildCommands::UtilLinux => builder::util_linux::build()?,
-        builder::BuildCommands::Uutils => builder::uutils::build()?,
-        builder::BuildCommands::SudoRs => builder::sudo_rs::build()?,
-        builder::BuildCommands::Brush => builder::brush::build()?,
+        builder::BuildCommands::Build { name } => builder::build_component(&name)?,
+        builder::BuildCommands::List => builder::list_components(),
         builder::BuildCommands::Glibc => builder::glibc::collect()?,
         builder::BuildCommands::Initramfs => builder::initramfs::create()?,
     }

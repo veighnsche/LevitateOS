@@ -101,9 +101,9 @@ impl Default for UserConfig {
     fn default() -> Self {
         Self {
             users: vec![
-                User::new("root", 0, 0, "root", "/root", "/bin/shell-wrapper")
+                User::new("root", 0, 0, "root", "/root", "/bin/brush")
                     .with_hash("$6$saltsalt$bAY90rAsHhyx.bxmKP9FE5UF4jP1iWgjV0ltM6ZJxfYkiIaCExjBZIbfmqmZEWoR65aM.1nFvG7fF3gYOjHpM."),
-                User::new("live", 1000, 1000, "Live User", "/home/live", "/bin/shell-wrapper")
+                User::new("live", 1000, 1000, "Live User", "/home/live", "/bin/brush")
                     .with_hash("$6$saltsalt$lnz8B.EkP7gx/SsOOLQAcEU/F.7k3CE1I9HTM5hraWcxPafsvSqaJ9s7btu0bk1OOGYbFIG93bLmjZ/qM89J/1"),
                 User::new("nobody", 65534, 65534, "Nobody", "/", "/sbin/nologin"),
             ],
@@ -172,6 +172,67 @@ impl UserConfig {
                 root.join("etc/shadow"),
                 std::fs::Permissions::from_mode(0o600),
             )?;
+        }
+
+        // Create home directories with skeleton files
+        for user in &self.users {
+            // Skip system users with no real home (nobody, etc.)
+            if user.home == "/" {
+                continue;
+            }
+
+            let home_path = root.join(user.home.trim_start_matches('/'));
+            std::fs::create_dir_all(&home_path)?;
+
+            // Create standard XDG directories (skip for root)
+            if user.uid != 0 {
+                for dir in ["Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos"] {
+                    std::fs::create_dir_all(home_path.join(dir))?;
+                }
+            }
+
+            // Write skeleton files
+            std::fs::write(
+                home_path.join(".profile"),
+                "# ~/.profile: executed by login shell\n\
+                 if [ -f /etc/profile ]; then\n\
+                     . /etc/profile\n\
+                 fi\n",
+            )?;
+
+            std::fs::write(
+                home_path.join(".bashrc"),
+                "# ~/.bashrc: executed by interactive shells\n\
+                 \n\
+                 # Source /etc/profile if it exists\n\
+                 if [ -f /etc/profile ]; then\n\
+                     . /etc/profile\n\
+                 fi\n\
+                 \n\
+                 # Prompt: user@host:dir$ (or # for root)\n\
+                 # Root uses full path, users get ~ abbreviation\n\
+                 if [ \"$(id -u)\" -eq 0 ]; then\n\
+                     PS1='\\u@\\h:$(pwd)# '\n\
+                 else\n\
+                     PS1='\\u@\\h:\\w\\$ '\n\
+                 fi\n\
+                 \n\
+                 # Aliases\n\
+                 alias ls='ls --color=auto'\n\
+                 alias ll='ls -la'\n",
+            )?;
+
+            // Set ownership using chown command (works during fakeroot build)
+            #[cfg(unix)]
+            {
+                let _ = Command::new("chown")
+                    .args([
+                        "-R",
+                        &format!("{}:{}", user.uid, user.gid),
+                        home_path.to_str().unwrap(),
+                    ])
+                    .output();
+            }
         }
 
         Ok(())
