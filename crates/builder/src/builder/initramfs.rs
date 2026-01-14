@@ -249,18 +249,22 @@ fn create_etc_files() -> Result<()> {
     // /etc/pam.d/login - main login PAM config
     std::fs::write(
         root.join("etc/pam.d/login"),
-        "auth       required     pam_unix.so nullok\n\
+        "auth       required     pam_unix.so shadow nullok\n\
+         auth       optional     pam_permit.so\n\
          account    required     pam_unix.so\n\
-         password   required     pam_unix.so nullok\n\
+         account    optional     pam_permit.so\n\
+         password   required     pam_unix.so shadow nullok use_authtok\n\
          session    required     pam_unix.so\n",
     )?;
 
     // /etc/pam.d/other - fallback for services without specific config
     std::fs::write(
         root.join("etc/pam.d/other"),
-        "auth       required     pam_unix.so\n\
+        "auth       required     pam_unix.so shadow\n\
+         auth       optional     pam_permit.so\n\
          account    required     pam_unix.so\n\
-         password   required     pam_unix.so\n\
+         account    optional     pam_permit.so\n\
+         password   required     pam_unix.so shadow use_authtok\n\
          session    required     pam_unix.so\n",
     )?;
 
