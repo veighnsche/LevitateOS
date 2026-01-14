@@ -1,6 +1,7 @@
 //! Initramfs CPIO archive builder.
 
-use crate::builder::{brush, glibc, sudo_rs, systemd, util_linux, uutils};
+use crate::builder::auth;
+use crate::builder::components::{brush, glibc, sudo_rs, systemd, util_linux, uutils};
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Command;
@@ -163,106 +164,13 @@ fn create_coreutils_symlinks() -> Result<()> {
 fn create_etc_files() -> Result<()> {
     let root = Path::new(ROOT);
 
-    // passwd: users with x placeholder for password (use shadow)
-    std::fs::write(
-        root.join("etc/passwd"),
-        "root:x:0:0:root:/root:/bin/sh\n\
-         live:x:1000:1000:Live User:/home/live:/bin/sh\n\
-         nobody:x:65534:65534:Nobody:/:/sbin/nologin\n",
-    )?;
+    // Authentication configuration (passwd, shadow, group, PAM, NSS)
+    let auth_config = auth::AuthConfig::default();
+    auth_config.write_to(root)?;
 
-    // shadow: password hashes (SHA-512)
-    // Default passwords: root="root", live="live"
-    // Generated with: openssl passwd -6 -salt saltsalt <password>
-    std::fs::write(
-        root.join("etc/shadow"),
-        "root:$6$saltsalt$bAY90rAsHhyx.bxmKP9FE5UF4jP1iWgjV0ltM6ZJxfYkiIaCExjBZIbfmqmZEWoR65aM.1nFvG7fF3gYOjHpM.:19740:0:99999:7:::\n\
-         live:$6$saltsalt$lnz8B.EkP7gx/SsOOLQAcEU/F.7k3CE1I9HTM5hraWcxPafsvSqaJ9s7btu0bk1OOGYbFIG93bLmjZ/qM89J/1:19740:0:99999:7:::\n\
-         nobody:!:19740:0:99999:7:::\n",
-    )?;
-
-    // Set restrictive permissions on shadow file (required by PAM)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(
-            root.join("etc/shadow"),
-            std::fs::Permissions::from_mode(0o600),
-        )?;
-    }
-
-    // group: user groups
-    std::fs::write(
-        root.join("etc/group"),
-        "root:x:0:\n\
-         wheel:x:10:root,live\n\
-         live:x:1000:\n\
-         nobody:x:65534:\n",
-    )?;
-
-    // gshadow: group passwords (empty)
-    std::fs::write(
-        root.join("etc/gshadow"),
-        "root:!::\n\
-         wheel:!::root,live\n\
-         live:!::\n\
-         nobody:!::\n",
-    )?;
-
+    // Non-auth system files
     std::fs::write(root.join("etc/hostname"), "levitate\n")?;
-    std::fs::write(root.join("etc/shells"), "/bin/sh\n/bin/brush\n")?;
-
-    // login.defs: login configuration
-    std::fs::write(
-        root.join("etc/login.defs"),
-        "# Login configuration\n\
-         MAIL_DIR /var/mail\n\
-         ENV_PATH /usr/local/bin:/usr/bin:/bin\n\
-         ENV_SUPATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n\
-         ENCRYPT_METHOD SHA512\n\
-         SHA_CRYPT_MIN_ROUNDS 5000\n\
-         SHA_CRYPT_MAX_ROUNDS 5000\n",
-    )?;
-
-    // securetty: terminals that root can log in from
-    std::fs::write(
-        root.join("etc/securetty"),
-        "console\n\
-         tty1\n\
-         tty2\n\
-         tty3\n\
-         tty4\n\
-         ttyS0\n",
-    )?;
-
-    // nsswitch.conf: tell glibc where to look up users/groups
-    std::fs::write(
-        root.join("etc/nsswitch.conf"),
-        "passwd: files\n\
-         group: files\n\
-         shadow: files\n",
-    )?;
-
-    // PAM configuration
-    std::fs::create_dir_all(root.join("etc/pam.d"))?;
-
-    // /etc/pam.d/login - main login PAM config (development: permissive)
-    std::fs::write(
-        root.join("etc/pam.d/login"),
-        "auth       required     pam_permit.so\n\
-         account    required     pam_permit.so\n\
-         password   required     pam_permit.so\n\
-         session    required     pam_permit.so\n",
-    )?;
-
-    // /etc/pam.d/other - fallback for services without specific config (development: permissive)
-    std::fs::write(
-        root.join("etc/pam.d/other"),
-        "auth       required     pam_permit.so\n\
-         account    required     pam_permit.so\n\
-         password   required     pam_permit.so\n\
-         session    required     pam_permit.so\n",
-    )?;
+    std::fs::write(root.join("etc/shells"), "/bin/sh\n/bin/brush\n/bin/shell-wrapper\n")?;
 
     // /etc/profile - basic shell environment
     std::fs::write(
@@ -272,6 +180,53 @@ fn create_etc_files() -> Result<()> {
          export HOME=${HOME:-/root}\n\
          export PS1='\\u@\\h:\\w\\$ '\n",
     )?;
+
+    // /bin/shell-wrapper - simple wrapper for serial console
+    // Reads commands and executes them, avoiding brush's terminal initialization
+    std::fs::write(
+        root.join("bin/shell-wrapper"),
+        "#!/bin/sh\n\
+         # Simple shell wrapper for serial consoles\n\
+         # Avoids brush's terminal initialization by running commands via -c\n\
+         export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin\n\
+         export HOME=/root\n\
+         export TERM=${TERM:-vt100}\n\
+         cd \"$HOME\"\n\
+         while true; do\n\
+             printf '%s@%s:%s# ' \"$(id -un 2>/dev/null || echo root)\" \"$(cat /etc/hostname 2>/dev/null || echo levitate)\" \"$(pwd)\"\n\
+             read -r cmd || exit 0\n\
+             /bin/brush -c \"$cmd\"\n\
+         done\n",
+    )?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            root.join("bin/shell-wrapper"),
+            std::fs::Permissions::from_mode(0o755),
+        )?;
+    }
+
+    // /bin/brush-login - wrapper for agetty's --login-program
+    // Ignores arguments (agetty passes username) and runs brush interactively
+    std::fs::write(
+        root.join("bin/brush-login"),
+        "#!/bin/sh\n\
+         # Login wrapper for brush - ignores agetty's username argument\n\
+         export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin\n\
+         export HOME=/root\n\
+         export TERM=${TERM:-linux}\n\
+         cd \"$HOME\"\n\
+         exec /bin/brush\n",
+    )?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            root.join("bin/brush-login"),
+            std::fs::Permissions::from_mode(0o755),
+        )?;
+    }
 
     // Terminfo entries for terminal handling
     let terminfo_dirs = ["usr/share/terminfo/l", "usr/share/terminfo/v"];
@@ -363,12 +318,14 @@ fn create_systemd_units() -> Result<()> {
     )?;
 
     // getty@.service (template for virtual terminals)
+    // Standard agetty -> login -> PAM -> shell flow
+    // Reference: vendor/systemd/units/getty@.service.in
     std::fs::write(
         systemd_dir.join("getty@.service"),
         "[Unit]\n\
          Description=Getty on %I\n\
-         Documentation=man:agetty(8)\n\
-         After=systemd-user-sessions.service\n\
+         Documentation=man:agetty(8) man:systemd-getty-generator(8)\n\
+         After=sysinit.target\n\
          \n\
          [Service]\n\
          ExecStart=-/sbin/agetty -o '-p -- \\\\u' --noclear %I linux\n\
@@ -380,6 +337,9 @@ fn create_systemd_units() -> Result<()> {
          TTYReset=yes\n\
          TTYVHangup=yes\n\
          TTYVTDisallocate=yes\n\
+         StandardInput=tty\n\
+         StandardOutput=tty\n\
+         StandardError=tty\n\
          KillMode=process\n\
          IgnoreSIGPIPE=no\n\
          SendSIGHUP=yes\n\
@@ -388,16 +348,18 @@ fn create_systemd_units() -> Result<()> {
          WantedBy=getty.target\n",
     )?;
 
-    // serial-getty@.service (for serial consoles - no udev dependency)
+    // serial-getty@.service (for serial consoles)
+    // Standard agetty -> login -> PAM -> shell flow
+    // Reference: vendor/systemd/units/serial-getty@.service.in
     std::fs::write(
         systemd_dir.join("serial-getty@.service"),
         "[Unit]\n\
          Description=Serial Getty on %I\n\
-         Documentation=man:agetty(8)\n\
-         After=systemd-user-sessions.service\n\
+         Documentation=man:agetty(8) man:systemd-getty-generator(8)\n\
+         After=sysinit.target\n\
          \n\
          [Service]\n\
-         ExecStart=-/sbin/agetty --autologin root --keep-baud 115200,38400,9600 %I vt100\n\
+         ExecStart=-/sbin/agetty -o '-p -- \\\\u' --keep-baud 115200,57600,38400,9600 %I vt100\n\
          Type=idle\n\
          Restart=always\n\
          RestartSec=0\n\
@@ -405,6 +367,9 @@ fn create_systemd_units() -> Result<()> {
          TTYPath=/dev/%I\n\
          TTYReset=yes\n\
          TTYVHangup=yes\n\
+         StandardInput=tty\n\
+         StandardOutput=tty\n\
+         StandardError=tty\n\
          KillMode=process\n\
          IgnoreSIGPIPE=no\n\
          SendSIGHUP=yes\n\

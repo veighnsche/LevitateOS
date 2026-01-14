@@ -71,7 +71,7 @@ pub fn test_qmp_status() -> Result<()> {
 
     // Verify VM is running
     match status {
-        builder::builder::vm::qmp::VmStatus::Running => {
+        crate::vm::qmp::VmStatus::Running => {
             println!("✓ VM confirmed running via QMP");
         }
         other => {

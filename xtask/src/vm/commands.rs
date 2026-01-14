@@ -1,12 +1,13 @@
 //! VM command implementations.
 
 use super::{qmp, session};
-use crate::builder::{initramfs, linux};
 use anyhow::{bail, Context, Result};
 use std::io::Write;
 use std::os::unix::net::UnixStream;
 use std::process::Command;
 
+const KERNEL_PATH: &str = "build/linux/arch/x86/boot/bzImage";
+const INITRAMFS_PATH: &str = "build/initramfs.cpio";
 const OUTPUT_FILE: &str = "build/vm-output.log";
 const QMP_SOCKET: &str = "/tmp/levitate-qemu-qmp.sock";
 const SERIAL_SOCKET: &str = "/tmp/levitate-serial.sock";
@@ -22,31 +23,23 @@ pub fn start() -> Result<()> {
                 existing.pid
             );
         }
-        // Stale session, clean up
         session::clear()?;
     }
 
     // Clean up stale sockets
     for socket in [QMP_SOCKET, SERIAL_SOCKET] {
-        if std::path::Path::new(socket).exists() {
-            std::fs::remove_file(socket)?;
-        }
+        let _ = std::fs::remove_file(socket);
     }
 
-    // Ensure build directory exists
     std::fs::create_dir_all("build")?;
-
-    // Clear previous output
     std::fs::write(OUTPUT_FILE, "")?;
 
-    // Start QEMU with socket-based serial that logs to file
-    // The logfile option captures all I/O while still allowing us to connect
     let child = Command::new("qemu-system-x86_64")
         .args([
             "-kernel",
-            linux::kernel_path(),
+            KERNEL_PATH,
             "-initrd",
-            initramfs::cpio_path(),
+            INITRAMFS_PATH,
             "-append",
             "console=ttyS0 rw",
             "-m",
@@ -67,7 +60,12 @@ pub fn start() -> Result<()> {
         .spawn()
         .context("Failed to start QEMU")?;
 
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .to_string();
+
     session::save(&session::Session {
         pid: child.id(),
         qmp_socket: QMP_SOCKET.to_string(),
@@ -76,16 +74,16 @@ pub fn start() -> Result<()> {
         started_at: now,
     })?;
 
-    // Wait briefly for QEMU to create the sockets
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // Brief wait for QEMU to create sockets
+    std::thread::sleep(std::time::Duration::from_millis(200));
 
     println!("VM started (PID {})", child.id());
     println!("Output: {}", OUTPUT_FILE);
     println!("\nCommands:");
-    println!("  cargo run -- vm status    # Check status");
-    println!("  cargo run -- vm log       # View output");
-    println!("  cargo run -- vm send TEXT # Send text to VM");
-    println!("  cargo run -- vm stop      # Stop VM");
+    println!("  cargo xtask vm status    # Check status");
+    println!("  cargo xtask vm log       # View output");
+    println!("  cargo xtask vm send TEXT # Send text to VM");
+    println!("  cargo xtask vm stop      # Stop VM");
 
     Ok(())
 }
@@ -103,39 +101,19 @@ pub fn stop() -> Result<()> {
     let pid_str = session.pid.to_string();
 
     // Try graceful shutdown via QMP
-    let mut qmp_succeeded = false;
-    match qmp::QmpClient::connect(&session.qmp_socket) {
-        Ok(mut client) => {
-            if client.handshake().is_ok() {
-                let _ = client.quit();
-                qmp_succeeded = true;
-                println!("Sent quit command to VM.");
-            }
-        }
-        Err(_) => {
-            println!("QMP unavailable, will force kill.");
+    if let Ok(mut client) = qmp::QmpClient::connect(&session.qmp_socket) {
+        if client.handshake().is_ok() {
+            let _ = client.quit();
+            println!("Sent quit command to VM.");
         }
     }
 
-    // Wait briefly for graceful shutdown
-    if qmp_succeeded {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-    }
+    // Brief wait, then force kill if needed
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-    // Check if process is still alive and force kill if needed
-    if let Ok(alive) = Command::new("kill")
-        .args(["-0", &pid_str])
-        .status()
-    {
-        if alive.success() {
-            // Process still exists, force kill it
-            println!("VM still running, force killing...");
-            let _ = Command::new("kill")
-                .args(["-9", &pid_str])
-                .status();
-
-            // Wait for kill to take effect
-            std::thread::sleep(std::time::Duration::from_millis(200));
+    if let Ok(status) = Command::new("kill").args(["-0", &pid_str]).status() {
+        if status.success() {
+            let _ = Command::new("kill").args(["-9", &pid_str]).status();
         }
     }
 
@@ -153,22 +131,16 @@ pub fn send(text: &str) -> Result<()> {
         bail!("VM not running.");
     }
 
-    // Connect to serial socket and send text
     let mut stream = UnixStream::connect(&session.serial_socket)
         .context("Failed to connect to serial socket")?;
 
-    // Set timeouts
-    stream.set_write_timeout(Some(std::time::Duration::from_secs(5)))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
 
-    // Send text followed by carriage return (terminal expects CR, not just LF)
     let data = format!("{}\r", text);
     stream
         .write_all(data.as_bytes())
         .context("Failed to write to serial")?;
     stream.flush()?;
-
-    // Keep connection open briefly to ensure delivery
-    std::thread::sleep(std::time::Duration::from_millis(100));
 
     println!("Sent: {}", text);
     Ok(())
@@ -185,11 +157,13 @@ pub fn status() -> Result<()> {
     let alive = session.is_alive();
 
     println!("VM Status:");
-    println!("  PID: {} ({})", session.pid, if alive { "running" } else { "dead" });
+    println!(
+        "  PID: {} ({})",
+        session.pid,
+        if alive { "running" } else { "dead" }
+    );
     println!("  Started: {}", session.started_at);
     println!("  Output: {}", session.output_file);
-    println!("  Serial: {}", session.serial_socket);
-    println!("  QMP: {}", session.qmp_socket);
 
     if !alive {
         println!("\nNote: Session is stale. Run 'vm stop' to clean up.");
@@ -201,10 +175,8 @@ pub fn status() -> Result<()> {
 /// View VM output log.
 pub fn log(follow: bool) -> Result<()> {
     let output_file = if session::exists() {
-        let session = session::load()?;
-        session.output_file
+        session::load()?.output_file
     } else {
-        // No session, but maybe output file exists from previous run
         OUTPUT_FILE.to_string()
     };
 
@@ -213,7 +185,6 @@ pub fn log(follow: bool) -> Result<()> {
     }
 
     if follow {
-        // Use tail -f
         let status = Command::new("tail")
             .args(["-f", &output_file])
             .status()
@@ -223,7 +194,6 @@ pub fn log(follow: bool) -> Result<()> {
             bail!("tail exited with error");
         }
     } else {
-        // Just print contents
         let contents = std::fs::read_to_string(&output_file)?;
         print!("{}", contents);
     }

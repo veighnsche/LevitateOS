@@ -60,7 +60,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Vm(cmd) => vm::run(&cmd, &cli.global),
+        Command::Vm(cmd) => vm::run(&cmd),
         Command::Test(cmd) => test::run(&cmd, &cli.global),
         Command::Check(cmd) => check::run(&cmd, &cli.global),
         Command::Gen(cmd) => gen::run(&cmd, &cli.global),

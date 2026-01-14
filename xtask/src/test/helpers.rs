@@ -153,8 +153,8 @@ impl TestVm {
     }
 
     /// Connect to QMP socket
-    pub fn qmp_client(&self) -> Result<builder::builder::vm::qmp::QmpClient> {
-        builder::builder::vm::qmp::QmpClient::connect(&self.qmp_socket)
+    pub fn qmp_client(&self) -> Result<crate::vm::qmp::QmpClient> {
+        crate::vm::qmp::QmpClient::connect(&self.qmp_socket)
     }
 
     /// Stop VM gracefully or forcefully

@@ -1,157 +1,108 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## CRITICAL FAILURES TO AVOID
+
+These are recurring mistakes. **DO NOT REPEAT THEM:**
+
+### 1. Creating team files too late
+**Wrong:** Start coding, then create team file when done
+**Right:** Create team file BEFORE any code changes
+
+### 2. Making architecture decisions without asking
+**Wrong:** "I'll add autologin to make it work"
+**Right:** Ask user: "Should I add autologin or implement proper login?"
+
+### 3. Putting code in wrong crates
+**Wrong:** VM control in `builder` (it builds things, not runs things)
+**Right:** VM control in `xtask` (dev tasks)
+
+### 4. Long timeouts that waste user's time
+**Wrong:** 5-minute timeout, 500ms sleeps everywhere
+**Right:** Minimal timeouts (100-200ms), fail fast
+
+### 5. Inventing workarounds instead of checking references
+**Wrong:** Guess how PAM works, invent shell-wrapper
+**Right:** `grep -rn "autologin" vendor/systemd/` first
+
+### 6. Treating this as a toy OS
+**Wrong:** Skip authentication, use root, take shortcuts
+**Right:** This is a REAL OS - proper users, proper login, proper security
+
+---
+
+## RULE 1: CREATE TEAM FILE FIRST
+
+**Before writing ANY code, create your team file:**
+
+```bash
+# Find highest number
+ls .teams/TEAM_*.md | tail -1
+
+# Create YOUR team file IMMEDIATELY
+# Example: .teams/TEAM_481_your-task-description.md
+```
+
+Team file documents:
+- What you're doing and why
+- Decisions made
+- Problems encountered
+- How to fix properly (not workarounds)
+
+**If you don't create a team file FIRST, you will forget context and make the same mistakes.**
+
+## RULE 2: CHECK REFERENCES BEFORE CODING
+
+**Every problem has already been solved.** Search `vendor/` before writing code:
+
+```bash
+grep -rn "your_problem" vendor/systemd/
+grep -rn "your_problem" vendor/util-linux/
+```
+
+| Reference | Path | Use For |
+|-----------|------|---------|
+| systemd | `vendor/systemd/` | Init, services, getty |
+| util-linux | `vendor/util-linux/` | agetty, login, PAM |
+| brush | `vendor/brush/` | Shell |
+| uutils | `vendor/uutils/` | Coreutils |
+
+**Do NOT invent workarounds. Copy how real projects do it.**
+
+---
 
 ## What is LevitateOS?
 
-LevitateOS is a **Rust-native Linux distribution builder**. It creates minimal, bootable Linux systems from source:
+Linux distribution builder using Rust. Output: bootable initramfs.
 
-- **Linux kernel** (6.19-rc5 from submodule)
-- **BusyBox** (shell + 300 utilities, static musl)
-- **OpenRC** (init system, static musl)
-- **initramfs** (CPIO archive)
-
-Think of it as a Rust alternative to Alpine Linux's shell-script build toolchain.
-
-## Build & Development Commands
-
-### Building
+## Commands
 
 ```bash
-# Build everything
-cargo run -- build all
+# Build
+cargo run --bin builder -- initramfs
 
-# Build specific components
-cargo run -- build linux          # Linux kernel
-cargo run -- build busybox        # BusyBox (shell + utilities)
-cargo run -- build openrc         # OpenRC (init system)
-cargo run -- build initramfs      # BusyBox-only initramfs
-cargo run -- build openrc-initramfs  # OpenRC + BusyBox initramfs
+# VM (use xtask, NOT builder)
+cargo xtask vm start
+cargo xtask vm stop
+cargo xtask vm send "command"
+cargo xtask vm log
+
+# Quick run
+./run.sh              # GUI
+./run-term.sh         # Serial
 ```
 
-### Running
-
-```bash
-# Boot in QEMU
-cargo run -- run --term          # Serial console (most common)
-cargo run -- run                 # GUI mode
-cargo run -- run --gdb           # With GDB server on port 1234
-cargo run -- run --vnc           # VNC display
-
-# Minimal mode (BusyBox init instead of OpenRC)
-cargo run -- run --term --minimal
-
-# Architecture selection
-cargo run -- --arch x86_64 run   # Default
-cargo run -- --arch aarch64 run
-```
-
-### Testing
-
-```bash
-# Run all tests
-cargo run -- test
-
-# Specific test suites
-cargo run -- test unit           # Host-side unit tests
-cargo run -- test behavior       # Boot output vs golden file
-cargo run -- test serial         # Serial input tests
-cargo run -- test screenshot     # Screenshot tests
-
-# Update golden files when behavior changes
-cargo run -- test behavior --update
-```
-
-### VM Interaction
-
-```bash
-cargo run -- vm start            # Start persistent VM session
-cargo run -- vm send "ls"        # Send keystrokes to VM
-cargo run -- vm screenshot       # Take screenshot
-cargo run -- vm stop             # Stop session
-```
-
-### Utilities
-
-```bash
-cargo run -- check               # Preflight checks
-cargo run -- clean               # Clean build artifacts
-cargo run -- kill                # Kill running QEMU
-```
-
-## Project Structure
+## Architecture
 
 ```
-levitate/
-├── src/                    # Main binary source
-│   ├── main.rs             # CLI entry point
-│   ├── builder/            # Core build system
-│   │   ├── linux.rs        # Linux kernel builder
-│   │   ├── busybox.rs      # BusyBox builder
-│   │   ├── openrc.rs       # OpenRC builder
-│   │   └── initramfs/      # Initramfs CPIO builder
-│   ├── qemu/               # QEMU command builder
-│   ├── run.rs              # Run commands
-│   ├── vm/                 # VM interaction
-│   ├── support/            # Utilities (preflight, clean)
-│   ├── disk/               # Disk image management
-│   └── tests/              # Test modules
-├── linux/                  # Linux kernel (git submodule)
-├── toolchain/              # Build outputs (gitignored)
-│   ├── busybox-out/        # Built BusyBox binaries
-│   └── openrc-out/         # Built OpenRC binaries
-├── tests/                  # Golden files
-├── docs/                   # Documentation
-├── .teams/                 # Team logs (development history)
-├── Cargo.toml              # Package manifest
-└── xtask.toml              # Test configuration
+builder/     → Builds artifacts (kernel, initramfs)
+xtask/       → Dev tasks (VM control, tests)
+vendor/      → Reference implementations
+.teams/      → Work history (CREATE YOURS FIRST)
 ```
 
-## Development Guidelines
+## Separation of Concerns
 
-### Code Quality Rules
+- `builder` = build things
+- `xtask` = run things
 
-1. **Quality Over Speed**: Take the correct architectural path, never shortcuts
-2. **No Dead Code**: Remove unused functions, modules, commented-out code
-3. **Breaking Changes > Compatibility Hacks**: Fix call sites, don't add shims
-4. **Modular Structure**: Files < 1000 lines preferred, < 500 ideal
-
-### Testing Philosophy
-
-- **Golden File Testing**: Compare boot output against known-good reference
-- **Update when intentional**: `cargo run -- test behavior --update`
-- **All tests must pass**: Never dismiss failures without investigation
-
-### Team Workflow
-
-Every AI conversation = one team. Track work in `.teams/TEAM_XXX_*.md`:
-
-1. Check `.teams/` for highest existing number
-2. Create `.teams/TEAM_XXX_summary.md`
-3. Log progress, decisions, gotchas
-4. Update handoff notes before finishing
-
-## Requirements
-
-- **Rust** (stable toolchain)
-- **QEMU** (`qemu-system-x86_64`, `qemu-system-aarch64`)
-- **musl-gcc** (for static linking)
-- **meson + ninja** (for OpenRC)
-
-```bash
-# Fedora
-sudo dnf install qemu musl-gcc meson ninja-build
-
-# Ubuntu/Debian
-sudo apt install qemu-system-x86 musl-tools meson ninja-build
-```
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `src/main.rs` | CLI entry point |
-| `src/builder/initramfs/mod.rs` | OpenRC initramfs builder (core product) |
-| `src/qemu/builder.rs` | QEMU command construction |
-| `tests/golden_boot_linux_openrc.txt` | Expected boot output |
-| `xtask.toml` | Test configuration |
+Never mix these.

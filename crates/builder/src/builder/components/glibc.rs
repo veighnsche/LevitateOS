@@ -1,6 +1,7 @@
 //! System library collection (glibc + dependencies).
 
-use crate::builder::{initramfs, systemd, util_linux};
+use crate::builder::initramfs;
+use super::{systemd, util_linux};
 use anyhow::Result;
 use std::path::Path;
 
@@ -121,6 +122,23 @@ pub fn collect() -> Result<()> {
             println!("  Copied: {}", module);
         } else {
             println!("  Warning: {} not found", module);
+        }
+    }
+
+    // unix_chkpwd helper (used by pam_unix.so for non-root password checks)
+    let chkpwd_paths = ["/usr/bin/unix_chkpwd", "/usr/sbin/unix_chkpwd", "/sbin/unix_chkpwd"];
+    let sbin_dir = format!("{}/sbin", initramfs::ROOT);
+    for chkpwd in chkpwd_paths {
+        if Path::new(chkpwd).exists() {
+            let dest = format!("{}/unix_chkpwd", sbin_dir);
+            std::fs::copy(chkpwd, &dest)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o4755))?;
+            }
+            println!("  Copied: {} (setuid)", chkpwd);
+            break;
         }
     }
 

@@ -1,16 +1,18 @@
-//! Build system modules for LevitateOS components.
+//! Build system for LevitateOS.
+//!
+//! Structure:
+//! - `components/` - Buildable components (linux, systemd, brush, etc.)
+//! - `auth/` - Authentication configuration
+//! - `initramfs` - Initramfs CPIO builder
+//! - `vendor` - Source fetching
 
-pub mod brush;
-pub mod glibc;
+pub mod auth;
+pub mod components;
 pub mod initramfs;
-pub mod linux;
-pub mod qemu;
-pub mod sudo_rs;
-pub mod systemd;
-pub mod util_linux;
-pub mod uutils;
 pub mod vendor;
-pub mod vm;
+
+// Re-export components for convenience
+pub use components::{brush, glibc, linux, sudo_rs, systemd, util_linux, uutils};
 
 use anyhow::Result;
 use clap::Subcommand;
@@ -48,11 +50,6 @@ pub enum BuildCommands {
     Glibc,
     /// Create initramfs CPIO
     Initramfs,
-    /// Boot in QEMU
-    Run,
-    /// VM interaction commands
-    #[command(subcommand)]
-    Vm(vm::VmCommands),
 }
 
 /// Build all components.
@@ -69,7 +66,7 @@ pub fn build_all() -> Result<()> {
     initramfs::create()?;
 
     println!("\n=== Build complete ===");
-    println!("Run with: builder run");
+    println!("Run with: cargo xtask vm start");
 
     Ok(())
 }

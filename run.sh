@@ -5,7 +5,7 @@
 set -e
 
 if [ "$1" != "--no-build" ]; then
-    cargo run -- initramfs
+    cargo run --bin builder -- initramfs
 fi
 
 qemu-system-x86_64 \
