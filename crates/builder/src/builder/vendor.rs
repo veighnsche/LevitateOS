@@ -10,6 +10,7 @@ pub const VENDOR_DIR: &str = "vendor";
 pub const SOURCES: &[(&str, &str, &str)] = &[
     ("linux", "https://github.com/torvalds/linux.git", "v6.18"),
     ("systemd", "https://github.com/systemd/systemd.git", "v259"),
+    ("util-linux", "https://github.com/util-linux/util-linux.git", "v2.41"),
     ("uutils", "https://github.com/uutils/coreutils.git", "0.5.0"),
     ("sudo-rs", "https://github.com/memorysafety/sudo-rs.git", "v0.2.11"),
     ("brush", "https://github.com/reubeno/brush.git", "main"),

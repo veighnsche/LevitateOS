@@ -26,7 +26,7 @@ pub fn run() -> Result<()> {
             "-initrd",
             initrd,
             "-append",
-            "console=ttyS0 rw systemd.log_level=debug systemd.log_target=console",
+            "console=ttyS0 rw quiet",
             "-nographic",
             "-m",
             "512M",

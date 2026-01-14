@@ -59,12 +59,20 @@ fn main() -> Result<()> {
         builder::BuildCommands::Clean { name } => builder::vendor::clean(name.as_deref())?,
         builder::BuildCommands::Linux => builder::linux::build()?,
         builder::BuildCommands::Systemd => builder::systemd::build()?,
+        builder::BuildCommands::UtilLinux => builder::util_linux::build()?,
         builder::BuildCommands::Uutils => builder::uutils::build()?,
         builder::BuildCommands::SudoRs => builder::sudo_rs::build()?,
         builder::BuildCommands::Brush => builder::brush::build()?,
         builder::BuildCommands::Glibc => builder::glibc::collect()?,
         builder::BuildCommands::Initramfs => builder::initramfs::create()?,
         builder::BuildCommands::Run => builder::qemu::run()?,
+        builder::BuildCommands::Vm(cmd) => match cmd {
+            builder::vm::VmCommands::Start => builder::vm::commands::start()?,
+            builder::vm::VmCommands::Stop => builder::vm::commands::stop()?,
+            builder::vm::VmCommands::Send { text } => builder::vm::commands::send(&text)?,
+            builder::vm::VmCommands::Status => builder::vm::commands::status()?,
+            builder::vm::VmCommands::Log { no_follow } => builder::vm::commands::log(!no_follow)?,
+        },
     }
 
     Ok(())

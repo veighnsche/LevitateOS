@@ -7,8 +7,10 @@ pub mod linux;
 pub mod qemu;
 pub mod sudo_rs;
 pub mod systemd;
+pub mod util_linux;
 pub mod uutils;
 pub mod vendor;
+pub mod vm;
 
 use anyhow::Result;
 use clap::Subcommand;
@@ -34,6 +36,8 @@ pub enum BuildCommands {
     Linux,
     /// Build systemd
     Systemd,
+    /// Build util-linux (agetty, login, disk utilities)
+    UtilLinux,
     /// Build uutils (coreutils)
     Uutils,
     /// Build sudo-rs
@@ -46,6 +50,9 @@ pub enum BuildCommands {
     Initramfs,
     /// Boot in QEMU
     Run,
+    /// VM interaction commands
+    #[command(subcommand)]
+    Vm(vm::VmCommands),
 }
 
 /// Build all components.
@@ -55,10 +62,10 @@ pub fn build_all() -> Result<()> {
     vendor::fetch_all()?;
     linux::build()?;
     systemd::build()?;
+    util_linux::build()?;
     uutils::build()?;
     sudo_rs::build()?;
     brush::build()?;
-    glibc::collect()?;
     initramfs::create()?;
 
     println!("\n=== Build complete ===");
