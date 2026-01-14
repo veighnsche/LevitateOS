@@ -67,11 +67,25 @@ fn main() -> Result<()> {
         builder::BuildCommands::Initramfs => builder::initramfs::create()?,
         builder::BuildCommands::Run => builder::qemu::run()?,
         builder::BuildCommands::Vm(cmd) => match cmd {
-            builder::vm::VmCommands::Start => builder::vm::commands::start()?,
+            builder::vm::VmCommands::Start { debug } => builder::vm::commands::start()?,
             builder::vm::VmCommands::Stop => builder::vm::commands::stop()?,
             builder::vm::VmCommands::Send { text } => builder::vm::commands::send(&text)?,
             builder::vm::VmCommands::Status => builder::vm::commands::status()?,
             builder::vm::VmCommands::Log { no_follow } => builder::vm::commands::log(!no_follow)?,
+            builder::vm::VmCommands::Qmp { command } => builder::vm::commands::qmp_command(&command)?,
+            builder::vm::VmCommands::MemDump { addr, size, output } => {
+                builder::vm::commands::memory_dump(addr, size, &output)?
+            }
+            builder::vm::VmCommands::Screenshot { output } => {
+                builder::vm::commands::screenshot(&output)?
+            }
+            builder::vm::VmCommands::Reset => builder::vm::commands::reset()?,
+            builder::vm::VmCommands::Exec { .. } => {
+                eprintln!("Exec command not yet implemented");
+            }
+            builder::vm::VmCommands::Debug => {
+                eprintln!("Debug command not yet implemented");
+            }
         },
     }
 

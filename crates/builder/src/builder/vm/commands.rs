@@ -211,3 +211,78 @@ pub fn log(follow: bool) -> Result<()> {
 
     Ok(())
 }
+
+/// Execute QEMU monitor command via QMP.
+pub fn qmp_command(cmd: &str) -> Result<()> {
+    let session = session::load()?;
+
+    if !session.is_alive() {
+        bail!("VM not running");
+    }
+
+    let mut client = qmp::QmpClient::connect(&session.qmp_socket)
+        .context("Failed to connect to QMP socket")?;
+    client.handshake().context("QMP handshake failed")?;
+
+    let output = client.human_monitor_command(cmd)?;
+    println!("{}", output);
+
+    Ok(())
+}
+
+/// Dump physical memory to file.
+pub fn memory_dump(addr: u64, size: u64, output: &str) -> Result<()> {
+    let session = session::load()?;
+
+    if !session.is_alive() {
+        bail!("VM not running");
+    }
+
+    let mut client = qmp::QmpClient::connect(&session.qmp_socket)
+        .context("Failed to connect to QMP socket")?;
+    client.handshake().context("QMP handshake failed")?;
+
+    println!("Dumping {} bytes from 0x{:x} to {}...", size, addr, output);
+    client.pmemsave(addr, size, output)?;
+    println!("Memory dump complete");
+
+    Ok(())
+}
+
+/// Take a screenshot of the VM display.
+pub fn screenshot(output: &str) -> Result<()> {
+    let session = session::load()?;
+
+    if !session.is_alive() {
+        bail!("VM not running");
+    }
+
+    let mut client = qmp::QmpClient::connect(&session.qmp_socket)
+        .context("Failed to connect to QMP socket")?;
+    client.handshake().context("QMP handshake failed")?;
+
+    println!("Taking screenshot...");
+    client.screendump(output)?;
+    println!("Screenshot saved to {}", output);
+
+    Ok(())
+}
+
+/// Reset the VM.
+pub fn reset() -> Result<()> {
+    let session = session::load()?;
+
+    if !session.is_alive() {
+        bail!("VM not running");
+    }
+
+    let mut client = qmp::QmpClient::connect(&session.qmp_socket)
+        .context("Failed to connect to QMP socket")?;
+    client.handshake().context("QMP handshake failed")?;
+
+    println!("Resetting VM...");
+    client.system_reset()?;
+    println!("VM reset complete");
+
+    Ok(())
+}
