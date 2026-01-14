@@ -1,4 +1,4 @@
-//! sudo-rs builder.
+//! findutils builder.
 
 use super::Buildable;
 use crate::builder::vendor;
@@ -6,26 +6,26 @@ use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Command;
 
-/// sudo-rs component.
-pub struct SudoRs;
+/// findutils component.
+pub struct Findutils;
 
-impl Buildable for SudoRs {
+impl Buildable for Findutils {
     fn name(&self) -> &'static str {
-        "sudo-rs"
+        "findutils"
     }
 
     fn build(&self) -> Result<()> {
-        println!("=== Building sudo-rs ===");
-        let src = vendor::require("sudo-rs")?;
+        println!("=== Building findutils ===");
+        let src = vendor::require("findutils")?;
         run_cargo(&src, &["build", "--release"])?;
-        println!("  Built: vendor/sudo-rs/target/release/{{sudo,su}}");
+        println!("  Built: vendor/findutils/target/release/find, xargs");
         Ok(())
     }
 
     fn binaries(&self) -> &'static [(&'static str, &'static str)] {
         &[
-            ("vendor/sudo-rs/target/release/sudo", "bin/sudo"),
-            ("vendor/sudo-rs/target/release/su", "bin/su"),
+            ("vendor/findutils/target/release/find", "bin/find"),
+            ("vendor/findutils/target/release/xargs", "bin/xargs"),
         ]
     }
 }
@@ -34,10 +34,8 @@ fn run_cargo(dir: &Path, args: &[&str]) -> Result<()> {
     let status = Command::new("cargo")
         .args(args)
         .current_dir(dir)
-        .env("CARGO_UNSTABLE_WORKSPACES", "disable-inheritance")
         .status()
         .context("Failed to run cargo")?;
-
     if !status.success() {
         bail!("cargo build failed");
     }

@@ -30,29 +30,24 @@ pub fn create() -> Result<()> {
     Ok(())
 }
 
-/// Get the CPIO archive path.
-pub fn cpio_path() -> &'static str {
-    CPIO_PATH
-}
-
 fn create_directories() -> Result<()> {
     let dirs = [
         ROOT,
-        &format!("{}/bin", ROOT),
-        &format!("{}/sbin", ROOT),
-        &format!("{}/lib64", ROOT),
-        &format!("{}/etc", ROOT),
-        &format!("{}/dev", ROOT),
-        &format!("{}/proc", ROOT),
-        &format!("{}/sys", ROOT),
-        &format!("{}/tmp", ROOT),
-        &format!("{}/run", ROOT),
-        &format!("{}/root", ROOT),
-        &format!("{}/home/live", ROOT),
-        &format!("{}/var/log", ROOT),
-        &format!("{}/usr/lib/systemd/system", ROOT),
-        &format!("{}/usr/lib/systemd", ROOT),
-        &format!("{}/etc/systemd/system/getty.target.wants", ROOT),
+        &format!("{ROOT}/bin"),
+        &format!("{ROOT}/sbin"),
+        &format!("{ROOT}/lib64"),
+        &format!("{ROOT}/etc"),
+        &format!("{ROOT}/dev"),
+        &format!("{ROOT}/proc"),
+        &format!("{ROOT}/sys"),
+        &format!("{ROOT}/tmp"),
+        &format!("{ROOT}/run"),
+        &format!("{ROOT}/root"),
+        &format!("{ROOT}/home/live"),
+        &format!("{ROOT}/var/log"),
+        &format!("{ROOT}/usr/lib/systemd/system"),
+        &format!("{ROOT}/usr/lib/systemd"),
+        &format!("{ROOT}/etc/systemd/system/getty.target.wants"),
     ];
 
     for dir in &dirs {
@@ -82,7 +77,7 @@ fn copy_binaries() -> Result<()> {
 
     // Copy all binaries from registry
     for component in registry::COMPONENTS {
-        for (src, dest) in component.binaries {
+        for (src, dest) in component.binaries() {
             let src_path = Path::new(src);
             let dest_path = root.join(dest);
 
@@ -98,11 +93,11 @@ fn copy_binaries() -> Result<()> {
                     use std::os::unix::fs::PermissionsExt;
                     std::fs::set_permissions(&dest_path, std::fs::Permissions::from_mode(0o755))?;
                 }
-                println!("  Copied: {} -> {}", src, dest);
+                println!("  Copied: {src} -> {dest}");
             } else {
                 println!(
-                    "  Warning: {} not found (run builder build {} first)",
-                    src, component.name
+                    "  Warning: {src} not found (run builder build {} first)",
+                    component.name()
                 );
             }
         }
@@ -129,25 +124,26 @@ fn create_symlinks() -> Result<()> {
 
     // Create all symlinks from registry
     for component in registry::COMPONENTS {
-        for (link_name, target) in component.symlinks {
+        let symlinks = component.symlinks();
+        for (link_name, target) in symlinks {
             let link_path = root.join("bin").join(link_name);
             if !link_path.exists() {
                 std::os::unix::fs::symlink(target, &link_path)?;
             }
         }
-        if !component.symlinks.is_empty() {
-            println!("  Created {} symlinks for {}", component.symlinks.len(), component.name);
+        if !symlinks.is_empty() {
+            println!("  Created {} symlinks for {}", symlinks.len(), component.name());
         }
     }
 
     // Copy runtime directories from registry
     for component in registry::COMPONENTS {
-        for (src, dest) in component.runtime_dirs {
+        for (src, dest) in component.runtime_dirs() {
             let src_path = Path::new(src);
             let dest_path = root.join(dest);
             if src_path.exists() {
                 copy_dir_recursive(src_path, &dest_path)?;
-                println!("  Copied {} runtime: {}", component.name, dest);
+                println!("  Copied {} runtime: {dest}", component.name());
             }
         }
     }
@@ -195,6 +191,7 @@ fn create_etc_files() -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)] // Unit files are static config, grouping is intentional
 fn create_systemd_units() -> Result<()> {
     let root = Path::new(ROOT);
     let systemd_dir = root.join("usr/lib/systemd/system");
@@ -427,8 +424,7 @@ fn create_cpio() -> Result<()> {
             "sh",
             "-c",
             &format!(
-                "cd {} && find . | cpio -o -H newc > ../initramfs.cpio",
-                ROOT
+                "cd {ROOT} && find . | cpio -o -H newc > ../initramfs.cpio"
             ),
         ])
         .output()
@@ -442,11 +438,9 @@ fn create_cpio() -> Result<()> {
     }
 
     let size = std::fs::metadata(CPIO_PATH)?.len();
-    println!(
-        "\n  Created: {} ({:.1} MB)",
-        CPIO_PATH,
-        size as f64 / 1_000_000.0
-    );
+    #[allow(clippy::cast_precision_loss)] // Display doesn't need u64 precision
+    let size_mb = size as f64 / 1_000_000.0;
+    println!("\n  Created: {CPIO_PATH} ({size_mb:.1} MB)");
 
     Ok(())
 }

@@ -1,12 +1,14 @@
 //! Source repository management (fetch, cache, clean).
 
+#![allow(clippy::cast_precision_loss)] // File sizes don't need u64 precision for display
+
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub const VENDOR_DIR: &str = "vendor";
 
-/// Source definitions: (name, git_url, branch/tag)
+/// Source definitions: (name, `git_url`, branch/tag)
 pub const SOURCES: &[(&str, &str, &str)] = &[
     ("linux", "https://github.com/torvalds/linux.git", "v6.18"),
     ("systemd", "https://github.com/systemd/systemd.git", "v259"),
@@ -30,7 +32,7 @@ pub fn find_source(name: &str) -> Option<(&'static str, &'static str, &'static s
 pub fn require(name: &str) -> Result<PathBuf> {
     let path = PathBuf::from(VENDOR_DIR).join(name);
     if !path.exists() {
-        bail!("{} not found. Run: builder fetch {}", name, name);
+        bail!("{name} not found. Run: builder fetch {name}");
     }
     Ok(path)
 }
@@ -38,7 +40,7 @@ pub fn require(name: &str) -> Result<PathBuf> {
 /// Fetch a single source repository.
 pub fn fetch(name: &str) -> Result<()> {
     let (_, url, tag) = find_source(name)
-        .ok_or_else(|| anyhow::anyhow!("Unknown source: {}", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Unknown source: {name}"))?;
 
     let dest = PathBuf::from(VENDOR_DIR).join(name);
 
@@ -49,23 +51,19 @@ pub fn fetch(name: &str) -> Result<()> {
 
     std::fs::create_dir_all(VENDOR_DIR)?;
 
-    println!("Fetching {} from {} @ {}...", name, url, tag);
+    println!("Fetching {name} from {url} @ {tag}...");
+
+    let dest_str = dest
+        .to_str()
+        .context("Destination path contains invalid UTF-8")?;
 
     let status = Command::new("git")
-        .args([
-            "clone",
-            "--depth",
-            "1",
-            "--branch",
-            tag,
-            url,
-            dest.to_str().unwrap(),
-        ])
+        .args(["clone", "--depth", "1", "--branch", tag, url, dest_str])
         .status()
         .context("Failed to run git clone")?;
 
     if !status.success() {
-        bail!("git clone failed for {}", name);
+        bail!("git clone failed for {name}");
     }
 
     let size = dir_size(&dest)?;
@@ -102,7 +100,7 @@ pub fn status() -> Result<()> {
             cached += 1;
             println!("  {:12} [cached] {:.1} MB", name, size as f64 / 1_000_000.0);
         } else {
-            println!("  {:12} [missing] {} @ {}", name, url, tag);
+            println!("  {name:12} [missing] {url} @ {tag}");
         }
     }
 
@@ -123,9 +121,9 @@ pub fn clean(name: Option<&str>) -> Result<()> {
         let path = PathBuf::from(VENDOR_DIR).join(name);
         if path.exists() {
             std::fs::remove_dir_all(&path)?;
-            println!("Cleaned: {}", name);
+            println!("Cleaned: {name}");
         } else {
-            println!("{} not in cache", name);
+            println!("{name} not in cache");
         }
     } else if Path::new(VENDOR_DIR).exists() {
         std::fs::remove_dir_all(VENDOR_DIR)?;
@@ -139,14 +137,18 @@ pub fn list() {
     println!("Available sources:\n");
     for (name, url, tag) in SOURCES {
         let status = if is_cached(name) { "[cached]" } else { "" };
-        println!("  {:12} {} @ {} {}", name, url, tag, status);
+        println!("  {name:12} {url} @ {tag} {status}");
     }
 }
 
 /// Get directory size in bytes.
 fn dir_size(path: &Path) -> Result<u64> {
+    let path_str = path
+        .to_str()
+        .context("Path contains invalid UTF-8")?;
+
     let output = Command::new("du")
-        .args(["-sb", path.to_str().unwrap()])
+        .args(["-sb", path_str])
         .output()
         .context("Failed to get directory size")?;
 

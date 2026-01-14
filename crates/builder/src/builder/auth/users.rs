@@ -32,12 +32,15 @@ impl User {
     }
 
     /// Set password (will be hashed with SHA-512).
+    #[cfg(test)]
+    #[must_use]
     pub fn with_password(mut self, password: &str) -> Self {
         self.password_hash = Some(hash_password(password));
         self
     }
 
     /// Set pre-computed password hash.
+    #[must_use]
     pub fn with_hash(mut self, hash: &str) -> Self {
         self.password_hash = Some(hash.to_string());
         self
@@ -76,7 +79,7 @@ impl Group {
     }
 
     pub fn with_members(mut self, members: &[&str]) -> Self {
-        self.members = members.iter().map(|s| s.to_string()).collect();
+        self.members = members.iter().map(std::string::ToString::to_string).collect();
         self
     }
 
@@ -120,26 +123,27 @@ impl Default for UserConfig {
 impl UserConfig {
     /// Generate /etc/passwd content.
     pub fn passwd_content(&self) -> String {
-        self.users.iter().map(|u| u.passwd_line()).collect()
+        self.users.iter().map(User::passwd_line).collect()
     }
 
     /// Generate /etc/shadow content.
     pub fn shadow_content(&self) -> String {
-        self.users.iter().map(|u| u.shadow_line()).collect()
+        self.users.iter().map(User::shadow_line).collect()
     }
 
     /// Generate /etc/group content.
     pub fn group_content(&self) -> String {
-        self.groups.iter().map(|g| g.group_line()).collect()
+        self.groups.iter().map(Group::group_line).collect()
     }
 
     /// Generate /etc/gshadow content.
     pub fn gshadow_content(&self) -> String {
-        self.groups.iter().map(|g| g.gshadow_line()).collect()
+        self.groups.iter().map(Group::gshadow_line).collect()
     }
 
     /// Generate /etc/login.defs content.
-    pub fn login_defs_content(&self) -> String {
+    #[must_use]
+    pub fn login_defs_content() -> String {
         "# Login configuration\n\
          MAIL_DIR /var/mail\n\
          ENV_PATH /usr/local/bin:/usr/bin:/bin\n\
@@ -151,7 +155,8 @@ impl UserConfig {
     }
 
     /// Generate /etc/securetty content.
-    pub fn securetty_content(&self) -> String {
+    #[must_use]
+    pub fn securetty_content() -> String {
         "console\ntty1\ntty2\ntty3\ntty4\nttyS0\n".to_string()
     }
 
@@ -161,8 +166,8 @@ impl UserConfig {
         std::fs::write(root.join("etc/shadow"), self.shadow_content())?;
         std::fs::write(root.join("etc/group"), self.group_content())?;
         std::fs::write(root.join("etc/gshadow"), self.gshadow_content())?;
-        std::fs::write(root.join("etc/login.defs"), self.login_defs_content())?;
-        std::fs::write(root.join("etc/securetty"), self.securetty_content())?;
+        std::fs::write(root.join("etc/login.defs"), Self::login_defs_content())?;
+        std::fs::write(root.join("etc/securetty"), Self::securetty_content())?;
 
         // Set restrictive permissions on shadow file
         #[cfg(unix)]
@@ -224,13 +229,9 @@ impl UserConfig {
 
             // Set ownership using chown command (works during fakeroot build)
             #[cfg(unix)]
-            {
+            if let Some(path_str) = home_path.to_str() {
                 let _ = Command::new("chown")
-                    .args([
-                        "-R",
-                        &format!("{}:{}", user.uid, user.gid),
-                        home_path.to_str().unwrap(),
-                    ])
+                    .args(["-R", &format!("{}:{}", user.uid, user.gid), path_str])
                     .output();
             }
         }
@@ -240,6 +241,7 @@ impl UserConfig {
 }
 
 /// Hash a password using SHA-512 with a fixed salt.
+#[cfg(test)]
 fn hash_password(password: &str) -> String {
     // Use openssl to generate hash
     let output = Command::new("openssl")

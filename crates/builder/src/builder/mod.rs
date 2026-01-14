@@ -1,4 +1,4 @@
-//! Build system for LevitateOS.
+//! Build system for `LevitateOS`.
 //!
 //! Structure:
 //! - `components/` - Buildable components (linux, systemd, brush, etc.)
@@ -56,7 +56,7 @@ pub fn build_all() -> Result<()> {
 
     // Build all registered components
     for component in registry::COMPONENTS {
-        (component.build)()?;
+        component.build()?;
     }
 
     initramfs::create()?;
@@ -69,16 +69,13 @@ pub fn build_all() -> Result<()> {
 
 /// Build a single component by name.
 pub fn build_component(name: &str) -> Result<()> {
-    match registry::get(name) {
-        Some(component) => (component.build)(),
-        None => {
-            eprintln!("Unknown component: {}", name);
-            eprintln!("Available components:");
-            for name in registry::names() {
-                eprintln!("  - {}", name);
-            }
-            anyhow::bail!("Unknown component: {}", name)
+    if let Some(component) = registry::get(name) { component.build() } else {
+        eprintln!("Unknown component: {name}");
+        eprintln!("Available components:");
+        for n in registry::names() {
+            eprintln!("  - {n}");
         }
+        anyhow::bail!("Unknown component: {name}")
     }
 }
 
@@ -86,10 +83,11 @@ pub fn build_component(name: &str) -> Result<()> {
 pub fn list_components() {
     println!("Available components:");
     for component in registry::COMPONENTS {
-        println!("  {} - {} binaries, {} symlinks",
-            component.name,
-            component.binaries.len(),
-            component.symlinks.len()
+        println!(
+            "  {} - {} binaries, {} symlinks",
+            component.name(),
+            component.binaries().len(),
+            component.symlinks().len()
         );
     }
 }

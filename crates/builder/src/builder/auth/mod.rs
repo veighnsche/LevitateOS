@@ -12,24 +12,16 @@ use std::path::Path;
 
 pub use nss::NssConfig;
 pub use pam::PamConfig;
-pub use users::{User, UserConfig};
+pub use users::UserConfig;
 
 /// Complete authentication configuration.
+#[derive(Default)]
 pub struct AuthConfig {
     pub users: UserConfig,
     pub pam: PamConfig,
     pub nss: NssConfig,
 }
 
-impl Default for AuthConfig {
-    fn default() -> Self {
-        Self {
-            users: UserConfig::default(),
-            pam: PamConfig::default(),
-            nss: NssConfig::default(),
-        }
-    }
-}
 
 impl AuthConfig {
     /// Write all authentication config files to the given root directory.
@@ -68,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_password_hash_format() {
-        let user = User::new("test", 1000, 1000, "Test User", "/home/test", "/bin/sh")
+        let user = users::User::new("test", 1000, 1000, "Test User", "/home/test", "/bin/sh")
             .with_password("testpass");
 
         let shadow_line = user.shadow_line();

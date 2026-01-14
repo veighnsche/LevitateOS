@@ -1,4 +1,4 @@
-//! LevitateOS builder library
+//! `LevitateOS` builder library
 //!
 //! Exposes the builder module for use by other crates (like xtask)
 

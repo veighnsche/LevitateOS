@@ -1,4 +1,4 @@
-//! # LevitateOS Builder
+//! # `LevitateOS` Builder
 //!
 //! Build minimal Linux systems from source with type-safe, fast Rust tooling.
 //!

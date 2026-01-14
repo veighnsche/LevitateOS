@@ -1,9 +1,16 @@
 //! System library collection (glibc + dependencies).
 
+use super::{systemd::Systemd, util_linux::UtilLinux, Buildable};
 use crate::builder::initramfs;
-use super::{systemd, util_linux};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
+
+/// Extract filename as string from path, with proper error handling.
+fn file_name_str(path: &Path) -> Result<&str> {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .with_context(|| format!("Invalid path: {}", path.display()))
+}
 
 /// System libraries to collect from host.
 const SYSTEM_LIBS: &[&str] = &[
@@ -52,53 +59,38 @@ pub fn collect() -> Result<()> {
     for lib in SYSTEM_LIBS {
         let path = Path::new(lib);
         if path.exists() {
-            let dest = format!(
-                "{}/{}",
-                lib_dir,
-                path.file_name().unwrap().to_str().unwrap()
-            );
+            let dest = format!("{}/{}", lib_dir, file_name_str(path)?);
             // Follow symlinks and copy the actual file
             let real_path = std::fs::canonicalize(path)?;
             std::fs::copy(&real_path, &dest)?;
-            println!("  Copied: {}", lib);
+            println!("  Copied: {lib}");
         } else {
-            println!("  Warning: {} not found", lib);
+            println!("  Warning: {lib} not found");
         }
     }
 
     // systemd libraries from build
-    for lib in systemd::lib_paths() {
+    for lib in Systemd.lib_paths() {
         let path = Path::new(lib);
         if path.exists() {
-            let dest = format!(
-                "{}/{}",
-                lib_dir,
-                path.file_name().unwrap().to_str().unwrap()
-            );
+            let dest = format!("{}/{}", lib_dir, file_name_str(path)?);
             std::fs::copy(path, &dest)?;
-            println!("  Copied: {}", lib);
+            println!("  Copied: {lib}");
         } else {
-            println!(
-                "  Warning: {} not found (run builder systemd first)",
-                lib
-            );
+            println!("  Warning: {lib} not found (run builder build systemd first)");
         }
     }
 
     // util-linux libraries from build (may override system libs)
-    for lib in util_linux::lib_paths() {
+    for lib in UtilLinux.lib_paths() {
         let path = Path::new(lib);
         if path.exists() {
-            let dest = format!(
-                "{}/{}",
-                lib_dir,
-                path.file_name().unwrap().to_str().unwrap()
-            );
+            let dest = format!("{}/{}", lib_dir, file_name_str(path)?);
             std::fs::copy(path, &dest)?;
-            println!("  Copied: {}", lib);
+            println!("  Copied: {lib}");
         } else {
             // util-linux libs are optional - system libs may suffice
-            println!("  Note: {} not found (using system lib)", lib);
+            println!("  Note: {lib} not found (using system lib)");
         }
     }
 
@@ -112,16 +104,12 @@ pub fn collect() -> Result<()> {
     for module in pam_modules {
         let path = Path::new(module);
         if path.exists() {
-            let dest = format!(
-                "{}/{}",
-                security_dir,
-                path.file_name().unwrap().to_str().unwrap()
-            );
+            let dest = format!("{}/{}", security_dir, file_name_str(path)?);
             let real_path = std::fs::canonicalize(path)?;
             std::fs::copy(&real_path, &dest)?;
-            println!("  Copied: {}", module);
+            println!("  Copied: {module}");
         } else {
-            println!("  Warning: {} not found", module);
+            println!("  Warning: {module} not found");
         }
     }
 
@@ -132,14 +120,14 @@ pub fn collect() -> Result<()> {
     std::fs::create_dir_all(&usr_bin_dir)?;
     for chkpwd in chkpwd_paths {
         if Path::new(chkpwd).exists() {
-            let dest = format!("{}/unix_chkpwd", usr_bin_dir);
+            let dest = format!("{usr_bin_dir}/unix_chkpwd");
             std::fs::copy(chkpwd, &dest)?;
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
                 std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o4755))?;
             }
-            println!("  Copied: {} (setuid)", chkpwd);
+            println!("  Copied: {chkpwd} (setuid)");
             break;
         }
     }

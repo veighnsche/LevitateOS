@@ -7,7 +7,7 @@ use std::path::Path;
 
 /// PAM configuration.
 pub struct PamConfig {
-    /// Use pam_unix.so for real authentication (requires shadow file).
+    /// Use `pam_unix.so` for real authentication (requires shadow file).
     pub use_unix: bool,
     /// Allow null passwords (empty password field).
     pub allow_nullok: bool,
@@ -24,6 +24,7 @@ impl Default for PamConfig {
 
 impl PamConfig {
     /// Create a permissive config (always allows login - for testing).
+    #[cfg(test)]
     pub fn permissive() -> Self {
         Self {
             use_unix: false,
