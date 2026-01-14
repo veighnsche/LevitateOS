@@ -100,25 +100,44 @@ pub fn stop() -> Result<()> {
         return Ok(());
     }
 
+    let pid_str = session.pid.to_string();
+
     // Try graceful shutdown via QMP
+    let mut qmp_succeeded = false;
     match qmp::QmpClient::connect(&session.qmp_socket) {
         Ok(mut client) => {
             if client.handshake().is_ok() {
                 let _ = client.quit();
+                qmp_succeeded = true;
                 println!("Sent quit command to VM.");
             }
         }
         Err(_) => {
-            // QMP not available, kill directly
-            println!("QMP unavailable, killing process...");
-            let _ = Command::new("kill")
-                .args(["-9", &session.pid.to_string()])
-                .status();
+            println!("QMP unavailable, will force kill.");
         }
     }
 
-    // Wait briefly for process to exit
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // Wait briefly for graceful shutdown
+    if qmp_succeeded {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+
+    // Check if process is still alive and force kill if needed
+    if let Ok(alive) = Command::new("kill")
+        .args(["-0", &pid_str])
+        .status()
+    {
+        if alive.success() {
+            // Process still exists, force kill it
+            println!("VM still running, force killing...");
+            let _ = Command::new("kill")
+                .args(["-9", &pid_str])
+                .status();
+
+            // Wait for kill to take effect
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+    }
 
     session::clear()?;
     println!("VM stopped.");
