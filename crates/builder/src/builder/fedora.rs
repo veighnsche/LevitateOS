@@ -338,6 +338,7 @@ pub const BINARIES: &[(&str, &str)] = &[
     ("usr/lib/systemd/systemd-fsck", "usr/lib/systemd/systemd-fsck"),
     ("usr/lib/systemd/systemd-sulogin-shell", "usr/lib/systemd/systemd-sulogin-shell"),
     ("usr/lib/systemd/systemd-user-runtime-dir", "usr/lib/systemd/systemd-user-runtime-dir"),
+    ("usr/lib/systemd/systemd-shutdown", "usr/lib/systemd/systemd-shutdown"),
 
     // Network clients
     ("usr/bin/curl", "bin/curl"),

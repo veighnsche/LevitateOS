@@ -424,7 +424,7 @@ fn create_systemd_units() -> Result<()> {
          After=sysinit.target\n\
          \n\
          [Service]\n\
-         ExecStart=-/sbin/agetty -o '-p -- \\\\u' --keep-baud 115200,57600,38400,9600 %I vt100\n\
+         ExecStart=-/sbin/agetty -o '-p -- \\\\u' --keep-baud 115200,57600,38400,9600 %I dumb\n\
          Type=idle\n\
          Restart=always\n\
          RestartSec=0\n\

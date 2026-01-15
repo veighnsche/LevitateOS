@@ -60,7 +60,7 @@ impl TestVm {
                 "-initrd",
                 INITRAMFS_PATH,
                 "-append",
-                "console=ttyS0 rw quiet systemd.unit=levitate-test.target systemd.mask=serial-getty@ttyS0.service systemd.mask=getty@tty1.service",
+                "console=ttyS0 rw quiet systemd.log_color=false vt.global_cursor_default=0 systemd.unit=levitate-test.target systemd.mask=serial-getty@ttyS0.service systemd.mask=getty@tty1.service",
                 "-m",
                 "1024M",
                 "-display",

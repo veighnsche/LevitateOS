@@ -41,7 +41,7 @@ pub fn start() -> Result<()> {
             "-initrd",
             INITRAMFS_PATH,
             "-append",
-            "console=ttyS0 rw",
+            "console=ttyS0 rw systemd.log_color=false vt.global_cursor_default=0",
             "-m",
             "1024M",
             "-no-reboot",
