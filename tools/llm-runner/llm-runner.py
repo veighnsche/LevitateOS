@@ -17,6 +17,13 @@ from pathlib import Path
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+# Optional: LoRA adapter support
+try:
+    from peft import PeftModel
+    PEFT_AVAILABLE = True
+except ImportError:
+    PEFT_AVAILABLE = False
+
 # =============================================================================
 # Exit Codes
 # =============================================================================
@@ -301,6 +308,7 @@ Examples:
   %(prog)s -p "find python files" --format json
   %(prog)s -p "show disk usage" --execute
   %(prog)s -p "remove temp files" --execute --confirm
+  %(prog)s -p "partition disk" --adapter adapters/install.lora
 
 Exit Codes:
   0  Success
@@ -324,6 +332,11 @@ Exit Codes:
         "--model", "-m",
         default="/usr/lib/levitate/models/functiongemma",
         help="Path to the FunctionGemma model directory"
+    )
+    parser.add_argument(
+        "--adapter", "-a",
+        default=None,
+        help="Path to LoRA adapter directory (optional)"
     )
     parser.add_argument(
         "--max-tokens", "-n",
@@ -409,6 +422,25 @@ Exit Codes:
             torch_dtype=torch.float32,
             device_map="auto"
         )
+
+        # Load LoRA adapter if specified
+        if args.adapter:
+            if not PEFT_AVAILABLE:
+                out.error("LoRA adapter specified but 'peft' library not installed. Run: pip install peft", "adapter_error")
+                out.finalize(False)
+                sys.exit(EXIT_MODEL_LOAD_FAILED)
+
+            if not Path(args.adapter).exists():
+                out.error(f"Adapter not found: {args.adapter}", "adapter_not_found")
+                out.finalize(False)
+                sys.exit(EXIT_MODEL_NOT_FOUND)
+
+            out.status(f"Loading adapter from {args.adapter}...")
+            model = PeftModel.from_pretrained(model, args.adapter)
+            # Merge adapter for faster inference
+            model = model.merge_and_unload()
+            out.verbose_msg("Adapter loaded and merged")
+
     except Exception as e:
         out.error(f"Failed to load model: {e}", "model_load_failed")
         out.finalize(False)

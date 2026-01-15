@@ -1,0 +1,15 @@
+# LLM Runner dependencies
+# Install with: pip install -r requirements.txt
+
+# Core ML
+torch>=2.0.0
+transformers>=4.40.0
+
+# LoRA training
+peft>=0.10.0
+trl>=0.8.0
+datasets>=2.18.0
+accelerate>=0.28.0
+
+# Memory optimization (for 8-bit/4-bit training)
+bitsandbytes>=0.43.0
