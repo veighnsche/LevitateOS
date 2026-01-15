@@ -1,6 +1,6 @@
-//! System library collection from Fedora root.
+//! Library collection from Fedora root.
 //!
-//! Copies libraries from the extracted Fedora root filesystem instead of the host system.
+//! Copies shared libraries from the extracted Fedora root filesystem.
 //! This ensures reproducible builds with consistent library versions.
 
 use crate::builder::{fedora, initramfs};

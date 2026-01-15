@@ -1,8 +1,8 @@
 //! Initramfs CPIO archive builder.
 
 use crate::builder::auth;
-use crate::builder::components::glibc;
 use crate::builder::fedora;
+use crate::builder::libraries;
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Command;
@@ -23,7 +23,7 @@ pub fn create() -> Result<()> {
     }
 
     create_directories()?;
-    glibc::collect()?;
+    libraries::collect()?;
     copy_binaries()?;
     create_init_symlink()?;
     create_etc_files()?;

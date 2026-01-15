@@ -1,4 +1,6 @@
-//! Source repository management (fetch, cache, clean).
+//! Vendor source management (fetch, cache, clean).
+//!
+//! Only the Linux kernel is built from source. All userspace comes from Fedora ISO.
 
 #![allow(clippy::cast_precision_loss)] // File sizes don't need u64 precision for display
 
@@ -8,24 +10,11 @@ use std::process::Command;
 
 pub const VENDOR_DIR: &str = "vendor";
 
-/// Source definitions: (name, `git_url`, branch/tag)
+/// Source definitions: (name, git_url, branch/tag)
+/// Only Linux kernel is built from source now.
 pub const SOURCES: &[(&str, &str, &str)] = &[
     ("linux", "https://github.com/torvalds/linux.git", "v6.18"),
-    ("systemd", "https://github.com/systemd/systemd.git", "v259"),
-    ("util-linux", "https://github.com/util-linux/util-linux.git", "v2.41"),
-    ("uutils", "https://github.com/uutils/coreutils.git", "0.5.0"),
-    ("sudo-rs", "https://github.com/memorysafety/sudo-rs.git", "v0.2.11"),
-    ("brush", "https://github.com/reubeno/brush.git", "main"),
-    ("helix", "https://github.com/helix-editor/helix.git", "25.01"),
-    ("procps-ng", "https://gitlab.com/procps-ng/procps.git", "v4.0.4"),
-    ("iproute2", "https://github.com/iproute2/iproute2.git", "v6.11.0"),
-    ("iputils", "https://github.com/iputils/iputils.git", "20240905"),
 ];
-
-/// Check if a source is cached.
-pub fn is_cached(name: &str) -> bool {
-    PathBuf::from(VENDOR_DIR).join(name).exists()
-}
 
 /// Find source definition by name.
 pub fn find_source(name: &str) -> Option<(&'static str, &'static str, &'static str)> {
@@ -82,7 +71,7 @@ pub fn fetch(name: &str) -> Result<()> {
 
 /// Fetch all source repositories.
 pub fn fetch_all() -> Result<()> {
-    println!("=== Fetching all sources ===\n");
+    println!("=== Fetching sources ===\n");
     for (name, _, _) in SOURCES {
         fetch(name)?;
     }
@@ -134,15 +123,6 @@ pub fn clean(name: Option<&str>) -> Result<()> {
         println!("Cleaned all cached sources");
     }
     Ok(())
-}
-
-/// List available sources.
-pub fn list() {
-    println!("Available sources:\n");
-    for (name, url, tag) in SOURCES {
-        let status = if is_cached(name) { "[cached]" } else { "" };
-        println!("  {name:12} {url} @ {tag} {status}");
-    }
 }
 
 /// Get directory size in bytes.

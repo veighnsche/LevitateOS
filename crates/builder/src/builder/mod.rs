@@ -1,21 +1,19 @@
-//! Build system for `LevitateOS`.
+//! Build system for LevitateOS.
 //!
 //! Structure:
-//! - `components/` - Buildable components (linux kernel)
-//!   - `registry` - Single source of truth for all components
+//! - `kernel` - Linux kernel builder (only source-built component)
 //! - `fedora` - Fedora ISO extraction for userspace binaries
+//! - `libraries` - Library collection from Fedora
 //! - `auth/` - Authentication configuration
 //! - `initramfs` - Initramfs CPIO builder
-//! - `vendor` - Source fetching
+//! - `vendor` - Source fetching (kernel only)
 
 pub mod auth;
-pub mod components;
 pub mod fedora;
 pub mod initramfs;
+pub mod kernel;
+pub mod libraries;
 pub mod vendor;
-
-// Re-export for direct access
-pub use components::{glibc, registry};
 
 use anyhow::Result;
 use clap::Subcommand;
@@ -23,11 +21,11 @@ use clap::Subcommand;
 /// Build commands for the CLI.
 #[derive(Subcommand)]
 pub enum BuildCommands {
-    /// Build everything (fetch + all components + initramfs)
+    /// Build everything (fetch + kernel + initramfs)
     All,
-    /// Fetch source repositories
+    /// Fetch source repositories (kernel only)
     Fetch {
-        /// Source name (or --all)
+        /// Source name (or omit for all)
         name: Option<String>,
     },
     /// Show cache status
@@ -37,60 +35,22 @@ pub enum BuildCommands {
         /// Source name (omit for all)
         name: Option<String>,
     },
-    /// Build a specific component by name
-    Build {
-        /// Component name (use 'list' to see available)
-        name: String,
-    },
-    /// List available components
-    List,
-    /// Collect glibc libraries
-    Glibc,
-    /// Create initramfs CPIO
+    /// Build the Linux kernel
+    Kernel,
+    /// Create initramfs CPIO (includes libraries from Fedora)
     Initramfs,
 }
 
-/// Build all components.
+/// Build everything: fetch sources, build kernel, create initramfs.
 pub fn build_all() -> Result<()> {
     println!("=== Building LevitateOS ===\n");
 
     vendor::fetch_all()?;
-
-    // Build all registered components
-    for component in registry::COMPONENTS {
-        component.build()?;
-    }
-
+    kernel::build()?;
     initramfs::create()?;
 
     println!("\n=== Build complete ===");
     println!("Run with: cargo xtask vm start");
 
     Ok(())
-}
-
-/// Build a single component by name.
-pub fn build_component(name: &str) -> Result<()> {
-    if let Some(component) = registry::get(name) { component.build() } else {
-        eprintln!("Unknown component: {name}");
-        eprintln!("Available components:");
-        for n in registry::names() {
-            eprintln!("  - {n}");
-        }
-        anyhow::bail!("Unknown component: {name}")
-    }
-}
-
-/// List all available components.
-pub fn list_components() {
-    println!("Available components:");
-    for component in registry::COMPONENTS {
-        let bin_count = component.binaries().len() + component.setuid_binaries().len();
-        println!(
-            "  {} - {} binaries, {} symlinks",
-            component.name(),
-            bin_count,
-            component.symlinks().len()
-        );
-    }
 }

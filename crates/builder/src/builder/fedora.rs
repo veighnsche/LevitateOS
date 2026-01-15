@@ -20,39 +20,6 @@ pub fn root() -> PathBuf {
     PathBuf::from(FEDORA_ROOT)
 }
 
-/// Get path to a binary in the Fedora root.
-/// Example: `fedora_bin("bash")` -> `vendor/fedora-root/usr/bin/bash`
-pub fn bin(name: &str) -> PathBuf {
-    root().join("usr/bin").join(name)
-}
-
-/// Get path to an sbin binary in the Fedora root.
-/// Example: `fedora_sbin("agetty")` -> `vendor/fedora-root/usr/sbin/agetty`
-pub fn sbin(name: &str) -> PathBuf {
-    root().join("usr/sbin").join(name)
-}
-
-/// Get path to a library in the Fedora root.
-/// Example: `fedora_lib("libc.so.6")` -> `vendor/fedora-root/usr/lib64/libc.so.6`
-pub fn lib(name: &str) -> PathBuf {
-    root().join("usr/lib64").join(name)
-}
-
-/// Get path to a library in /lib64 (some libs are here instead of /usr/lib64).
-pub fn lib64(name: &str) -> PathBuf {
-    root().join("lib64").join(name)
-}
-
-/// Get path to a systemd unit file.
-pub fn systemd_unit(name: &str) -> PathBuf {
-    root().join("usr/lib/systemd/system").join(name)
-}
-
-/// Get path to a PAM module.
-pub fn pam_module(name: &str) -> PathBuf {
-    root().join("usr/lib64/security").join(name)
-}
-
 /// Ensure the Fedora root filesystem is extracted.
 /// Returns the path to the extracted root.
 pub fn ensure_extracted() -> Result<PathBuf> {
