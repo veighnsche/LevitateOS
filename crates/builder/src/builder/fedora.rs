@@ -360,6 +360,16 @@ pub const SETUID_BINARIES: &[(&str, &str)] = &[
     ("usr/sbin/unix_chkpwd", "usr/bin/unix_chkpwd"),
 ];
 
+/// Sudo support files (libraries and plugins).
+pub const SUDO_LIBEXEC: &[&str] = &[
+    "libsudo_util.so.0.0.0",
+    "libsudo_util.so.0",
+    "libsudo_util.so",
+    "sudoers.so",
+    "group_file.so",
+    "system_group.so",
+];
+
 /// Libraries to copy from Fedora root.
 /// These are the essential system libraries needed for the binaries above.
 pub const LIBRARIES: &[&str] = &[

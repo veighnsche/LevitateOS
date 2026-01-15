@@ -126,6 +126,24 @@ fn copy_binaries() -> Result<()> {
         }
     }
 
+    // Copy sudo support libraries (libsudo_util.so, plugins)
+    let sudo_libexec_src = fedora_root.join("usr/libexec/sudo");
+    let sudo_libexec_dest = root.join("usr/libexec/sudo");
+    std::fs::create_dir_all(&sudo_libexec_dest)?;
+    for lib_name in fedora::SUDO_LIBEXEC {
+        let src = sudo_libexec_src.join(lib_name);
+        let dest = sudo_libexec_dest.join(lib_name);
+        if src.exists() {
+            if src.is_symlink() {
+                let target = std::fs::read_link(&src)?;
+                let _ = std::fs::remove_file(&dest);
+                std::os::unix::fs::symlink(target, &dest)?;
+            } else {
+                std::fs::copy(&src, &dest)?;
+            }
+        }
+    }
+
     println!("  Copied {copied} binaries ({missing} not found)");
 
     Ok(())
@@ -244,12 +262,13 @@ fn create_power_scripts(root: &Path) -> Result<()> {
     let sbin = root.join("sbin");
     std::fs::create_dir_all(&sbin)?;
 
-    // These scripts use systemctl --force to bypass D-Bus requirement
+    // These scripts use systemctl --force --force to bypass D-Bus requirement
+    // Double --force is needed when D-Bus is not available
     let scripts = [
-        ("reboot", "#!/bin/sh\nexec /bin/systemctl --force reboot \"$@\"\n"),
-        ("poweroff", "#!/bin/sh\nexec /bin/systemctl --force poweroff \"$@\"\n"),
-        ("halt", "#!/bin/sh\nexec /bin/systemctl --force halt \"$@\"\n"),
-        ("shutdown", "#!/bin/sh\n# shutdown [-h|-r] [-t secs] time [message]\ncase \"$1\" in\n  -r) exec /bin/systemctl --force reboot ;;\n  -h|-P) exec /bin/systemctl --force poweroff ;;\n  *) exec /bin/systemctl --force poweroff ;;\nesac\n"),
+        ("reboot", "#!/bin/sh\nexec /bin/systemctl --force --force reboot \"$@\"\n"),
+        ("poweroff", "#!/bin/sh\nexec /bin/systemctl --force --force poweroff \"$@\"\n"),
+        ("halt", "#!/bin/sh\nexec /bin/systemctl --force --force halt \"$@\"\n"),
+        ("shutdown", "#!/bin/sh\n# shutdown [-h|-r] [-t secs] time [message]\ncase \"$1\" in\n  -r) exec /bin/systemctl --force --force reboot ;;\n  -h|-P) exec /bin/systemctl --force --force poweroff ;;\n  *) exec /bin/systemctl --force --force poweroff ;;\nesac\n"),
     ];
 
     for (name, content) in scripts {
