@@ -1,0 +1,23 @@
+[package]
+name = "llm-runner"
+version = "0.1.0"
+edition = "2021"
+description = "FunctionGemma inference runner for LevitateOS natural language commands"
+
+[workspace]
+# Empty workspace to mark this as standalone
+
+[[bin]]
+name = "llm-runner"
+path = "src/main.rs"
+
+[dependencies]
+llama-cpp-2 = "0.1"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1.0"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+panic = "abort"

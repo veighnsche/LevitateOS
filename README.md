@@ -1,21 +1,21 @@
 # LevitateOS
 
-**A Rust-native Linux distribution builder**
+**An AI-native Linux distribution**
 
-Build minimal, bootable Linux systems from source with type-safe, fast Rust tooling.
+Build intelligent Linux systems with integrated LLM capabilities and type-safe Rust tooling.
 
 ---
 
 ## What is LevitateOS?
 
-LevitateOS is a build system that creates minimal Linux distributions from:
+LevitateOS is a Linux distribution with built-in AI capabilities:
 
 - **Linux kernel** (6.19-rc5)
-- **musl libc** (static linking)
-- **BusyBox** (shell + 300 utilities)
-- **OpenRC** (init system)
+- **FunctionGemma** (natural language to shell command translation)
+- **Full Python + PyTorch** runtime
+- **systemd** (init system)
 
-Think of it as a Rust alternative to Alpine Linux's shell-script toolchain.
+Type natural language commands and LevitateOS translates them to shell commands.
 
 ---
 
@@ -29,14 +29,18 @@ cargo run -- build all
 cargo run -- run --term
 ```
 
-You'll see Linux boot with OpenRC services starting, then get a shell prompt:
+You'll see Linux boot with systemd starting services, then get a shell prompt:
 
 ```
 Linux version 6.19.0-rc5-levitate ...
-OpenRC 0.54 is starting up Linux ...
- * Mounting /proc ... [ ok ]
- * Mounting /sys ... [ ok ]
+systemd[1]: Started...
 levitate#
+```
+
+Try natural language:
+```bash
+? list all files in the current directory
+# Translates to: ls -la
 ```
 
 ---
@@ -47,14 +51,11 @@ levitate#
 # Building
 cargo run -- build all           # Build everything
 cargo run -- build linux         # Linux kernel only
-cargo run -- build busybox       # BusyBox only
-cargo run -- build openrc        # OpenRC only
 
 # Running
 cargo run -- run --term          # Serial console
 cargo run -- run                 # GUI mode
 cargo run -- run --gdb           # With GDB server
-cargo run -- run --minimal       # BusyBox init (no OpenRC)
 
 # Testing
 cargo run -- test                # Run all tests
@@ -72,10 +73,11 @@ cargo run -- check               # Preflight checks
 ```
 levitate/
 ├── src/                    # Build system source (Rust)
-│   ├── builder/            # Linux/BusyBox/OpenRC builders
+│   ├── builder/            # Linux/systemd/Python builders
 │   ├── qemu/               # QEMU runner
 │   └── tests/              # Test modules
 ├── linux/                  # Kernel submodule
+├── tools/                  # LLM runner and utilities
 ├── toolchain/              # Build outputs (gitignored)
 ├── tests/                  # Golden files
 └── docs/                   # Documentation
@@ -87,15 +89,13 @@ levitate/
 
 - **Rust** (stable)
 - **QEMU** (`qemu-system-x86_64`)
-- **musl-gcc** (for static linking)
-- **meson + ninja** (for OpenRC)
 
 ```bash
 # Fedora
-sudo dnf install qemu musl-gcc meson ninja-build
+sudo dnf install qemu
 
 # Ubuntu/Debian
-sudo apt install qemu-system-x86 musl-tools meson ninja-build
+sudo apt install qemu-system-x86
 ```
 
 ---
@@ -113,7 +113,7 @@ sudo apt install qemu-system-x86 musl-tools meson ninja-build
 
 This project was developed with AI assistance. Each development session is logged in `.teams/TEAM_XXX_*.md` files.
 
-**476+ team sessions** have contributed to this codebase.
+**480+ team sessions** have contributed to this codebase.
 
 ---
 

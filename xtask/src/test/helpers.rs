@@ -93,68 +93,6 @@ impl TestVm {
         })
     }
 
-    /// Start VM with Alpine ISO
-    pub fn start_alpine(iso_path: &str) -> Result<Self> {
-        if !Path::new(iso_path).exists() {
-            bail!("Alpine ISO not found: {}", iso_path);
-        }
-
-        // Use unique socket paths for parallel test isolation
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos();
-        let output_file = format!("build/test-alpine-{}.log", timestamp);
-        let qmp_socket = format!("/tmp/levitate-test-qmp-{}.sock", timestamp);
-        let serial_socket = format!("/tmp/levitate-test-serial-{}.sock", timestamp);
-
-        // Clean up any stale sockets
-        for socket in [&qmp_socket, &serial_socket] {
-            if Path::new(socket).exists() {
-                std::fs::remove_file(socket)?;
-            }
-        }
-
-        // Ensure build directory exists
-        std::fs::create_dir_all("build")?;
-        std::fs::write(&output_file, "")?;
-
-        // Start QEMU with Alpine ISO
-        let child = Command::new("qemu-system-x86_64")
-            .args(&[
-                "-cdrom",
-                iso_path,
-                "-boot",
-                "d", // Boot from CD-ROM
-                "-m",
-                "512M",
-                "-display",
-                "none",
-                "-no-reboot",
-                "-chardev",
-                &format!(
-                    "socket,id=serial0,path={},server=on,wait=off,logfile={}",
-                    serial_socket, output_file
-                ),
-                "-serial",
-                "chardev:serial0",
-                "-qmp",
-                &format!("unix:{},server,nowait", qmp_socket),
-            ])
-            .spawn()
-            .context("Failed to start QEMU with Alpine ISO")?;
-
-        // Wait for QEMU to initialize sockets
-        std::thread::sleep(Duration::from_millis(500));
-
-        Ok(TestVm {
-            process: Some(child),
-            output_file,
-            qmp_socket,
-            serial_socket,
-            test_name: None,
-        })
-    }
-
     /// Wait for pattern to appear in output log
     pub fn wait_for_pattern(&self, pattern: &str, timeout_secs: u64) -> Result<bool> {
         let deadline = Instant::now() + Duration::from_secs(timeout_secs);

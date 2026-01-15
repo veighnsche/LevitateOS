@@ -2,6 +2,7 @@
 
 use crate::builder::auth;
 use crate::builder::fedora;
+use crate::builder::levitate;
 use crate::builder::libraries;
 use anyhow::{bail, Context, Result};
 use std::path::Path;
@@ -25,6 +26,8 @@ pub fn create() -> Result<()> {
     create_directories()?;
     libraries::collect()?;
     copy_binaries()?;
+    levitate::copy_tools(Path::new(ROOT))?;
+    levitate::copy_models(Path::new(ROOT))?;
     create_init_symlink()?;
     create_etc_files()?;
     create_systemd_units()?;
@@ -53,6 +56,7 @@ fn create_directories() -> Result<()> {
         &format!("{ROOT}/var/tmp"),
         &format!("{ROOT}/usr/lib/systemd/system"),
         &format!("{ROOT}/usr/lib/systemd"),
+        &format!("{ROOT}/usr/lib/levitate/models"),
         &format!("{ROOT}/etc/systemd/system/getty.target.wants"),
     ];
 
@@ -225,10 +229,33 @@ fn create_etc_files() -> Result<()> {
     // /etc/profile - basic shell environment
     std::fs::write(
         root.join("etc/profile"),
-        "export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin\n\
-         export TERM=${TERM:-vt100}\n\
-         export HOME=${HOME:-/root}\n\
-         export PS1='\\u@\\h:\\w\\$ '\n",
+        r#"export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+export TERM=${TERM:-vt100}
+export HOME=${HOME:-/root}
+export PS1='\u@\h:\w\$ '
+
+# Natural language command helper (FunctionGemma)
+# Usage: ? list all files in home directory
+? () {
+    if [ ! -x /bin/llm-runner ]; then
+        echo "Error: llm-runner not found" >&2
+        return 1
+    fi
+    if [ ! -f /usr/lib/levitate/models/functiongemma.gguf ]; then
+        echo "Error: FunctionGemma model not found" >&2
+        return 1
+    fi
+    local cmd
+    cmd=$(/bin/llm-runner --model /usr/lib/levitate/models/functiongemma.gguf --prompt "$*" 2>/dev/null)
+    if [ -n "$cmd" ]; then
+        echo "Running: $cmd"
+        eval "$cmd"
+    else
+        echo "Could not translate: $*" >&2
+        return 1
+    fi
+}
+"#,
     )?;
 
     // Terminfo entries for terminal handling (from Fedora)

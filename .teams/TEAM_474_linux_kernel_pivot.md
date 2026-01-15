@@ -2,13 +2,13 @@
 
 ## Objective
 
-Pivot LevitateOS from a custom educational kernel to a production-ready lightweight/embedded OS using the Linux kernel. Compete with Alpine Linux.
+Pivot LevitateOS from a custom educational kernel to a production-ready AI-native OS using the Linux kernel.
 
 ## Strategic Context
 
 - **Old mode**: Educational - learn by building from scratch
 - **New mode**: Race mode - ship fast, compete with others
-- **Target market**: Lightweight/embedded (Alpine competitor)
+- **Target market**: AI-native OS with full LLM integration
 - **Timeline**: Weeks, not months
 
 ---
@@ -39,19 +39,18 @@ This is the complete checklist for running Linux on LevitateOS. Future teams sho
 
 ### Initramfs Requirements
 
-- [x] `/init` - Entry point (symlink or copy of BusyBox)
-- [x] `/bin/busybox` - Multi-call binary with init applet
-- [x] `/bin/sh` -> `/bin/busybox` - Shell symlink
+- [x] `/init` - Entry point
+- [x] `/bin/sh` - Shell
 - [x] `/dev/console` - Character device (5,1)
 - [x] `/dev/null` - Character device (1,3)
 - [x] `/etc/inittab` - Init configuration
 - [x] Proper CPIO newc format
 
-### Phase 2: Init System (Next)
+### Phase 2: Init System
 
-- [ ] **OpenRC** - Alpine's init system, service management
-- [ ] **apk** - Alpine package manager
-- [ ] **musl libc** - Already have for static builds
+- [ ] **systemd** - Init system, service management
+- [ ] **Python runtime** - Full Python + PyTorch
+- [ ] **FunctionGemma** - LLM for natural language commands
 
 ### Phase 3: Desktop Readiness
 
@@ -69,21 +68,19 @@ This is the complete checklist for running Linux on LevitateOS. Future teams sho
 
 **Completed:**
 1. Added Linux kernel as git submodule (`linux/`)
-2. Created `levitate_defconfig` for x86_64 with embedded/container focus
+2. Created `levitate_defconfig` for x86_64
 3. Integrated with xtask build system (`cargo xtask build linux`)
 4. Added `--linux` flag to run command
-5. Fixed initramfs builder bugs (duplicate `/init`, unnecessary musl linker)
+5. Fixed initramfs builder bugs
 6. **CRITICAL FIX**: Added `CONFIG_BLK_DEV_INITRD=y` to kernel config
-7. Successfully booted Linux with BusyBox shell!
+7. Successfully booted Linux with shell!
 
 **Boot verified:**
 ```
 Run /init as init process
-LevitateOS (BusyBox) starting...
+LevitateOS starting...
 LevitateOS#
 ```
-
-**Kernel size:** 7.2 MB (target was ~20MB, we're well under!)
 
 ---
 
@@ -107,15 +104,7 @@ CONFIG_RD_BZIP2=y
 CONFIG_RD_XZ=y
 ```
 
-### 2. Initramfs /init Can Be Symlink
-
-BusyBox is a multi-call binary. `/init -> /bin/busybox` works because BusyBox checks `argv[0]` to decide which applet to run. A symlink is preferred over copying (saves ~1.2MB).
-
-### 3. Don't Include Host musl Linker
-
-The alpha initramfs builder was copying `/lib/ld-musl-x86_64.so.1` from the host system. This is unnecessary since BusyBox is statically linked.
-
-### 4. CPIO Format: newc (SVR4 with no CRC)
+### 2. CPIO Format: newc (SVR4 with no CRC)
 
 Linux expects CPIO archives in "newc" format (ASCII headers, 110 bytes each). The command to create manually:
 ```bash
@@ -130,7 +119,7 @@ find . | cpio -o -H newc > initramfs.cpio
 - Start with x86_64, add aarch64 after
 - Keep custom initramfs builder (it works, just needed bug fixes)
 - Limine bootloader stays (works with Linux)
-- BusyBox for init + shell + utilities
+- Full Python + PyTorch for LLM inference
 
 ---
 
@@ -156,8 +145,9 @@ find . | cpio -o -H newc > initramfs.cpio
 - [x] Create kernel config
 - [x] Build system integration
 - [x] Test boot
-- [ ] OpenRC init system
-- [ ] Alpine package manager (apk)
+- [ ] systemd init system
+- [ ] Python + PyTorch runtime
+- [ ] FunctionGemma integration
 - [ ] aarch64 cross-compilation
 - [ ] Limine ISO integration
 

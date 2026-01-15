@@ -26,18 +26,10 @@ This document tracks all observable behaviors and invariants in the LevitateOS c
 - **Side Effects**: Modifies `linux/` build artifacts
 - **Error Handling**: Fails with clear error if source missing
 
-### BusyBox Build
-- **Description**: Builds BusyBox shell + utilities with musl static linking
-- **Trigger**: `cargo run -- build busybox` or as part of `build all`
-- **Output**: Architecture-specific binary at `toolchain/busybox-out/{arch}/busybox`
-- **Guarantees**: Statically linked with musl libc
-- **Side Effects**: Creates `toolchain/busybox-out/` directory
-- **Architecture Support**: x86_64, aarch64
-
-### OpenRC Build
-- **Description**: Builds OpenRC init system from source with meson/ninja
+### systemd Build
+- **Description**: Builds systemd init system from source with meson/ninja
 - **Trigger**: `cargo run -- build openrc` or as part of `build all`
-- **Requirements**: meson, ninja, musl-gcc on system
+- **Requirements**: meson, ninja on system
 - **Version**: 0.54 (cloned from GitHub)
 - **Output**: `toolchain/openrc-out/{arch}/`
 - **Binary Locations**:
@@ -47,7 +39,6 @@ This document tracks all observable behaviors and invariants in the LevitateOS c
   - `sbin/rc-update`
   - `bin/rc-status`
 - **Verification**: Checks binaries exist and are statically linked
-- **Cross-Compilation**: Uses musl-cross.txt configuration file
 
 ### Initramfs Build
 - **Description**: Assembles initramfs CPIO archive from declarative manifest
@@ -59,7 +50,7 @@ This document tracks all observable behaviors and invariants in the LevitateOS c
   - Parses TOML file into directory/file structure
   - Validates file paths and permissions
   - Generates CPIO archive with TUI progress (if interactive)
-- **Dependencies**: Requires BusyBox and OpenRC to be built first
+- **Dependencies**: Requires systemd to be built first
 - **Size**: ~30-50 MB gzipped depending on arch
 
 ---
@@ -84,8 +75,8 @@ This document tracks all observable behaviors and invariants in the LevitateOS c
 
 ### Initramfs Assembly
 - **Sequence**:
-  1. Verify BusyBox binary exists
-  2. Verify OpenRC binaries exist
+  1. Verify shell binaries exist
+  2. Verify systemd binaries exist
   3. Load and parse `initramfs/initramfs.toml`
   4. Build CPIO archive with all specified files
   5. Write to `target/initramfs/{arch}.cpio`
@@ -185,7 +176,6 @@ This document tracks all observable behaviors and invariants in the LevitateOS c
 ### Screenshot Tests
 - **Subtypes**:
   - `screenshot`: All screenshot tests
-  - `screenshot:alpine`: External Alpine Linux screenshots
   - `screenshot:levitate`: LevitateOS boot screenshots
 - **Format**: PPM converted to PNG if `magick` available
 - **Output**: `tests/screenshots/`
@@ -277,7 +267,6 @@ This document tracks all observable behaviors and invariants in the LevitateOS c
 ### Directory Structure
 ```
 toolchain/
-  busybox-out/{arch}/busybox
   openrc-out/{arch}/
   openrc/{source}
   openrc-build/{build-artifacts}
@@ -341,8 +330,7 @@ initramfs/
 
 ### Build Times (Approximate)
 - Linux kernel: 2-5 minutes (first time), 30 seconds (incremental)
-- BusyBox: 30 seconds
-- OpenRC: 1-2 minutes
+- systemd: 1-2 minutes
 - Initramfs: 5 seconds
 
 ### Boot Times
