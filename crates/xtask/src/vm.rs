@@ -84,6 +84,12 @@ pub fn start(
         );
     }
 
+    // Ensure cloud-init config exists
+    let cloud_init_iso = vm_dir().join("cloud-init.iso");
+    if !cloud_init_iso.exists() {
+        create_cloud_init_iso(&cloud_init_iso)?;
+    }
+
     let mut args = vec![
         "-enable-kvm".to_string(),
         "-cpu".to_string(), "host".to_string(),
@@ -92,12 +98,13 @@ pub fn start(
         // Disk
         "-drive".to_string(),
         format!("file={},format=qcow2,if=virtio", disk.display()),
+        // Cloud-init config
+        "-drive".to_string(),
+        format!("file={},format=raw,if=virtio,readonly=on", cloud_init_iso.display()),
         // Network with SSH forwarding
         "-netdev".to_string(),
         format!("user,id=net0,hostfwd=tcp::{}-:22", SSH_PORT),
         "-device".to_string(), "virtio-net-pci,netdev=net0".to_string(),
-        // Serial console to file and stdio
-        "-serial".to_string(), "mon:stdio".to_string(),
         // Monitor socket for control
         "-monitor".to_string(),
         format!("unix:{},server,nowait", monitor_socket().display()),
@@ -163,11 +170,14 @@ pub fn start(
             // Audio (for a complete desktop experience)
             "-device".to_string(), "intel-hda".to_string(),
             "-device".to_string(), "hda-duplex".to_string(),
+            // No serial output to terminal in GUI mode
+            "-serial".to_string(), "none".to_string(),
         ]);
     } else {
-        // Headless mode - still need basic VGA for boot
+        // Headless mode with serial console
         args.extend([
             "-nographic".to_string(),
+            "-serial".to_string(), "mon:stdio".to_string(),
         ]);
     }
 
@@ -619,5 +629,69 @@ pub fn copy_files() -> Result<()> {
     println!();
     println!("Or SSH in with: cargo xtask vm ssh");
 
+    Ok(())
+}
+
+/// Create a cloud-init ISO to configure the Arch cloud image
+fn create_cloud_init_iso(iso_path: &PathBuf) -> Result<()> {
+    // Check for required tools
+    which::which("genisoimage")
+        .or_else(|_| which::which("mkisofs"))
+        .context("genisoimage or mkisofs not found. Install genisoimage package.")?;
+
+    let cloud_dir = vm_dir().join("cloud-init");
+    fs::create_dir_all(&cloud_dir)?;
+
+    // Create meta-data
+    let meta_data = cloud_dir.join("meta-data");
+    fs::write(&meta_data, "instance-id: levitate-test\nlocal-hostname: levitate\n")?;
+
+    // Create user-data with password auth enabled
+    let user_data = cloud_dir.join("user-data");
+    fs::write(&user_data, r#"#cloud-config
+users:
+  - name: arch
+    plain_text_passwd: arch
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: wheel, seat
+    shell: /bin/bash
+
+ssh_pwauth: true
+disable_root: false
+
+chpasswd:
+  expire: false
+
+packages:
+  - openssh-server
+  - sudo
+
+runcmd:
+  - systemctl enable --now sshd
+  - growpart /dev/vda 2 || true
+  - resize2fs /dev/vda2 || true
+"#)?;
+
+    // Create ISO
+    let iso_tool = which::which("genisoimage")
+        .unwrap_or_else(|_| which::which("mkisofs").unwrap());
+
+    let status = Command::new(&iso_tool)
+        .args([
+            "-output", &iso_path.display().to_string(),
+            "-volid", "cidata",
+            "-joliet",
+            "-rock",
+            &cloud_dir.display().to_string(),
+        ])
+        .output()
+        .context("Failed to create cloud-init ISO")?;
+
+    if !status.status.success() {
+        bail!("Failed to create cloud-init ISO: {}", String::from_utf8_lossy(&status.stderr));
+    }
+
+    println!("Created cloud-init config: {:?}", iso_path);
     Ok(())
 }
