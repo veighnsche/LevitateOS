@@ -33,7 +33,7 @@ Rebuild on host, re-run in VM. No ISO rebuild needed.
 ```
 crates/installer/   # Rust installer (WIP)
 kickstarts/         # ISO build recipes
-vendor/models/      # FunctionGemma LLM
+vendor/models/      # SmolLM3-3B LLM
 docs/               # Design docs
 ```
 
