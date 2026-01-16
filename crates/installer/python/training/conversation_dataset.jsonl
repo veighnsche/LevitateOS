@@ -1,0 +1,82 @@
+{"query": "what disks do I have", "response": "Let me check your available disks.", "command": "lsblk"}
+{"query": "show me what drives are connected", "response": "I'll list all connected storage devices.", "command": "lsblk -f"}
+{"query": "can you list my hard drives", "response": "Sure, let me show you all block devices.", "command": "lsblk"}
+{"query": "i need to see my disks", "response": "Here are your available disks:", "command": "lsblk"}
+{"query": "how much storage do i have", "response": "Let me check your disk space.", "command": "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT"}
+{"query": "which disk should i use", "response": "I'll show you the available options.", "command": "lsblk -f"}
+{"query": "hello", "response": "Hello! I'm the LevitateOS installer. What would you like to do? You can ask me to list disks, partition drives, set up users, and more."}
+{"query": "hi", "response": "Hi there! Ready to install LevitateOS. Try saying 'list disks' to see your available drives."}
+{"query": "help", "response": "I can help you with:\n- Disk configuration (partition, format, encrypt)\n- System installation (copy files, set up bootloader)\n- Configuration (hostname, timezone, locale)\n- User setup (create users, set passwords)\n\nJust describe what you want to do!"}
+{"query": "what can you do", "response": "I'm your installation assistant. I can:\n- List and partition disks\n- Format filesystems (ext4, btrfs, xfs)\n- Set up encryption\n- Configure system settings\n- Create users\n- Install the bootloader\n\nJust tell me what you need!"}
+{"query": "im confused", "response": "No worries! Let's start simple. First, would you like to see what disks are available? Just say 'list disks'."}
+{"query": "i dont know what to do", "response": "That's okay! The installation has these steps:\n1. Choose and partition a disk\n2. Install the system\n3. Set hostname, timezone, etc.\n4. Create your user account\n\nLet's start with 'list disks' to see your storage options."}
+{"query": "use the 500gb ssd", "response": "I'll target the 500GB SSD. Should I use the whole disk or do you want a specific partition layout?", "context": "needs_clarification"}
+{"query": "use the whole disk", "response": "I'll create a standard layout:\n- 512MB EFI partition\n- Remaining space for root\n\nThis will ERASE all data on the disk. Proceed?", "plan": {"disk": "/dev/sda", "scheme": [{"mount": "/boot/efi", "size": "512M", "fs": "vfat"}, {"mount": "/", "size": "rest", "fs": "ext4"}]}}
+{"query": "yes", "response": "Creating partition table...", "command": "sgdisk -Z /dev/sda && sgdisk -o /dev/sda"}
+{"query": "install on the ssd with encryption", "response": "I'll set up an encrypted root partition:\n- 512MB EFI (unencrypted)\n- LUKS encrypted root\n\nYou'll need to enter a passphrase. Proceed?", "plan": {"disk": "/dev/sda", "encrypted": true}}
+{"query": "i want btrfs", "response": "I'll format the root partition with Btrfs. This gives you snapshots and compression.", "command": "mkfs.btrfs /dev/sda2"}
+{"query": "actually use ext4", "response": "Switching to ext4. It's stable and well-tested.", "command": "mkfs.ext4 /dev/sda2"}
+{"query": "whats my timezone", "response": "Let me check your current timezone settings.", "command": "timedatectl status"}
+{"query": "im in california", "response": "Setting timezone to America/Los_Angeles (Pacific Time).", "command": "ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime && hwclock --systohc"}
+{"query": "timezone los angeles", "response": "Set to America/Los_Angeles.", "command": "ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime && hwclock --systohc"}
+{"query": "im in new york", "response": "Setting timezone to America/New_York (Eastern Time).", "command": "ln -sf /usr/share/zoneinfo/America/New_York /etc/localtime && hwclock --systohc"}
+{"query": "im in london", "response": "Setting timezone to Europe/London.", "command": "ln -sf /usr/share/zoneinfo/Europe/London /etc/localtime && hwclock --systohc"}
+{"query": "im in tokyo", "response": "Setting timezone to Asia/Tokyo.", "command": "ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && hwclock --systohc"}
+{"query": "im in berlin", "response": "Setting timezone to Europe/Berlin.", "command": "ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime && hwclock --systohc"}
+{"query": "im in sydney", "response": "Setting timezone to Australia/Sydney.", "command": "ln -sf /usr/share/zoneinfo/Australia/Sydney /etc/localtime && hwclock --systohc"}
+{"query": "hostname is my-laptop", "response": "Setting hostname to 'my-laptop'.", "command": "echo 'my-laptop' > /etc/hostname"}
+{"query": "call it myserver", "response": "Setting hostname to 'myserver'.", "command": "echo 'myserver' > /etc/hostname"}
+{"query": "name it desktop-pc", "response": "Setting hostname to 'desktop-pc'.", "command": "echo 'desktop-pc' > /etc/hostname"}
+{"query": "create user vince", "response": "Creating user 'vince' with home directory. Should this user have sudo access?", "context": "needs_clarification"}
+{"query": "create user vince with sudo", "response": "Creating user 'vince' with sudo privileges.", "command": "useradd -m -G wheel -s /bin/bash vince && echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/wheel"}
+{"query": "add user admin with sudo access", "response": "Creating user 'admin' with sudo privileges.", "command": "useradd -m -G wheel -s /bin/bash admin && echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/wheel"}
+{"query": "set password", "response": "Enter the password for the user.", "command": "passwd user"}
+{"query": "set password for vince", "response": "Enter the password for vince.", "command": "passwd vince"}
+{"query": "install the bootloader", "response": "Installing systemd-boot to the EFI partition.", "command": "bootctl install"}
+{"query": "setup grub instead", "response": "Installing GRUB bootloader.", "command": "grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=LevitateOS && grub-mkconfig -o /boot/grub/grub.cfg"}
+{"query": "copy the system", "response": "Installing LevitateOS to the target disk. This may take a few minutes.", "command": "rsync -aAXv --exclude='/dev/*' --exclude='/proc/*' --exclude='/sys/*' --exclude='/tmp/*' --exclude='/run/*' --exclude='/mnt/*' --exclude='/media/*' --exclude='/lost+found' / /mnt/"}
+{"query": "install the system", "response": "Beginning system installation...", "command": "rsync -aAXv --exclude='/dev/*' --exclude='/proc/*' --exclude='/sys/*' --exclude='/tmp/*' --exclude='/run/*' --exclude='/mnt/*' --exclude='/media/*' --exclude='/lost+found' / /mnt/"}
+{"query": "done", "response": "Unmounting partitions. You can now remove the USB drive and reboot.", "command": "umount -R /mnt"}
+{"query": "finished", "response": "Great! Unmounting and preparing for reboot.", "command": "umount -R /mnt"}
+{"query": "im done", "response": "Cleaning up and unmounting.", "command": "umount -R /mnt"}
+{"query": "reboot now", "response": "Rebooting system. See you on the other side!", "command": "reboot"}
+{"query": "restart", "response": "Restarting the system now.", "command": "reboot"}
+{"query": "exit without reboot", "response": "Exiting installer. You can manually reboot when ready."}
+{"query": "cancel", "response": "Operation cancelled. What would you like to do instead?"}
+{"query": "wait", "response": "Pausing. Let me know when you're ready to continue."}
+{"query": "go back", "response": "What would you like to change?"}
+{"query": "undo", "response": "I can't undo disk operations once started. What would you like to do next?"}
+{"query": "what did you do", "response": "Let me show you what's been configured so far.", "command": "lsblk && cat /etc/fstab"}
+{"query": "is there internet", "response": "Let me check the network connection.", "command": "ping -c 3 archlinux.org"}
+{"query": "test network", "response": "Testing internet connectivity...", "command": "ping -c 3 archlinux.org"}
+{"query": "check if uefi", "response": "Checking if booted in UEFI mode...", "command": "ls /sys/firmware/efi/efivars"}
+{"query": "am i in uefi mode", "response": "Let me verify the boot mode.", "command": "ls /sys/firmware/efi/efivars"}
+{"query": "create swap partition", "response": "How large should the swap partition be? (e.g., '8G' for 8 gigabytes)", "context": "needs_clarification"}
+{"query": "8gb swap", "response": "Creating 8GB swap partition.", "command": "sgdisk -n 2:0:+8G -t 2:8200 /dev/sda"}
+{"query": "enable swap", "response": "Enabling swap partition.", "command": "mkswap /dev/sda2 && swapon /dev/sda2"}
+{"query": "dual boot with windows", "response": "I'll preserve existing Windows partitions and create new ones for LevitateOS. Let me scan the disk first.", "command": "lsblk -f"}
+{"query": "keep windows", "response": "I'll install alongside Windows. Scanning for existing partitions.", "command": "fdisk -l"}
+{"query": "separate home partition", "response": "Creating separate /home partition. How much space for root vs home?", "context": "needs_clarification"}
+{"query": "100gb for root rest for home", "response": "Creating 100GB root and using remaining space for /home.", "plan": {"scheme": [{"mount": "/boot/efi", "size": "512M", "fs": "vfat"}, {"mount": "/", "size": "100G", "fs": "ext4"}, {"mount": "/home", "size": "rest", "fs": "ext4"}]}}
+{"query": "encrypt everything", "response": "Setting up full disk encryption with LUKS. Only /boot/efi will remain unencrypted (required for boot).", "plan": {"encrypted": true}}
+{"query": "us keyboard", "response": "Setting keyboard layout to US.", "command": "echo 'KEYMAP=us' > /etc/vconsole.conf"}
+{"query": "keyboard layout us", "response": "US keyboard layout configured.", "command": "echo 'KEYMAP=us' > /etc/vconsole.conf"}
+{"query": "german keyboard", "response": "Setting keyboard layout to German (de).", "command": "echo 'KEYMAP=de' > /etc/vconsole.conf"}
+{"query": "uk keyboard", "response": "Setting keyboard layout to UK.", "command": "echo 'KEYMAP=uk' > /etc/vconsole.conf"}
+{"query": "language english", "response": "Setting system language to English (US).", "command": "echo 'LANG=en_US.UTF-8' > /etc/locale.conf && locale-gen"}
+{"query": "english please", "response": "Setting locale to English.", "command": "echo 'LANG=en_US.UTF-8' > /etc/locale.conf && locale-gen"}
+{"query": "whats next", "response": "Let me check your installation progress and suggest the next step."}
+{"query": "what should i do now", "response": "Looking at your current progress..."}
+{"query": "summary", "response": "Here's what's been configured so far:", "command": "echo '=== Disk ===' && lsblk && echo '=== Hostname ===' && cat /etc/hostname 2>/dev/null && echo '=== Timezone ===' && timedatectl status"}
+{"query": "show progress", "response": "Installation progress:", "command": "lsblk && cat /etc/fstab"}
+{"query": "nvme drive", "response": "Using NVMe drive. These are detected as /dev/nvme0n1 with partitions as nvme0n1p1, nvme0n1p2, etc.", "command": "lsblk"}
+{"query": "use the nvme", "response": "Targeting NVMe drive /dev/nvme0n1.", "command": "lsblk /dev/nvme0n1"}
+{"query": "i have an nvme ssd", "response": "Great, NVMe drives are fast! Let me show you the NVMe devices.", "command": "lsblk -d -o NAME,SIZE,MODEL | grep nvme"}
+{"query": "is the ssd or hdd faster", "response": "SSDs are significantly faster than HDDs. For your root partition, I recommend using the SSD."}
+{"query": "which one is the ssd", "response": "Let me identify the SSD by checking disk models.", "command": "lsblk -d -o NAME,SIZE,MODEL,ROTA"}
+{"query": "wipe the disk", "response": "WARNING: This will destroy all data on the disk. Are you sure?", "context": "needs_confirmation"}
+{"query": "yes wipe it", "response": "Wiping disk and creating new GPT table.", "command": "sgdisk -Z /dev/sda && sgdisk -o /dev/sda"}
+{"query": "no dont wipe", "response": "Cancelled. The disk has not been modified."}
+{"query": "actually nevermind", "response": "No problem, operation cancelled."}
+{"query": "thanks", "response": "You're welcome! Let me know if you need anything else."}
+{"query": "thank you", "response": "Happy to help! What's next?"}

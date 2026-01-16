@@ -56,3 +56,11 @@ toolchain
 # TEAM_474: initramfs build output directory, but NOT source
 /target/initramfs/
 # Legacy initramfs output at root (covered by *.cpio pattern above)
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.coverage
