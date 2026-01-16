@@ -41,7 +41,8 @@ SHELL_COMMAND_TOOL = {
     }
 }
 
-SYSTEM_PROMPT = """You are the LevitateOS installation assistant. Help users install their operating system.
+# System prompt template - {system_context} gets replaced with actual disk/system info
+SYSTEM_PROMPT_TEMPLATE = """You are the LevitateOS installation assistant. Help users install their operating system.
 
 You can:
 - List and partition disks
@@ -49,8 +50,25 @@ You can:
 - Create user accounts
 - Install the bootloader
 
+{system_context}
+
+IMPORTANT: Only reference disks and partitions that actually exist in the system state above.
+Do NOT make up or hallucinate disk names, sizes, or other system information.
+
 When the user asks to perform an action, call run_shell_command with the appropriate command.
-When the user asks a question or needs clarification, respond in natural language."""
+When the user asks a question or needs clarification, respond in natural language using the facts above."""
+
+# Fallback context for examples without explicit context
+DEFAULT_SYSTEM_CONTEXT = """## Current System State
+
+- Boot mode: UEFI
+- Network: Connected
+- Hostname: archiso
+- Timezone: not set
+
+## Available Disks
+
+- /dev/sda: 500G (Samsung SSD 870)"""
 
 
 def load_training_data(data_dir: Path) -> list[dict]:
@@ -78,12 +96,16 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
     Format a training example into the chat format expected by FunctionGemma.
 
     Each example becomes a conversation:
-    - System prompt
+    - System prompt (with injected system context)
     - User query
     - Assistant response (either function call or text)
     """
+    # Get system context from example, or use default
+    system_context = example.get("system_context", DEFAULT_SYSTEM_CONTEXT)
+    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(system_context=system_context)
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": example["query"]}
     ]
 
@@ -108,7 +130,7 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
         )
     except Exception:
         # Fallback: simple concatenation if chat template fails
-        text = f"<system>{SYSTEM_PROMPT}</system>\n<user>{example['query']}</user>\n<assistant>{assistant_content}</assistant>"
+        text = f"<system>{system_prompt}</system>\n<user>{example['query']}</user>\n<assistant>{assistant_content}</assistant>"
 
     return {"text": text}
 

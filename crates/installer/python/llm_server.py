@@ -129,7 +129,7 @@ def format_system_context(facts: dict) -> str:
         lines.append("\n## Available Disks\n")
         for dev in facts["disks"]["blockdevices"]:
             if dev.get("type") == "disk":
-                model = dev.get("model", "").strip() or "Unknown"
+                model = (dev.get("model") or "").strip() or "Unknown"
                 lines.append(f"- /dev/{dev['name']}: {dev['size']} ({model})")
                 if "children" in dev:
                     for part in dev["children"]:
@@ -229,18 +229,25 @@ class LLMServer:
 
         return format_system_context(facts)
 
-    def generate(self, prompt: str, max_tokens: int = 256) -> dict:
-        # Refresh system facts on each query (RAG-style grounding)
+    def generate(self, messages: list[dict], max_tokens: int = 256) -> dict:
+        """
+        Generate response for a conversation.
+
+        Args:
+            messages: List of {"role": "user"|"assistant", "content": "..."} dicts
+                      representing the conversation history.
+            max_tokens: Maximum tokens to generate.
+        """
+        # Refresh system facts and inject into system prompt
         system_context = self._refresh_system_facts()
         system_prompt = build_system_prompt(system_context)
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ]
+        # Build full message list with system prompt first
+        full_messages = [{"role": "system", "content": system_prompt}]
+        full_messages.extend(messages)
 
         inputs = self.tokenizer.apply_chat_template(
-            messages,
+            full_messages,
             tools=[SHELL_COMMAND_TOOL],
             add_generation_prompt=True,
             return_dict=True,
@@ -320,10 +327,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         try:
             data = json.loads(body)
-            prompt = data.get("prompt", "")
+            messages = data.get("messages", [])
             max_tokens = data.get("max_tokens", 256)
 
-            result = llm_server.generate(prompt, max_tokens)
+            result = llm_server.generate(messages, max_tokens)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

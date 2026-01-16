@@ -11,14 +11,23 @@ const SERVER_SCRIPT: &str = include_str!("../python/llm_server.py");
 #[derive(Deserialize)]
 pub struct LlmResponse {
     pub success: bool,
+    #[serde(rename = "type")]
+    pub response_type: Option<String>,  // "command" or "text"
     pub response: Option<String>,
     pub command: Option<String>,
     pub error: Option<String>,
 }
 
+/// A single message in the conversation
+#[derive(Clone, Serialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
 #[derive(Serialize)]
 struct LlmRequest {
-    prompt: String,
+    messages: Vec<ChatMessage>,
 }
 
 pub struct LlmServer {
@@ -62,9 +71,9 @@ impl LlmServer {
         Err("LLM server failed to start within 30 seconds".to_string())
     }
 
-    pub fn query(&self, prompt: &str) -> Result<LlmResponse, String> {
+    pub fn query(&self, messages: &[ChatMessage]) -> Result<LlmResponse, String> {
         let request = LlmRequest {
-            prompt: prompt.to_string(),
+            messages: messages.to_vec(),
         };
         let body = serde_json::to_string(&request).map_err(|e| e.to_string())?;
 
