@@ -1,6 +1,6 @@
 # LevitateOS Installer LLM Training Requirements
 
-This document defines the capabilities the FunctionGemma model must learn to be an effective installation assistant.
+This document defines the capabilities the SmolLM3-3B model must learn to be an effective installation assistant.
 
 ---
 
@@ -593,3 +593,116 @@ Every single example has a `messages[]` array with full conversation history. Th
 - **Minimum:** 500 conversation snapshots
 - **Recommended:** 1000+ conversation snapshots
 - **Each snapshot** = one training example with FULL history up to that point
+
+---
+
+## 13. Conversation Templates & Placeholders
+
+**Source conversations use placeholders** that the augmentor fills in based on system context. This allows one conversation template to generate multiple training variations.
+
+### Why Placeholders?
+
+The model must learn to use REAL system facts, not memorize hardcoded disk names. If all training data uses `/dev/sda`, the model won't generalize to `/dev/nvme0n1` or `/dev/vda`.
+
+```
+# BAD - Hardcoded (model memorizes "sda")
+{"user": "partition the disk", "command": "sgdisk -Z /dev/sda"}
+
+# GOOD - Placeholder (model learns to use system context)
+{"user": "partition the disk", "command": "sgdisk -Z {PRIMARY_DISK}"}
+```
+
+### Available Placeholders
+
+| Placeholder | Filled From | Example Values |
+|-------------|-------------|----------------|
+| `{PRIMARY_DISK}` | First disk in system context | `/dev/sda`, `/dev/nvme0n1`, `/dev/vda` |
+| `{SECONDARY_DISK}` | Second disk (if exists) | `/dev/sdb`, `/dev/nvme1n1` |
+| `{BOOT_PARTITION}` | EFI/boot partition | `/dev/sda1`, `/dev/nvme0n1p1` |
+| `{ROOT_PARTITION}` | Root partition | `/dev/sda2`, `/dev/nvme0n1p2` |
+| `{BOOT_MODE}` | System boot mode | `UEFI`, `Legacy BIOS` |
+| `{DISK_SIZE}` | Primary disk size | `256G`, `500G`, `1T`, `2T` |
+| `{DISK_MODEL}` | Primary disk model | `Samsung SSD 870`, `WD Black SN850` |
+| `{HOSTNAME}` | User-provided hostname | varies |
+| `{USERNAME}` | User-provided username | varies |
+| `{TIMEZONE}` | User-provided timezone | `America/New_York`, `Europe/London` |
+
+### Partition Naming Rules
+
+The augmentor must generate correct partition names based on disk type:
+
+| Disk Type | Disk Device | Partition 1 | Partition 2 |
+|-----------|-------------|-------------|-------------|
+| SATA/SAS | `/dev/sda` | `/dev/sda1` | `/dev/sda2` |
+| NVMe | `/dev/nvme0n1` | `/dev/nvme0n1p1` | `/dev/nvme0n1p2` |
+| VirtIO | `/dev/vda` | `/dev/vda1` | `/dev/vda2` |
+| MMC/SD | `/dev/mmcblk0` | `/dev/mmcblk0p1` | `/dev/mmcblk0p2` |
+
+### Boot Mode Conditional Commands
+
+Some commands depend on boot mode. Use conditional placeholders:
+
+```json
+{
+  "user": "install bootloader",
+  "type": "command",
+  "command": "{BOOTLOADER_INSTALL}"
+}
+```
+
+Where `{BOOTLOADER_INSTALL}` expands to:
+- UEFI: `arch-chroot /mnt bootctl install`
+- BIOS: `arch-chroot /mnt grub-install --target=i386-pc {PRIMARY_DISK}`
+
+### Augmentor Responsibilities
+
+The `augment_data.py` script must:
+
+1. **Generate system context variations:**
+   - SATA disk systems (`/dev/sda`)
+   - NVMe disk systems (`/dev/nvme0n1`)
+   - VirtIO/VM systems (`/dev/vda`)
+   - Single disk vs multi-disk
+   - UEFI vs Legacy BIOS
+
+2. **Fill placeholders** based on generated context
+
+3. **Update context as commands execute:**
+   - After `sgdisk`: show new partitions
+   - After `mkfs`: show filesystem types
+   - After `mount`: show mount points
+   - After hostname/timezone/user commands: update those fields
+
+4. **Validate commands match context:**
+   - UEFI commands only on UEFI systems
+   - BIOS commands only on BIOS systems
+   - Correct partition naming for disk type
+
+### Example Template Expansion
+
+**Template:**
+```json
+{
+  "system_context": "- Boot mode: {BOOT_MODE}\n- /dev/{PRIMARY_DISK}: {DISK_SIZE} ({DISK_MODEL})",
+  "turns": [
+    {"user": "partition the disk", "type": "command", "command": "sgdisk -Z /dev/{PRIMARY_DISK}"}
+  ]
+}
+```
+
+**Generated variations:**
+```json
+// Variation 1: SATA + UEFI
+{"system_context": "- Boot mode: UEFI\n- /dev/sda: 500G (Samsung 870)", ...}
+{"command": "sgdisk -Z /dev/sda"}
+
+// Variation 2: NVMe + UEFI
+{"system_context": "- Boot mode: UEFI\n- /dev/nvme0n1: 1T (WD Black)", ...}
+{"command": "sgdisk -Z /dev/nvme0n1"}
+
+// Variation 3: VirtIO + UEFI
+{"system_context": "- Boot mode: UEFI\n- /dev/vda: 40G (VirtIO)", ...}
+{"command": "sgdisk -Z /dev/vda"}
+```
+
+This ensures the model learns to read the system context and use the correct device names, not memorize hardcoded values.

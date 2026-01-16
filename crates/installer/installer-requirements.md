@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Rust-based installer inspired by archinstall, but with **FunctionGemma LLM** for natural language understanding. Users describe what they want, the LLM translates to actions.
+A Rust-based installer inspired by archinstall, but with **SmolLM3-3B LLM** for natural language understanding. Users describe what they want, the LLM translates to actions.
 
 ## Design Philosophy
 
@@ -121,16 +121,16 @@ A Rust-based installer inspired by archinstall, but with **FunctionGemma LLM** f
 
 ---
 
-## FunctionGemma Integration
+## SmolLM3-3B Integration
 
 ### Model Requirements
-- Base: FunctionGemma 270M (fits in ~1GB RAM)
+- Base: SmolLM3-3B 270M (fits in ~1GB RAM)
 - LoRA adapter: Trained on installation commands
 - Inference: CPU-only (live ISO environment)
 
 ### Conversation Sequence (Multi-Turn)
 
-FunctionGemma uses a **four-turn cycle**, NOT a single combined response:
+SmolLM3-3B uses a **four-turn cycle**, NOT a single combined response:
 
 ```
 Turn 1: User sends prompt
@@ -178,7 +178,7 @@ OpenCode (vendor/opencode) uses Vercel AI SDK with streaming tool calls:
 - Tool call events: `tool-input-start` → `tool-call` → `tool-result`
 - Text events: `text-start` → `text-delta` → `text-end`
 
-However, FunctionGemma uses **custom tokens** (`<start_function_call>`, `<escape>`), not OpenAI-style tool calling. Manual parsing required.
+However, SmolLM3-3B uses **custom tokens** (`<start_function_call>`, `<escape>`), not OpenAI-style tool calling. Manual parsing required.
 
 ### Input/Output Contract
 
@@ -231,7 +231,7 @@ enum InstallerAction {
 - `indicatif` - Progress bars
 - `rustyline` - Line editing / history
 
-### FunctionGemma Integration
+### SmolLM3-3B Integration
 - Python HTTP server (`crates/installer/python/llm_server.py`)
 - HuggingFace Transformers for inference
 - Rust calls server via HTTP on localhost:8765
