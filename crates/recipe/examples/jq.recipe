@@ -1,0 +1,21 @@
+; jq - Command-line JSON processor
+; https://github.com/jqlang/jq
+
+(package "jq" "1.7.1"
+  (description "Command-line JSON processor")
+  (license "MIT")
+  (homepage "https://jqlang.github.io/jq/")
+
+  (deps)
+
+  (acquire
+    (binary
+      (x86_64 "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64")
+      (aarch64 "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-arm64")))
+
+  (build skip)
+
+  (install
+    (to-bin "jq-linux-amd64" "jq"))
+
+  (remove (rm-prefix)))

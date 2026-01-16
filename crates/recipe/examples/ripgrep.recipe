@@ -1,0 +1,25 @@
+; ripgrep - Fast grep alternative written in Rust
+; https://github.com/BurntSushi/ripgrep
+
+(package "ripgrep" "14.1.0"
+  (description "Fast grep alternative written in Rust")
+  (license "MIT")
+  (homepage "https://github.com/BurntSushi/ripgrep")
+  (maintainer "Andrew Gallant <jamslam@gmail.com>")
+
+  (deps)
+
+  (acquire
+    (binary
+      (x86_64 "https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz")
+      (aarch64 "https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-aarch64-unknown-linux-gnu.tar.gz")))
+
+  (build (extract tar-gz))
+
+  (install
+    (to-bin "ripgrep-14.1.0-x86_64-unknown-linux-musl/rg")
+    (to-man "ripgrep-14.1.0-x86_64-unknown-linux-musl/doc/rg.1"))
+
+  (start (exec "rg" $@))
+
+  (remove (rm-prefix)))

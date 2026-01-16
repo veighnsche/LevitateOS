@@ -1,0 +1,22 @@
+; fd - Simple, fast alternative to find
+; https://github.com/sharkdp/fd
+
+(package "fd" "10.2.0"
+  (description "Simple, fast alternative to find")
+  (license "MIT" "Apache-2.0")
+  (homepage "https://github.com/sharkdp/fd")
+
+  (deps)
+
+  (acquire
+    (binary
+      (x86_64 "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-x86_64-unknown-linux-musl.tar.gz")
+      (aarch64 "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-aarch64-unknown-linux-gnu.tar.gz")))
+
+  (build (extract tar-gz))
+
+  (install
+    (to-bin "fd-v10.2.0-x86_64-unknown-linux-musl/fd")
+    (to-man "fd-v10.2.0-x86_64-unknown-linux-musl/fd.1"))
+
+  (remove (rm-prefix)))

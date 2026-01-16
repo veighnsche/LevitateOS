@@ -1,0 +1,42 @@
+; Redis - In-memory data store
+; https://redis.io
+
+(package "redis" "7.4.0"
+  (description "In-memory data structure store")
+  (license "BSD-3-Clause")
+  (homepage "https://redis.io")
+
+  (deps)
+
+  (acquire
+    (source "https://github.com/redis/redis/archive/refs/tags/7.4.0.tar.gz"))
+
+  (build
+    (compile "make -j$NPROC")
+    (test "make test"))
+
+  (install
+    (to-bin "src/redis-server")
+    (to-bin "src/redis-cli")
+    (to-config "redis.conf" "/etc/redis/redis.conf"))
+
+  (configure
+    (create-user "redis" system no-login)
+    (create-dir "/var/lib/redis" "redis")
+    (create-dir "/var/log/redis" "redis"))
+
+  (start (service systemd "redis"))
+
+  (stop (service-stop "redis"))
+
+  ; Clean up build artifacts after install to save space
+  ; Options: all (default), downloads, sources, artifacts
+  ; Use (keep "path") to preserve specific files
+  (cleanup sources)
+
+  (remove
+    stop-first
+    (rm-prefix)
+    (rm-config "/etc/redis" prompt)
+    (rm-data "/var/lib/redis" keep)
+    (rm-user "redis")))
