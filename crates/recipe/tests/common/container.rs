@@ -1,4 +1,6 @@
 //! Docker container wrapper for integration tests.
+//!
+//! Uses Fedora as the base image since LevitateOS is Fedora-based.
 
 #![allow(dead_code)]
 
@@ -16,23 +18,21 @@ pub struct TestEnv {
 }
 
 impl TestEnv {
-    /// Create a new test environment with an Ubuntu container.
+    /// Create a new test environment with a Fedora container.
     /// The container comes with curl, git, tar, and common archive tools.
     pub async fn new() -> Self {
-        let image = GenericImage::new("ubuntu", "22.04")
-            .with_env_var("DEBIAN_FRONTEND", "noninteractive")
+        let image = GenericImage::new("fedora", "43")
             .with_cmd(vec![
                 "bash",
                 "-c",
-                "apt-get update -qq && \
-                 apt-get install -y -qq curl git tar xz-utils bzip2 zip unzip coreutils ca-certificates > /dev/null 2>&1 && \
+                "dnf install -y -q curl git tar xz bzip2 zip unzip coreutils ca-certificates && \
                  mkdir -p /tmp/build /usr/local/bin /usr/local/lib /usr/local/share && \
                  while true; do sleep 1; done",
             ]);
 
         let container = image.start().await.expect("Failed to start container");
 
-        // Wait for apt-get to finish
+        // Wait for dnf to finish
         tokio::time::sleep(Duration::from_secs(5)).await;
 
         let docker =
@@ -54,8 +54,8 @@ impl TestEnv {
     /// Wait for the container to be ready (tools installed).
     async fn wait_for_ready(&self) {
         for _ in 0..120 {
-            // Check for curl and ca-certificates
-            if self.exec(&["test", "-f", "/etc/ssl/certs/ca-certificates.crt"]).await.is_ok() {
+            // Check for curl and ca-certificates (Fedora path)
+            if self.exec(&["test", "-f", "/etc/pki/tls/certs/ca-bundle.crt"]).await.is_ok() {
                 return;
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
