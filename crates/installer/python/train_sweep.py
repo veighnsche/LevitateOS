@@ -219,6 +219,10 @@ def main():
                         help="Base output directory for adapters")
     parser.add_argument("--no-4bit", action="store_true",
                         help="Disable 4-bit quantization (uses more memory)")
+    parser.add_argument("--skip", "-s", type=int, default=0,
+                        help="Skip first N configurations (for resuming after error)")
+    parser.add_argument("--resume", "-r", action="store_true",
+                        help="Auto-skip configs that already have results")
     args = parser.parse_args()
 
     script_dir = Path(__file__).parent
@@ -237,23 +241,52 @@ def main():
     # Generate configurations
     configs = generate_configs(args.preset)
 
+    # Create output directory
+    output_base.mkdir(parents=True, exist_ok=True)
+
+    # Results tracking - load existing if resuming
+    results = []
+    results_file = output_base / "sweep_results.json"
+    completed_configs = set()
+
+    if args.resume and results_file.exists():
+        try:
+            with open(results_file) as f:
+                results = json.load(f)
+                completed_configs = {r["config"] for r in results if r.get("success")}
+                print(f"Resuming: found {len(completed_configs)} completed configs")
+        except Exception as e:
+            print(f"Warning: Could not load existing results: {e}")
+
+    # Calculate how many to actually run
+    skip_count = args.skip
+    to_run = []
+    for i, config in enumerate(configs):
+        if i < skip_count:
+            continue
+        if args.resume and config.name in completed_configs:
+            continue
+        to_run.append((i, config))
+
     print("=" * 60)
     print(f"  LoRA Hyperparameter Sweep")
     print(f"  Preset: {args.preset}")
     print(f"  Total configurations: {len(configs)}")
+    if skip_count > 0:
+        print(f"  Skipping first: {skip_count}")
+    if args.resume:
+        print(f"  Already completed: {len(completed_configs)}")
+    print(f"  To run: {len(to_run)}")
     print("=" * 60)
     print()
 
-    # Create output directory
-    output_base.mkdir(parents=True, exist_ok=True)
+    if not to_run:
+        print("Nothing to run! All configs completed or skipped.")
+        return
 
-    # Results tracking
-    results = []
-    results_file = output_base / "sweep_results.json"
-
-    for i, config in enumerate(configs, 1):
+    for run_idx, (orig_idx, config) in enumerate(to_run, 1):
         print(f"\n{'=' * 60}")
-        print(f"[{i}/{len(configs)}] Training: {config.name}")
+        print(f"[{run_idx}/{len(to_run)}] Training: {config.name} (config {orig_idx + 1}/{len(configs)})")
         print(f"  rank={config.rank}, alpha={config.alpha}, lr={config.learning_rate}, epochs={config.epochs}")
         print("=" * 60)
 

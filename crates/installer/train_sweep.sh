@@ -6,6 +6,7 @@ cd "$SCRIPT_DIR"
 
 # Default preset
 PRESET="${1:-default}"
+shift 2>/dev/null || true  # Remove first arg, keep the rest
 
 echo "=== Installing Python dependencies ==="
 pip install -q -r python/requirements.txt
@@ -26,12 +27,16 @@ echo "  lr_focus:   ~2 hours (6 configs)"
 echo "  default:    ~6 hours (18 configs)"
 echo "  thorough:   ~40 hours (200 configs)"
 echo ""
+echo "Options:"
+echo "  --skip N    Skip first N configs (resume after error)"
+echo "  --resume    Auto-skip configs that already succeeded"
+echo ""
 echo "Starting at: $(date)"
 echo "Results will be saved after EACH config."
 echo ""
 
-# Run the Python sweep script
-python3 python/train_sweep.py --preset "$PRESET"
+# Run the Python sweep script (pass through any extra args)
+python3 python/train_sweep.py --preset "$PRESET" "$@"
 
 echo ""
 echo "Finished at: $(date)"
