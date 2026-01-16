@@ -1,0 +1,36 @@
+; Mako - Lightweight Wayland notification daemon
+; https://github.com/emersion/mako
+
+(package "mako" "1.9.0"
+  (description "Lightweight notification daemon for Wayland")
+  (license "MIT")
+  (homepage "https://github.com/emersion/mako")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "scdoc")
+    (runtime
+      "wayland"
+      "wayland-protocols"
+      "cairo"
+      "pango"
+      "gdk-pixbuf"
+      "dbus"
+      "libnotify"))
+
+  (acquire
+    (source "https://github.com/emersion/mako/releases/download/v1.9.0/mako-1.9.0.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Dicons=enabled \
+      -Dman-pages=enabled")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (configure
+    (create-dir "$HOME/.config/mako" user))
+
+  (cleanup sources))

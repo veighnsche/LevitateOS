@@ -1,0 +1,26 @@
+; Wayland - Core Wayland protocol library
+; https://wayland.freedesktop.org
+
+(package "wayland" "1.23.0"
+  (description "Wayland compositor protocol library")
+  (license "MIT")
+  (homepage "https://wayland.freedesktop.org")
+
+  ; Build dependencies - assumes meson, ninja, pkg-config on system
+  (deps
+    (build "meson" "ninja" "pkg-config")
+    (runtime "libffi" "libxml2" "expat"))
+
+  (acquire
+    (source "https://gitlab.freedesktop.org/wayland/wayland/-/releases/1.23.0/downloads/wayland-1.23.0.tar.xz"
+      (sha256 "05b3c0b00504f2d952b9eb1aec56a7d8a870b1e1fd1e83bcf46c660d9b97e0e4")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX -Ddocumentation=false -Dtests=false")
+    (compile "ninja -C build -j$NPROC")
+    (test "ninja -C build test"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

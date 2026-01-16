@@ -1,0 +1,28 @@
+; libxkbcommon - Keyboard keymap library
+; https://xkbcommon.org
+
+(package "libxkbcommon" "1.7.0"
+  (description "Keyboard keymap handling library")
+  (license "MIT")
+  (homepage "https://xkbcommon.org")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "bison")
+    (runtime "wayland" "wayland-protocols" "libxml2"))
+
+  (acquire
+    (source "https://xkbcommon.org/download/libxkbcommon-1.7.0.tar.xz"
+      (sha256 "65f04a12a8c64ed600107c3c9e01e9b5e5d9ad8d82e29cd5c5e0c4b4fc11e891")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Denable-docs=false \
+      -Denable-x11=false \
+      -Denable-wayland=true")
+    (compile "ninja -C build -j$NPROC")
+    (test "ninja -C build test"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

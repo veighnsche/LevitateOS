@@ -1,0 +1,31 @@
+; Grim - Screenshot tool for Wayland
+; https://git.sr.ht/~emersion/grim
+
+(package "grim" "1.4.1"
+  (description "Screenshot tool for Wayland compositors")
+  (license "MIT")
+  (homepage "https://git.sr.ht/~emersion/grim")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "scdoc")
+    (runtime
+      "wayland"
+      "wayland-protocols"
+      "cairo"
+      "libjpeg-turbo"
+      "libpng"))
+
+  (acquire
+    (source "https://git.sr.ht/~emersion/grim/archive/v1.4.1.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Djpeg=enabled \
+      -Dman-pages=enabled")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

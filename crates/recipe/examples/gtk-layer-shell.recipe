@@ -1,0 +1,31 @@
+; gtk-layer-shell - GTK library for Wayland layer-shell protocol
+; https://github.com/wmww/gtk-layer-shell
+
+(package "gtk-layer-shell" "0.9.0"
+  (description "GTK library for Wayland layer-shell protocol")
+  (license "MIT")
+  (homepage "https://github.com/wmww/gtk-layer-shell")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "gobject-introspection")
+    (runtime
+      "wayland"
+      "wayland-protocols"
+      "gtk3"))
+
+  (acquire
+    (source "https://github.com/wmww/gtk-layer-shell/archive/refs/tags/v0.9.0.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Dexamples=false \
+      -Ddocs=false \
+      -Dintrospection=true \
+      -Dvapi=false")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

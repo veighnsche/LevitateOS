@@ -1,0 +1,28 @@
+; libinput - Input device handling library
+; https://gitlab.freedesktop.org/libinput/libinput
+
+(package "libinput" "1.26.0"
+  (description "Input device handling library")
+  (license "MIT")
+  (homepage "https://gitlab.freedesktop.org/libinput/libinput")
+
+  (deps
+    (build "meson" "ninja" "pkg-config")
+    (runtime "libevdev" "mtdev" "libudev"))
+
+  (acquire
+    (source "https://gitlab.freedesktop.org/libinput/libinput/-/archive/1.26.0/libinput-1.26.0.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Ddocumentation=false \
+      -Ddebug-gui=false \
+      -Dtests=false \
+      -Dlibwacom=false")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

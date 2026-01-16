@@ -1,0 +1,26 @@
+; swayidle - Idle management daemon for Wayland
+; https://github.com/swaywm/swayidle
+
+(package "swayidle" "1.8.0"
+  (description "Idle management daemon for Wayland")
+  (license "MIT")
+  (homepage "https://github.com/swaywm/swayidle")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "scdoc")
+    (runtime
+      "wayland"
+      "wayland-protocols"))
+
+  (acquire
+    (source "https://github.com/swaywm/swayidle/releases/download/1.8.0/swayidle-1.8.0.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX -Dman-pages=enabled")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

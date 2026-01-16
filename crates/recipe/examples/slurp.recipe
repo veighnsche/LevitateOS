@@ -1,0 +1,28 @@
+; Slurp - Region selection tool for Wayland
+; https://github.com/emersion/slurp
+
+(package "slurp" "1.5.0"
+  (description "Region selection tool for Wayland compositors")
+  (license "MIT")
+  (homepage "https://github.com/emersion/slurp")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "scdoc")
+    (runtime
+      "wayland"
+      "wayland-protocols"
+      "cairo"
+      "libxkbcommon"))
+
+  (acquire
+    (source "https://github.com/emersion/slurp/releases/download/v1.5.0/slurp-1.5.0.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX -Dman-pages=enabled")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

@@ -1,0 +1,45 @@
+; Sway - i3-compatible Wayland compositor
+; https://swaywm.org
+
+(package "sway" "1.10"
+  (description "i3-compatible Wayland compositor")
+  (license "MIT")
+  (homepage "https://swaywm.org")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "scdoc")
+    (runtime
+      "wlroots"
+      "wayland"
+      "wayland-protocols"
+      "libxkbcommon"
+      "libinput"
+      "cairo"
+      "pango"
+      "gdk-pixbuf"
+      "json-c"
+      "pcre2"
+      "seatd"))
+
+  (acquire
+    (source "https://github.com/swaywm/sway/releases/download/1.10/sway-1.10.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Dxwayland=disabled \
+      -Dsd-bus-provider=basu \
+      -Dtray=disabled \
+      -Dgdk-pixbuf=enabled \
+      -Dman-pages=enabled")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (configure
+    ; Default config
+    (create-dir "$HOME/.config/sway" user)
+    (template "config.example" "$HOME/.config/sway/config" user))
+
+  (cleanup sources))

@@ -1,0 +1,45 @@
+; Waybar - Highly customizable Wayland bar
+; https://github.com/Alexays/Waybar
+
+(package "waybar" "0.11.0"
+  (description "Highly customizable Wayland bar for Sway and wlroots")
+  (license "MIT")
+  (homepage "https://github.com/Alexays/Waybar")
+
+  (deps
+    (build "meson" "ninja" "pkg-config" "scdoc")
+    (runtime
+      "wayland"
+      "wayland-protocols"
+      "gtkmm"         ; GTK3 C++ bindings
+      "gtk-layer-shell"
+      "jsoncpp"
+      "libsigc++"
+      "fmt"
+      "spdlog"
+      "libpulse"      ; audio
+      "libnl"         ; network
+      "libappindicator"
+      "libdbusmenu-gtk3"))
+
+  (acquire
+    (source "https://github.com/Alexays/Waybar/archive/refs/tags/0.11.0.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX \
+      -Dexperimental=true \
+      -Dgtk-layer-shell=enabled \
+      -Drfkill=enabled \
+      -Dlogind=enabled \
+      -Dsndio=disabled \
+      -Dman-pages=enabled")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (configure
+    (create-dir "$HOME/.config/waybar" user))
+
+  (cleanup sources))

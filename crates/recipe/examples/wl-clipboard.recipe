@@ -1,0 +1,26 @@
+; wl-clipboard - Wayland clipboard utilities
+; https://github.com/bugaevc/wl-clipboard
+
+(package "wl-clipboard" "2.2.1"
+  (description "Command-line clipboard utilities for Wayland")
+  (license "GPL-3.0")
+  (homepage "https://github.com/bugaevc/wl-clipboard")
+
+  (deps
+    (build "meson" "ninja" "pkg-config")
+    (runtime
+      "wayland"
+      "wayland-protocols"))
+
+  (acquire
+    (source "https://github.com/bugaevc/wl-clipboard/archive/refs/tags/v2.2.1.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (cleanup sources))

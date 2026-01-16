@@ -1,0 +1,31 @@
+; Wofi - Wayland rofi-like launcher
+; https://hg.sr.ht/~scoopta/wofi
+
+(package "wofi" "1.4.1"
+  (description "Wayland launcher/menu program")
+  (license "GPL-3.0")
+  (homepage "https://hg.sr.ht/~scoopta/wofi")
+
+  (deps
+    (build "meson" "ninja" "pkg-config")
+    (runtime
+      "wayland"
+      "wayland-protocols"
+      "gtk3"
+      "gtk-layer-shell"))
+
+  (acquire
+    (source "https://hg.sr.ht/~scoopta/wofi/archive/v1.4.1.tar.gz"
+      (sha256 "TODO")))
+
+  (build
+    (configure "meson setup build --prefix=$PREFIX")
+    (compile "ninja -C build -j$NPROC"))
+
+  (install
+    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+
+  (configure
+    (create-dir "$HOME/.config/wofi" user))
+
+  (cleanup sources))
