@@ -6,7 +6,7 @@ Trains multiple configurations and evaluates each on the test set.
 Results are saved to a JSON file for comparison.
 
 Usage:
-    python sweep_hyperparams.py --model vendor/models/FunctionGemma --quick
+    python sweep_hyperparams.py --model vendor/models/SmolLM3-3B --quick
 """
 
 import argparse
@@ -165,7 +165,7 @@ def generate_configs(search_space: dict) -> list:
 
 def main():
     parser = argparse.ArgumentParser(description="Hyperparameter sweep for LoRA")
-    parser.add_argument("--model", "-m", default="vendor/models/FunctionGemma",
+    parser.add_argument("--model", "-m", default="vendor/models/SmolLM3-3B",
                         help="Base model path")
     parser.add_argument("--output-dir", "-o", default=None,
                         help="Directory to save sweep results (default: sweep_results/)")

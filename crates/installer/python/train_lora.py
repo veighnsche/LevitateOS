@@ -17,7 +17,7 @@ Input format (JSONL):
 }
 
 Usage:
-    python train_lora.py --model vendor/models/FunctionGemma --output adapters/installer
+    python train_lora.py --model vendor/models/SmolLM3-3B --output adapters/installer
 """
 
 import argparse
@@ -41,7 +41,7 @@ from transformers import (
 )
 
 
-# Tool definition for FunctionGemma
+# Tool definition for SmolLM3-3B
 SHELL_COMMAND_TOOL = {
     "type": "function",
     "function": {
@@ -57,22 +57,29 @@ SHELL_COMMAND_TOOL = {
     }
 }
 
-# System prompt template
+# System prompt template - optimized for tool call consistency
 SYSTEM_PROMPT_TEMPLATE = """You are the LevitateOS installation assistant. Help users install their operating system.
-
-You can:
-- List and partition disks
-- Configure system settings (hostname, timezone, language, keyboard)
-- Create user accounts
-- Install the bootloader
 
 {system_context}
 
-IMPORTANT: Only reference disks and partitions that actually exist in the system state above.
-Do NOT make up or hallucinate disk names, sizes, or other system information.
+CRITICAL RULES:
+1. When user wants to DO something (list, format, partition, mount, create, set, install), ALWAYS call run_shell_command
+2. When user CONFIRMS an action (yes, ok, proceed, continue, do it), EXECUTE the pending command via run_shell_command
+3. When user asks a QUESTION (what is, how do, should I, explain), respond with text
 
-When the user asks to perform an action, call run_shell_command with the appropriate command.
-When the user asks a question or needs clarification, respond in natural language using the facts above."""
+COMMAND REFERENCE:
+- List disks: lsblk
+- Partition disk: sgdisk -Z /dev/X && sgdisk -n 1:0:+512M -t 1:ef00 -n 2:0:0 /dev/X
+- Format EFI: mkfs.fat -F32 /dev/X1
+- Format root: mkfs.ext4 /dev/X2
+- Mount root: mount /dev/X2 /mnt
+- Mount EFI: mkdir -p /mnt/boot/efi && mount /dev/X1 /mnt/boot/efi
+- Set hostname: hostnamectl set-hostname NAME
+- Set timezone: timedatectl set-timezone ZONE
+- Create user: useradd -m -G wheel NAME
+- Install GRUB: grub-install --target=x86_64-efi --efi-directory=/boot/efi
+
+Only reference disks that exist in the system state above. Never hallucinate disk names."""
 
 # Default context for examples without explicit context
 DEFAULT_SYSTEM_CONTEXT = """## Current System State
@@ -117,7 +124,7 @@ def load_training_data(data_dir: Path) -> list[dict]:
 
 def format_example_for_training(example: dict, tokenizer) -> dict:
     """
-    Format a CONVERSATION training example into FunctionGemma chat format.
+    Format a CONVERSATION training example into SmolLM3 chat format.
 
     Returns both the full text AND the prompt (everything except the final assistant response)
     so we can properly mask the prompt during training.
@@ -126,26 +133,46 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
     - system_context: System state info
     - messages: Array of user/assistant messages (the conversation history)
     - expected_response: What the LLM should output for the final user message
+
+    SmolLM3 format:
+    - Uses "system" role with /no_think prefix for fast mode
+    - Tool calls returned as: <tool_call>{"name": ..., "arguments": ...}</tool_call>
+    - Uses <|im_start|> and <|im_end|> tokens
     """
     # Build system prompt with context
     system_context = example.get("system_context", DEFAULT_SYSTEM_CONTEXT)
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(system_context=system_context)
+    system_prompt = "/no_think " + SYSTEM_PROMPT_TEMPLATE.format(system_context=system_context)
 
     # Build messages array: system + conversation history
     messages = [{"role": "system", "content": system_prompt}]
 
-    # Add all conversation messages
+    # Add all conversation messages from history
     for msg in example["messages"]:
-        messages.append({"role": msg["role"], "content": msg["content"]})
+        if msg["role"] == "assistant" and msg["content"].startswith("$ "):
+            # This is a command result in history - keep as content
+            messages.append({"role": "assistant", "content": msg["content"]})
+        else:
+            messages.append({"role": msg["role"], "content": msg["content"]})
 
-    # Build the expected response
+    # Build the expected response message
     expected = example["expected_response"]
     if expected["type"] == "command":
-        # Function call format for FunctionGemma
-        assistant_content = f"<start_function_call>call:run_shell_command{{command:<escape>{expected['command']}<escape>}}<end_function_call>"
+        # SmolLM3 uses XML-style tool calls: <tool_call>{"name": ..., "arguments": ...}</tool_call>
+        import json
+        tool_call_json = json.dumps({
+            "name": "run_shell_command",
+            "arguments": {"command": expected["command"]}
+        })
+        assistant_message = {
+            "role": "assistant",
+            "content": f"<tool_call>\n{tool_call_json}\n</tool_call>"
+        }
     else:
-        # Text response
-        assistant_content = expected.get("response", "")
+        # Text response - use regular content
+        assistant_message = {
+            "role": "assistant",
+            "content": expected.get("response", "")
+        }
 
     # Get prompt text (WITHOUT the final assistant response) for loss masking
     try:
@@ -153,19 +180,19 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
             messages,
             tools=[SHELL_COMMAND_TOOL],
             tokenize=False,
-            add_generation_prompt=True  # This adds the assistant turn marker
+            add_generation_prompt=True
         )
-    except Exception:
-        # Fallback: simple concatenation if chat template fails
-        parts = [f"<system>{system_prompt}</system>"]
+    except Exception as e:
+        print(f"Warning: chat template failed for prompt: {e}", file=sys.stderr)
+        # Fallback for SmolLM3 format
+        parts = [f"<|im_start|>system\n{system_prompt}<|im_end|>\n"]
         for msg in example["messages"]:
-            role = msg["role"]
-            parts.append(f"<{role}>{msg['content']}</{role}>")
-        parts.append("<assistant>")  # Start of assistant turn
-        prompt_text = "\n".join(parts)
+            parts.append(f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>\n")
+        parts.append("<|im_start|>assistant\n")
+        prompt_text = "".join(parts)
 
     # Get full text (WITH the assistant response) for training
-    messages_with_response = messages + [{"role": "assistant", "content": assistant_content}]
+    messages_with_response = messages + [assistant_message]
     try:
         full_text = tokenizer.apply_chat_template(
             messages_with_response,
@@ -173,9 +200,19 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
             tokenize=False,
             add_generation_prompt=False
         )
-    except Exception:
-        # Fallback
-        full_text = prompt_text + assistant_content + "</assistant>"
+    except Exception as e:
+        print(f"Warning: chat template failed for full text: {e}", file=sys.stderr)
+        # Fallback - manually construct
+        import json
+        if expected["type"] == "command":
+            tool_call_json = json.dumps({
+                "name": "run_shell_command",
+                "arguments": {"command": expected["command"]}
+            })
+            response_text = f"<tool_call>\n{tool_call_json}\n</tool_call>"
+        else:
+            response_text = expected.get("response", "")
+        full_text = prompt_text + response_text + "<|im_end|>\n"
 
     return {"full_text": full_text, "prompt_text": prompt_text}
 
@@ -244,18 +281,18 @@ def main():
     default_output = SCRIPT_DIR / "adapters" / "installer"
 
     parser = argparse.ArgumentParser(description="Train LoRA adapter for installer LLM")
-    parser.add_argument("--model", "-m", default="vendor/models/FunctionGemma",
+    parser.add_argument("--model", "-m", default="vendor/models/SmolLM3-3B",
                         help="Base model path")
     parser.add_argument("--output", "-o", default=str(default_output),
                         help="Output directory for LoRA adapter")
     parser.add_argument("--data-dir", "-d", default=str(default_data_dir),
                         help="Directory containing training JSONL files")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=1, help="Training batch size (default 1 for memory)")
-    parser.add_argument("--learning-rate", type=float, default=2e-4, help="Learning rate")
-    parser.add_argument("--lora-r", type=int, default=16, help="LoRA rank")
-    parser.add_argument("--lora-alpha", type=int, default=32, help="LoRA alpha")
-    parser.add_argument("--max-length", type=int, default=512, help="Max sequence length")
+    parser.add_argument("--learning-rate", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--lora-r", type=int, default=32, help="LoRA rank (higher = more capacity)")
+    parser.add_argument("--lora-alpha", type=int, default=64, help="LoRA alpha (typically 2x rank)")
+    parser.add_argument("--max-length", type=int, default=768, help="Max sequence length")
     parser.add_argument("--use-4bit", action="store_true", help="Use 4-bit quantization (saves memory)")
     parser.add_argument("--use-8bit", action="store_true", help="Use 8-bit quantization (saves memory)")
     parser.add_argument("--cpu", action="store_true", help="Force CPU training (slow but works)")

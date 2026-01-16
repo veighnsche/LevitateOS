@@ -25,7 +25,7 @@ from train_lora import (
 
 # Path to training data
 TRAINING_DIR = Path(__file__).parent.parent / "training"
-MODEL_PATH = Path(__file__).parent.parent.parent.parent.parent / "vendor" / "models" / "FunctionGemma"
+MODEL_PATH = Path(__file__).parent.parent.parent.parent.parent / "vendor" / "models" / "SmolLM3-3B"
 
 
 class TestTrainingDataLoading:

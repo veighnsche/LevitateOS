@@ -494,7 +494,7 @@ def evaluate_adapter(model_path: Path, adapter_path: Optional[Path]) -> EvalSumm
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate LoRA adapters with conversation tests")
-    parser.add_argument("--model", "-m", default="../../../vendor/models/FunctionGemma",
+    parser.add_argument("--model", "-m", default="../../../vendor/models/SmolLM3-3B",
                         help="Base model path")
     parser.add_argument("--adapter", "-a", default=None,
                         help="Single adapter to evaluate")

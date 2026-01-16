@@ -152,22 +152,33 @@ def format_system_context(facts: dict) -> str:
 
 
 def build_system_prompt(system_context: str) -> str:
-    """Build the full system prompt with injected facts."""
-    return f"""You are the LevitateOS installation assistant. Help users install their operating system.
+    """Build the full system prompt with injected facts.
 
-You can:
-- List and partition disks
-- Configure system settings (hostname, timezone, language, keyboard)
-- Create user accounts
-- Install the bootloader
+    Note: We don't use /no_think prefix so the model shows its reasoning.
+    The thinking content is extracted and shown to users for transparency.
+    """
+    return f"""You are the LevitateOS installation assistant. Help users install their operating system.
 
 {system_context}
 
-IMPORTANT: Only reference disks and partitions that actually exist in the system state above.
-Do NOT make up or hallucinate disk names, sizes, or other system information.
+CRITICAL RULES:
+1. When user wants to DO something (list, format, partition, mount, create, set, install), ALWAYS call run_shell_command
+2. When user CONFIRMS an action (yes, ok, proceed, continue, do it), EXECUTE the pending command via run_shell_command
+3. When user asks a QUESTION (what is, how do, should I, explain), respond with text
 
-When the user asks to perform an action, call run_shell_command with the appropriate command.
-When the user asks a question or needs clarification, respond in natural language using the facts above."""
+COMMAND REFERENCE:
+- List disks: lsblk
+- Partition disk: sgdisk -Z /dev/X && sgdisk -n 1:0:+512M -t 1:ef00 -n 2:0:0 /dev/X
+- Format EFI: mkfs.fat -F32 /dev/X1
+- Format root: mkfs.ext4 /dev/X2
+- Mount root: mount /dev/X2 /mnt
+- Mount EFI: mkdir -p /mnt/boot/efi && mount /dev/X1 /mnt/boot/efi
+- Set hostname: hostnamectl set-hostname NAME
+- Set timezone: timedatectl set-timezone ZONE
+- Create user: useradd -m -G wheel NAME
+- Install GRUB: grub-install --target=x86_64-efi --efi-directory=/boot/efi
+
+Only reference disks that exist in the system state above. Never hallucinate disk names."""
 
 SHELL_COMMAND_TOOL = {
     "type": "function",
@@ -276,15 +287,35 @@ class LLMServer:
         return result
 
     def _extract_response(self, output: str) -> dict:
-        # Check for function call
-        pattern = r'call:run_shell_command\{command:<escape>(.*?)<escape>\}'
-        match = re.search(pattern, output, re.DOTALL)
-        if match:
-            return {"success": True, "type": "command", "command": match.group(1).strip()}
+        # Extract thinking content if present
+        thinking = None
+        think_match = re.search(r'<think>(.*?)</think>', output, re.DOTALL)
+        if think_match:
+            thinking = think_match.group(1).strip()
+            if not thinking:  # Empty thinking block
+                thinking = None
 
-        # Natural language response
-        text = re.sub(r'<[^>]+>', '', output).strip()
-        return {"success": True, "type": "text", "response": text}
+        # Check for SmolLM3 XML-style tool call
+        tool_call_match = re.search(r'<tool_call>\s*(\{[^}]+\})\s*</tool_call>', output, re.DOTALL)
+        if tool_call_match:
+            try:
+                tool_data = json.loads(tool_call_match.group(1))
+                if tool_data.get("name") == "run_shell_command":
+                    cmd = tool_data.get("arguments", {}).get("command", "")
+                    result = {"success": True, "type": "command", "command": cmd.strip()}
+                    if thinking:
+                        result["thinking"] = thinking
+                    return result
+            except json.JSONDecodeError:
+                pass
+
+        # Natural language response - strip XML tags but preserve content
+        text = re.sub(r'<think>.*?</think>', '', output, flags=re.DOTALL)  # Remove think block
+        text = re.sub(r'<[^>]+>', '', text).strip()  # Remove other tags
+        result = {"success": True, "type": "text", "response": text}
+        if thinking:
+            result["thinking"] = thinking
+        return result
 
     def _verify_response(self, result: dict) -> dict:
         """Verify that response doesn't reference non-existent disks/partitions."""
@@ -351,7 +382,7 @@ def main():
     global llm_server
 
     parser = argparse.ArgumentParser(description="LLM HTTP Server")
-    parser.add_argument("--model", "-m", default="vendor/models/FunctionGemma", help="Model path")
+    parser.add_argument("--model", "-m", default="vendor/models/SmolLM3-3B", help="Model path")
     parser.add_argument("--adapter", "-a", default=None, help="LoRA adapter path (optional)")
     parser.add_argument("--port", "-p", type=int, default=8765, help="Port to listen on")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
