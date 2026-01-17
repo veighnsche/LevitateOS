@@ -135,13 +135,13 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
     - expected_response: What the LLM should output for the final user message
 
     SmolLM3 format:
-    - Uses "system" role with /no_think prefix for fast mode
+    - Uses "system" role (matches inference mode)
     - Tool calls returned as: <tool_call>{"name": ..., "arguments": ...}</tool_call>
     - Uses <|im_start|> and <|im_end|> tokens
     """
     # Build system prompt with context
     system_context = example.get("system_context", DEFAULT_SYSTEM_CONTEXT)
-    system_prompt = "/no_think " + SYSTEM_PROMPT_TEMPLATE.format(system_context=system_context)
+    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(system_context=system_context)
 
     # Build messages array: system + conversation history
     messages = [{"role": "system", "content": system_prompt}]
@@ -156,6 +156,11 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
 
     # Build the expected response message
     expected = example["expected_response"]
+    thinking = expected.get("thinking", "")
+    # Strip "Reasoning:\n" prefix if present
+    if thinking.startswith("Reasoning:\n"):
+        thinking = thinking[len("Reasoning:\n"):]
+
     if expected["type"] == "command":
         # SmolLM3 uses XML-style tool calls: <tool_call>{"name": ..., "arguments": ...}</tool_call>
         import json
@@ -163,16 +168,19 @@ def format_example_for_training(example: dict, tokenizer) -> dict:
             "name": "run_shell_command",
             "arguments": {"command": expected["command"]}
         })
-        assistant_message = {
-            "role": "assistant",
-            "content": f"<tool_call>\n{tool_call_json}\n</tool_call>"
-        }
+        if thinking:
+            content = f"<think>\n{thinking}\n</think>\n\n<tool_call>\n{tool_call_json}\n</tool_call>"
+        else:
+            content = f"<tool_call>\n{tool_call_json}\n</tool_call>"
+        assistant_message = {"role": "assistant", "content": content}
     else:
-        # Text response - use regular content
-        assistant_message = {
-            "role": "assistant",
-            "content": expected.get("response", "")
-        }
+        # Text response
+        response = expected.get("response", "")
+        if thinking:
+            content = f"<think>\n{thinking}\n</think>\n\n{response}"
+        else:
+            content = response
+        assistant_message = {"role": "assistant", "content": content}
 
     # Get prompt text (WITHOUT the final assistant response) for loss masking
     try:
