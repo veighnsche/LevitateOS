@@ -49,7 +49,7 @@ Cargo.lock
 # Vendored sources (managed by `vendor` binary)
 /vendor/
 
-# Auto-fetched syscall specs (regenerate with: cargo xtask syscall)
+# Auto-fetched syscall specs
 docs/specs/syscalls/
 toolchain
 

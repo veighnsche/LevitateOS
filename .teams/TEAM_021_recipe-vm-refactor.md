@@ -56,6 +56,8 @@ cargo xtask vm stop     # Stop VM
 - `xtask/src/main.rs` - Simplified to OS-level tasks only
 
 ## Files Deleted
-- `xtask/src/vm.rs` - Moved to recipe/xtask
-- `xtask/src/scripts/install-arch.sh` - Obsolete (using cloud-init now)
+- `Cargo.toml` - Root workspace no longer needed (submodules are standalone)
+- `Cargo.lock` - Artifact of old workspace
+- `.cargo/config.toml` - Had xtask alias that no longer exists
+- `xtask/` - Entire directory (VM testing moved to recipe/xtask)
 - `.vm/example-recipes/` - Stale duplicate
