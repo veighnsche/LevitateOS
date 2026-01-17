@@ -7,31 +7,16 @@
   (homepage "https://github.com/swaywm/swaylock")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "cairo"
-      "gdk-pixbuf"
-      "pam"
-      "libxkbcommon"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols" "libxkbcommon"))
 
   (acquire
-    (source "https://github.com/swaywm/swaylock/releases/download/v1.8.0/swaylock-1.8.0.tar.gz"
-      (sha256 "TODO")))
+    (source "https://github.com/swaywm/swaylock/releases/download/v1.8.0/swaylock-1.8.0.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Dpam=enabled \
-      -Dgdk-pixbuf=enabled \
-      -Dman-pages=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
-
-  (configure
-    ; PAM config for swaylock
-    (to-config "pam.d/swaylock" "/etc/pam.d/swaylock"))
+    (extract "tar-gz")
+    (run "cd swaylock-1.8.0 && meson setup build --prefix=$PREFIX -Dpam=disabled -Dgdk-pixbuf=disabled -Dman-pages=disabled")
+    (run "cd swaylock-1.8.0 && ninja -C build -j$NPROC")
+    (run "cd swaylock-1.8.0 && ninja -C build install"))
 
   (cleanup sources))

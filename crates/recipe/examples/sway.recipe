@@ -7,39 +7,16 @@
   (homepage "https://swaywm.org")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wlroots"
-      "wayland"
-      "wayland-protocols"
-      "libxkbcommon"
-      "libinput"
-      "cairo"
-      "pango"
-      "gdk-pixbuf"
-      "json-c"
-      "pcre2"
-      "seatd"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wlroots" "wayland" "wayland-protocols" "libxkbcommon" "libinput" "seatd"))
 
   (acquire
-    (source "https://github.com/swaywm/sway/releases/download/1.10/sway-1.10.tar.gz"
-      (sha256 "TODO")))
+    (source "https://github.com/swaywm/sway/releases/download/1.10/sway-1.10.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Dxwayland=disabled \
-      -Dsd-bus-provider=basu \
-      -Dtray=disabled \
-      -Dgdk-pixbuf=enabled \
-      -Dman-pages=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
-
-  (configure
-    ; Default config
-    (create-dir "$HOME/.config/sway" user)
-    (template "config.example" "$HOME/.config/sway/config" user))
+    (extract "tar-gz")
+    (run "cd sway-1.10 && meson setup build --prefix=$PREFIX -Dxwayland=disabled -Dtray=disabled -Dman-pages=disabled")
+    (run "cd sway-1.10 && ninja -C build -j$NPROC")
+    (run "cd sway-1.10 && ninja -C build install"))
 
   (cleanup sources))

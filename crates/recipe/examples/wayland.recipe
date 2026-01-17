@@ -6,21 +6,20 @@
   (license "MIT")
   (homepage "https://wayland.freedesktop.org")
 
-  ; Build dependencies - assumes meson, ninja, pkg-config on system
+  ; Build dependencies - levitate installs these automatically
   (deps
     (build "meson" "ninja" "pkg-config")
-    (runtime "libffi" "libxml2" "expat"))
+    (runtime))
 
   (acquire
     (source "https://gitlab.freedesktop.org/wayland/wayland/-/releases/1.23.0/downloads/wayland-1.23.0.tar.xz"
       (sha256 "05b3c0b00504f2d952b9eb1aec56a7d8a870b1e1fd1e83bcf46c660d9b97e0e4")))
 
+  ;; Build and install in one phase (meson/ninja pattern)
   (build
-    (configure "meson setup build --prefix=$PREFIX -Ddocumentation=false -Dtests=false")
-    (compile "ninja -C build -j$NPROC")
-    (test "ninja -C build test"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-xz")
+    (run "cd wayland-1.23.0 && meson setup build --prefix=$PREFIX -Ddocumentation=false -Dtests=false")
+    (run "cd wayland-1.23.0 && ninja -C build -j$NPROC")
+    (run "cd wayland-1.23.0 && ninja -C build install"))
 
   (cleanup sources))

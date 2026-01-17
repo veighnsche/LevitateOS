@@ -1,0 +1,25 @@
+;; Meson - Fast and user-friendly build system
+;; Downloads standalone meson binary (Python embedded)
+
+(package "meson" "1.6.1"
+  (description "Fast and user-friendly build system")
+  (license "Apache-2.0")
+  (homepage "https://mesonbuild.com/")
+
+  (deps
+    (build)
+    (runtime "ninja"))
+
+  (acquire
+    (source "https://github.com/mesonbuild/meson/releases/download/1.6.1/meson-1.6.1.tar.gz"))
+
+  ;; Meson is pure Python - just copy the script and modules
+  (build
+    (extract "tar-gz")
+    (run "mkdir -p $PREFIX/lib/meson")
+    (run "cp -r meson-1.6.1/mesonbuild $PREFIX/lib/meson/")
+    (run "cp meson-1.6.1/meson.py $PREFIX/lib/meson/")
+    (run "echo '#!/usr/bin/env python3' > $PREFIX/bin/meson")
+    (run "echo 'import sys; sys.path.insert(0, \"'$PREFIX'/lib/meson\")' >> $PREFIX/bin/meson")
+    (run "echo 'from mesonbuild import mesonmain; sys.exit(mesonmain.main())' >> $PREFIX/bin/meson")
+    (run "chmod +x $PREFIX/bin/meson")))

@@ -7,17 +7,16 @@
   (homepage "https://wayland.freedesktop.org")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "wayland"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland"))
 
   (acquire
-    (source "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/1.36/downloads/wayland-protocols-1.36.tar.xz"
-      (sha256 "7c1f01f1d54e0e8d71e0a5c16b8aaab1e76a376a7b963ce00ad93759e0d96a5e")))
+    (source "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/1.36/downloads/wayland-protocols-1.36.tar.xz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-xz")
+    (run "cd wayland-protocols-1.36 && meson setup build --prefix=$PREFIX")
+    (run "cd wayland-protocols-1.36 && ninja -C build -j$NPROC")
+    (run "cd wayland-protocols-1.36 && ninja -C build install"))
 
   (cleanup sources))

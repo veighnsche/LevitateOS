@@ -7,22 +7,16 @@
   (homepage "https://github.com/swaywm/swaybg")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "cairo"
-      "gdk-pixbuf"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols"))
 
   (acquire
-    (source "https://github.com/swaywm/swaybg/releases/download/v1.2.1/swaybg-1.2.1.tar.gz"
-      (sha256 "TODO")))
+    (source "https://github.com/swaywm/swaybg/releases/download/v1.2.1/swaybg-1.2.1.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX -Dgdk-pixbuf=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-gz")
+    (run "cd swaybg-1.2.1 && meson setup build --prefix=$PREFIX -Dgdk-pixbuf=disabled -Dman-pages=disabled")
+    (run "cd swaybg-1.2.1 && ninja -C build -j$NPROC")
+    (run "cd swaybg-1.2.1 && ninja -C build install"))
 
   (cleanup sources))

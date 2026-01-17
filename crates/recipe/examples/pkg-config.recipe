@@ -1,0 +1,24 @@
+;; pkg-config - Helper tool for compiling applications and libraries
+;; Downloads pkgconf binary (drop-in replacement for pkg-config)
+
+(package "pkg-config" "2.3.0"
+  (description "Helper tool for compiling applications and libraries")
+  (license "ISC")
+  (homepage "https://github.com/pkgconf/pkgconf")
+
+  (deps
+    (build)
+    (runtime))
+
+  ;; pkgconf is a modern pkg-config replacement, provides static binaries
+  (acquire
+    (source "https://distfiles.ariadne.space/pkgconf/pkgconf-2.3.0.tar.xz"))
+
+  ;; pkgconf uses autotools but has minimal deps - just needs a C compiler
+  ;; For true bootstrap, we'd need a pre-built binary, but this is close
+  (build
+    (extract "tar-xz")
+    (run "cd pkgconf-2.3.0 && ./configure --prefix=$PREFIX")
+    (run "cd pkgconf-2.3.0 && make -j$NPROC")
+    (run "cd pkgconf-2.3.0 && make install")
+    (run "ln -sf pkgconf $PREFIX/bin/pkg-config")))

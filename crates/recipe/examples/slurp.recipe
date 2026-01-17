@@ -7,22 +7,16 @@
   (homepage "https://github.com/emersion/slurp")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "cairo"
-      "libxkbcommon"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols" "libxkbcommon"))
 
   (acquire
-    (source "https://github.com/emersion/slurp/releases/download/v1.5.0/slurp-1.5.0.tar.gz"
-      (sha256 "TODO")))
+    (source "https://github.com/emersion/slurp/releases/download/v1.5.0/slurp-1.5.0.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX -Dman-pages=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-gz")
+    (run "cd slurp-1.5.0 && meson setup build --prefix=$PREFIX -Dman-pages=disabled")
+    (run "cd slurp-1.5.0 && ninja -C build -j$NPROC")
+    (run "cd slurp-1.5.0 && ninja -C build install"))
 
   (cleanup sources))

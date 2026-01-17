@@ -1,0 +1,21 @@
+;; CMake - Cross-platform build system generator
+;; Downloads pre-built binary - no build dependencies needed
+
+(package "cmake" "3.31.4"
+  (description "Cross-platform build system generator")
+  (license "BSD-3-Clause")
+  (homepage "https://cmake.org/")
+
+  (deps
+    (build)
+    (runtime))
+
+  (acquire
+    (binary
+      ("x86_64" "https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-x86_64.tar.gz")
+      ("aarch64" "https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-aarch64.tar.gz")))
+
+  (build
+    (extract "tar-gz")
+    (run "cp -r cmake-3.31.4-linux-x86_64/bin/* $PREFIX/bin/")
+    (run "cp -r cmake-3.31.4-linux-x86_64/share/* $PREFIX/share/")))

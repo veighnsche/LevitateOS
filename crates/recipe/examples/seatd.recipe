@@ -7,29 +7,16 @@
   (homepage "https://git.sr.ht/~kennylevinsen/seatd")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime))
 
   (acquire
-    (source "https://git.sr.ht/~kennylevinsen/seatd/archive/0.8.0.tar.gz"
-      (sha256 "TODO")))
+    (source "https://git.sr.ht/~kennylevinsen/seatd/archive/0.8.0.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Dlibseat-logind=disabled \
-      -Dlibseat-seatd=enabled \
-      -Dlibseat-builtin=enabled \
-      -Dserver=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
-
-  (configure
-    (create-user "seatd" system no-login)
-    (create-group "seat")
-    (create-dir "/run/seatd" "seatd"))
-
-  (start
-    (service systemd "seatd"))
+    (extract "tar-gz")
+    (run "cd seatd-0.8.0 && meson setup build --prefix=$PREFIX -Dlibseat-logind=disabled -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dserver=enabled -Dman-pages=disabled")
+    (run "cd seatd-0.8.0 && ninja -C build -j$NPROC")
+    (run "cd seatd-0.8.0 && ninja -C build install"))
 
   (cleanup sources))

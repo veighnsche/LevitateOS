@@ -7,32 +7,16 @@
   (homepage "https://gitlab.freedesktop.org/wlroots/wlroots")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "hwdata")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "libxkbcommon"
-      "libinput"
-      "libdrm"
-      "mesa"            ; EGL/GLES
-      "pixman"
-      "seatd"           ; seat management
-      "libdisplay-info" ; EDID parsing
-      "libliftoff"))    ; KMS plane allocation
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols" "libxkbcommon" "libinput" "seatd"))
 
   (acquire
-    (source "https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/0.18.1/downloads/wlroots-0.18.1.tar.gz"
-      (sha256 "TODO")))
+    (source "https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/0.18.1/downloads/wlroots-0.18.1.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Dexamples=false \
-      -Dxwayland=disabled \
-      -Dbackends=drm,libinput \
-      -Drenderers=gles2")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-gz")
+    (run "cd wlroots-0.18.1 && meson setup build --prefix=$PREFIX -Dexamples=false -Dxwayland=disabled -Dbackends=drm,libinput -Drenderers=gles2")
+    (run "cd wlroots-0.18.1 && ninja -C build -j$NPROC")
+    (run "cd wlroots-0.18.1 && ninja -C build install"))
 
   (cleanup sources))

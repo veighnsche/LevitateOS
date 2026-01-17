@@ -8,24 +8,15 @@
 
   (deps
     (build "meson" "ninja" "pkg-config")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "gtk3"
-      "gtk-layer-shell"))
+    (runtime "wayland" "wayland-protocols" "gtk-layer-shell"))
 
   (acquire
-    (source "https://hg.sr.ht/~scoopta/wofi/archive/v1.4.1.tar.gz"
-      (sha256 "TODO")))
+    (source "https://hg.sr.ht/~scoopta/wofi/archive/v1.4.1.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
-
-  (configure
-    (create-dir "$HOME/.config/wofi" user))
+    (extract "tar-gz")
+    (run "cd wofi-v1.4.1 && meson setup build --prefix=$PREFIX")
+    (run "cd wofi-v1.4.1 && ninja -C build -j$NPROC")
+    (run "cd wofi-v1.4.1 && ninja -C build install"))
 
   (cleanup sources))

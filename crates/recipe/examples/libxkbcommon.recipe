@@ -7,22 +7,16 @@
   (homepage "https://xkbcommon.org")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "bison")
-    (runtime "wayland" "wayland-protocols" "libxml2"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols"))
 
   (acquire
-    (source "https://xkbcommon.org/download/libxkbcommon-1.7.0.tar.xz"
-      (sha256 "65f04a12a8c64ed600107c3c9e01e9b5e5d9ad8d82e29cd5c5e0c4b4fc11e891")))
+    (source "https://xkbcommon.org/download/libxkbcommon-1.7.0.tar.xz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Denable-docs=false \
-      -Denable-x11=false \
-      -Denable-wayland=true")
-    (compile "ninja -C build -j$NPROC")
-    (test "ninja -C build test"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-xz")
+    (run "cd libxkbcommon-1.7.0 && meson setup build --prefix=$PREFIX -Denable-docs=false -Denable-x11=false -Denable-wayland=true")
+    (run "cd libxkbcommon-1.7.0 && ninja -C build -j$NPROC")
+    (run "cd libxkbcommon-1.7.0 && ninja -C build install"))
 
   (cleanup sources))

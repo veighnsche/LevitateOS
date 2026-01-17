@@ -7,39 +7,16 @@
   (homepage "https://github.com/Alexays/Waybar")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "gtkmm"         ; GTK3 C++ bindings
-      "gtk-layer-shell"
-      "jsoncpp"
-      "libsigc++"
-      "fmt"
-      "spdlog"
-      "libpulse"      ; audio
-      "libnl"         ; network
-      "libappindicator"
-      "libdbusmenu-gtk3"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols" "gtk-layer-shell"))
 
   (acquire
-    (source "https://github.com/Alexays/Waybar/archive/refs/tags/0.11.0.tar.gz"
-      (sha256 "TODO")))
+    (source "https://github.com/Alexays/Waybar/archive/refs/tags/0.11.0.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Dexperimental=true \
-      -Dgtk-layer-shell=enabled \
-      -Drfkill=enabled \
-      -Dlogind=enabled \
-      -Dsndio=disabled \
-      -Dman-pages=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
-
-  (configure
-    (create-dir "$HOME/.config/waybar" user))
+    (extract "tar-gz")
+    (run "cd Waybar-0.11.0 && meson setup build --prefix=$PREFIX -Dgtk-layer-shell=enabled -Drfkill=disabled -Dlogind=disabled -Dsndio=disabled -Dman-pages=disabled -Dtests=disabled")
+    (run "cd Waybar-0.11.0 && ninja -C build -j$NPROC")
+    (run "cd Waybar-0.11.0 && ninja -C build install"))
 
   (cleanup sources))

@@ -7,34 +7,16 @@
   (homepage "https://codeberg.org/dnkl/foot")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "libxkbcommon"
-      "fontconfig"
-      "freetype"
-      "pixman"
-      "fcft"         ; font rendering library
-      "utf8proc"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols" "libxkbcommon"))
 
   (acquire
-    (source "https://codeberg.org/dnkl/foot/archive/1.18.1.tar.gz"
-      (sha256 "TODO")))
+    (source "https://codeberg.org/dnkl/foot/archive/1.18.1.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Ddocs=enabled \
-      -Dthemes=true \
-      -Dime=true \
-      -Dgrapheme-clustering=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
-
-  (configure
-    ; Default foot config
-    (create-dir "$HOME/.config/foot" user))
+    (extract "tar-gz")
+    (run "cd foot && meson setup build --prefix=$PREFIX -Ddocs=disabled -Dthemes=false -Dime=false")
+    (run "cd foot && ninja -C build -j$NPROC")
+    (run "cd foot && ninja -C build install"))
 
   (cleanup sources))

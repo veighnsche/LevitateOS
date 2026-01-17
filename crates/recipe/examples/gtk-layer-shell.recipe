@@ -7,25 +7,16 @@
   (homepage "https://github.com/wmww/gtk-layer-shell")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "gobject-introspection")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "gtk3"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols"))
 
   (acquire
-    (source "https://github.com/wmww/gtk-layer-shell/archive/refs/tags/v0.9.0.tar.gz"
-      (sha256 "TODO")))
+    (source "https://github.com/wmww/gtk-layer-shell/archive/refs/tags/v0.9.0.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Dexamples=false \
-      -Ddocs=false \
-      -Dintrospection=true \
-      -Dvapi=false")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-gz")
+    (run "cd gtk-layer-shell-0.9.0 && meson setup build --prefix=$PREFIX -Dexamples=false -Ddocs=false -Dintrospection=false -Dvapi=false")
+    (run "cd gtk-layer-shell-0.9.0 && ninja -C build -j$NPROC")
+    (run "cd gtk-layer-shell-0.9.0 && ninja -C build install"))
 
   (cleanup sources))

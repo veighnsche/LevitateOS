@@ -8,21 +8,15 @@
 
   (deps
     (build "meson" "ninja" "pkg-config")
-    (runtime "libevdev" "mtdev" "libudev"))
+    (runtime))
 
   (acquire
-    (source "https://gitlab.freedesktop.org/libinput/libinput/-/archive/1.26.0/libinput-1.26.0.tar.gz"
-      (sha256 "TODO")))
+    (source "https://gitlab.freedesktop.org/libinput/libinput/-/archive/1.26.0/libinput-1.26.0.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Ddocumentation=false \
-      -Ddebug-gui=false \
-      -Dtests=false \
-      -Dlibwacom=false")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-gz")
+    (run "cd libinput-1.26.0 && meson setup build --prefix=$PREFIX -Ddocumentation=false -Ddebug-gui=false -Dtests=false -Dlibwacom=false")
+    (run "cd libinput-1.26.0 && ninja -C build -j$NPROC")
+    (run "cd libinput-1.26.0 && ninja -C build install"))
 
   (cleanup sources))

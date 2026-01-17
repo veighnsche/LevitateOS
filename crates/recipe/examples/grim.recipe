@@ -7,25 +7,16 @@
   (homepage "https://git.sr.ht/~emersion/grim")
 
   (deps
-    (build "meson" "ninja" "pkg-config" "scdoc")
-    (runtime
-      "wayland"
-      "wayland-protocols"
-      "cairo"
-      "libjpeg-turbo"
-      "libpng"))
+    (build "meson" "ninja" "pkg-config")
+    (runtime "wayland" "wayland-protocols"))
 
   (acquire
-    (source "https://git.sr.ht/~emersion/grim/archive/v1.4.1.tar.gz"
-      (sha256 "TODO")))
+    (source "https://git.sr.ht/~emersion/grim/archive/v1.4.1.tar.gz"))
 
   (build
-    (configure "meson setup build --prefix=$PREFIX \
-      -Djpeg=enabled \
-      -Dman-pages=enabled")
-    (compile "ninja -C build -j$NPROC"))
-
-  (install
-    (shell "DESTDIR=$DESTDIR ninja -C build install"))
+    (extract "tar-gz")
+    (run "cd grim-v1.4.1 && meson setup build --prefix=$PREFIX -Djpeg=disabled -Dman-pages=disabled")
+    (run "cd grim-v1.4.1 && ninja -C build -j$NPROC")
+    (run "cd grim-v1.4.1 && ninja -C build install"))
 
   (cleanup sources))
