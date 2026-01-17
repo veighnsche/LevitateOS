@@ -1,3 +1,6 @@
 [submodule "website"]
 	path = website
 	url = git@github.com:LevitateOS/website.git
+[submodule "crates/installer"]
+	path = crates/installer
+	url = git@github.com:LevitateOS/installer.git
