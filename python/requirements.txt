@@ -1,0 +1,16 @@
+# Core ML dependencies
+torch>=2.0.0
+transformers>=4.35.0
+datasets>=2.14.0
+
+# LoRA/PEFT training
+peft>=0.6.0
+bitsandbytes>=0.41.0  # For quantization (optional, GPU only)
+accelerate>=0.24.0
+
+# For thinking annotation (optional)
+anthropic>=0.18.0
+python-dotenv>=1.0.0
+
+# For development
+tqdm>=4.65.0
