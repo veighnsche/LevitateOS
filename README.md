@@ -1,6 +1,6 @@
 # LevitateOS
 
-The first Linux distribution with an AI-powered installer.
+A Linux distribution with an AI-powered installer and self-sufficient package manager.
 
 ## Features
 
