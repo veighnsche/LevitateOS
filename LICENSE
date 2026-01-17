@@ -4,7 +4,7 @@ LevitateOS License Information
 This project contains multiple components with different licenses:
 
 
-1. LEVITATEOS RUST CODE (crates/*)
+1. LEVITATEOS RUST CODE (installer/, recipe/, xtask/)
 ----------------------------------
 License: MIT
 Copyright (c) 2024-2026 LevitateOS Contributors

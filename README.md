@@ -78,14 +78,10 @@ cargo xtask vm log
 ## Structure
 
 ```
-crates/
-  builder/        # Builds artifacts (kernel, initramfs)
-  installer/      # AI-powered TUI installer
-  levitate/       # Package manager
-  recipe/         # S-expression recipe parser
-
+installer/        # AI-powered TUI installer
+recipe/           # S-expression recipe parser + levitate CLI
 xtask/            # Dev tasks (VM control, tests)
-vendor/           # Reference implementations (systemd, util-linux, brush, uutils)
+vendor/           # Reference implementations
 docs/             # Design docs
 website/          # Documentation website
 .teams/           # Work history

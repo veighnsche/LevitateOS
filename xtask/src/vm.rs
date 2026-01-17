@@ -426,7 +426,7 @@ pub fn prepare() -> Result<()> {
 
     // Copy recipes
     println!("[2/3] Copying recipes...");
-    let recipes_src = project_root().join("crates/recipe/examples");
+    let recipes_src = project_root().join("recipe/examples");
     let recipes_dst = vm_dir().join("recipes");
     fs::create_dir_all(&recipes_dst)?;
 

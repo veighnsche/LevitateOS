@@ -2,8 +2,8 @@
 	path = website
 	url = git@github.com:LevitateOS/website.git
 [submodule "crates/installer"]
-	path = crates/installer
+	path = installer
 	url = git@github.com:LevitateOS/installer.git
 [submodule "crates/recipe"]
-	path = crates/recipe
+	path = recipe
 	url = git@github.com:LevitateOS/recipe.git
