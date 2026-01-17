@@ -538,96 +538,103 @@ pub fn copy_files() -> Result<()> {
         bail!("Levitate binary not found. Run: cargo xtask vm prepare");
     }
 
+    // Check for sshpass
+    let has_sshpass = which::which("sshpass").is_ok();
+    if !has_sshpass {
+        println!("Tip: Install 'sshpass' to avoid password prompts:");
+        println!("     sudo pacman -S sshpass\n");
+    }
+
     println!("=== Copying files to VM ===\n");
 
-    let scp_opts = [
-        "-o", "StrictHostKeyChecking=no",
-        "-o", "UserKnownHostsFile=/dev/null",
-        "-o", "LogLevel=ERROR",
-        "-P", &SSH_PORT.to_string(),
-    ];
+    // Helper to run SSH command with optional sshpass
+    let run_ssh = |args: &[&str]| -> std::io::Result<std::process::ExitStatus> {
+        let mut cmd_args = vec![
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=ERROR",
+            "-p", "2222",
+            "arch@localhost",
+        ];
+        cmd_args.extend(args);
+
+        if has_sshpass {
+            Command::new("sshpass")
+                .args(["-p", "arch", "ssh"])
+                .args(&cmd_args)
+                .status()
+        } else {
+            Command::new("ssh")
+                .args(&cmd_args)
+                .status()
+        }
+    };
+
+    // Helper to run SCP with optional sshpass
+    let run_scp = |src: &str, dst: &str| -> std::io::Result<std::process::ExitStatus> {
+        let scp_args = [
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=ERROR",
+            "-P", "2222",
+            src,
+            dst,
+        ];
+
+        if has_sshpass {
+            Command::new("sshpass")
+                .args(["-p", "arch", "scp"])
+                .args(&scp_args)
+                .status()
+        } else {
+            Command::new("scp")
+                .args(&scp_args)
+                .status()
+        }
+    };
 
     // Copy levitate binary
-    println!("[1/3] Copying levitate binary...");
-    let status = Command::new("scp")
-        .args(&scp_opts)
-        .arg(&levitate)
-        .arg("arch@localhost:/tmp/levitate")
-        .status()
-        .context("Failed to SCP levitate")?;
-
+    println!("[1/4] Copying levitate binary...");
+    let status = run_scp(&levitate.display().to_string(), "arch@localhost:/tmp/levitate")?;
     if !status.success() {
         bail!("Failed to copy levitate binary. Is SSH running in the VM?");
     }
 
-    // Install it to /usr/local/bin (needs sudo)
-    println!("   Installing to /usr/local/bin...");
-    let status = Command::new("ssh")
-        .args([
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            "-o", "LogLevel=ERROR",
-            "-p", &SSH_PORT.to_string(),
-            "arch@localhost",
-            "sudo install -m755 /tmp/levitate /usr/local/bin/levitate",
-        ])
+    // Install it to /usr/local/bin
+    println!("[2/4] Installing levitate...");
+    run_ssh(&["sudo", "install", "-m755", "/tmp/levitate", "/usr/local/bin/levitate"])?;
+
+    // Create recipes directory and copy recipes
+    println!("[3/4] Setting up recipes directory...");
+    run_ssh(&["sudo", "mkdir", "-p", "/usr/share/levitate/recipes"])?;
+    run_ssh(&["sudo", "chown", "-R", "arch:arch", "/usr/share/levitate"])?;
+
+    // Tar up recipes and copy as single file
+    println!("[4/4] Copying recipes...");
+    let tar_file = vm_dir().join("recipes.tar");
+
+    // Create tar of recipes
+    Command::new("tar")
+        .args(["-cf", &tar_file.display().to_string(), "-C", &recipes.display().to_string(), "."])
         .status()?;
 
-    if !status.success() {
-        eprintln!("   Warning: Could not install to /usr/local/bin");
-    }
+    // Copy tar
+    run_scp(&tar_file.display().to_string(), "arch@localhost:/tmp/recipes.tar")?;
 
-    // Create recipes directory
-    println!("[2/3] Creating recipes directory...");
-    let _ = Command::new("ssh")
-        .args([
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            "-o", "LogLevel=ERROR",
-            "-p", &SSH_PORT.to_string(),
-            "arch@localhost",
-            "sudo mkdir -p /usr/share/levitate/recipes && sudo chown -R arch:arch /usr/share/levitate",
-        ])
-        .status();
+    // Extract in VM
+    run_ssh(&["tar", "-xf", "/tmp/recipes.tar", "-C", "/usr/share/levitate/recipes/"])?;
+    run_ssh(&["rm", "/tmp/recipes.tar", "/tmp/levitate"])?;
 
-    // Copy recipes
-    println!("[3/3] Copying recipes...");
-    if recipes.exists() {
-        let status = Command::new("scp")
-            .args(&scp_opts)
-            .arg("-r")
-            .arg(format!("{}/*", recipes.display()))
-            .arg("arch@localhost:/usr/share/levitate/recipes/")
-            .status();
+    let count = fs::read_dir(&recipes)?
+        .filter(|e| e.as_ref().map(|e| e.path().extension().map(|x| x == "recipe").unwrap_or(false)).unwrap_or(false))
+        .count();
 
-        if status.is_err() || !status.unwrap().success() {
-            // Try individual files if glob doesn't work
-            for entry in fs::read_dir(&recipes)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "recipe").unwrap_or(false) {
-                    let _ = Command::new("scp")
-                        .args(&scp_opts)
-                        .arg(&path)
-                        .arg("arch@localhost:/usr/share/levitate/recipes/")
-                        .status();
-                }
-            }
-        }
-
-        let count = fs::read_dir(&recipes)?
-            .filter(|e| e.as_ref().map(|e| e.path().extension().map(|x| x == "recipe").unwrap_or(false)).unwrap_or(false))
-            .count();
-        println!("   Copied {} recipes", count);
-    }
-
-    println!("\n=== Copy Complete ===\n");
-    println!("You can now SSH into the VM and run:");
-    println!("  levitate list              # See available packages");
-    println!("  levitate desktop           # Install Sway desktop");
-    println!("  sway                       # Start Sway");
-    println!();
-    println!("Or SSH in with: cargo xtask vm ssh");
+    println!("\n=== Copy Complete ({} recipes) ===\n", count);
+    println!("Run in VM:");
+    println!("  levitate list       # See available packages");
+    println!("  levitate deps sway  # Show dependency tree");
+    println!("  levitate desktop    # Install Sway desktop (handles all deps)");
+    println!("  sway                # Start desktop");
 
     Ok(())
 }
@@ -666,11 +673,36 @@ chpasswd:
 packages:
   - openssh-server
   - sudo
+  - base-devel
+  - meson
+  - ninja
+  - cmake
+  - pkg-config
+  - scdoc
+  - git
+  - wayland
+  - wayland-protocols
+  - libxkbcommon
+  - libinput
+  - mesa
+  - libdrm
+  - pixman
+  - cairo
+  - pango
+  - gdk-pixbuf2
+  - json-c
+  - pcre2
+  - seatd
+  - libevdev
+  - mtdev
+  - hwdata
 
 runcmd:
   - systemctl enable --now sshd
+  - systemctl enable --now seatd
   - growpart /dev/vda 2 || true
   - resize2fs /dev/vda2 || true
+  - usermod -aG seat arch
 "#)?;
 
     // Create ISO
