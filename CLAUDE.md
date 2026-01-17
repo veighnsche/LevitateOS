@@ -122,3 +122,43 @@ vendor/      → Reference implementations
 - `xtask` = run things
 
 Never mix these.
+
+---
+
+## Website Submodule
+
+The `website/` directory is a TanStack Start application.
+
+### Dev Server
+
+```bash
+cd website
+npm run dev      # Starts on http://localhost:3000
+npm run typecheck  # TypeScript validation
+npm run build    # Production build
+```
+
+**Port: 3000** (NOT 5173 - this is TanStack Start, not vanilla Vite)
+
+### Structure
+
+```
+website/
+├── src/
+│   ├── components/
+│   │   ├── docs/       → DocsPage template system
+│   │   ├── layout/     → Header, Footer, DocsLayout
+│   │   └── ui/         → shadcn components
+│   ├── routes/
+│   │   └── docs/       → Documentation pages (install, levitate, etc.)
+│   └── styles.css
+└── package.json
+```
+
+### Docs Template System
+
+Documentation pages use a template-driven system (`components/docs/`):
+- Content defined as structured data (`DocsContent` type)
+- Single `DocsPage` component renders all content
+- Supports: text, code blocks, tables, lists, conversations
+- Inline markdown: \`code\`, **bold**, [links](url)
