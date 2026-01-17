@@ -1,18 +1,15 @@
 # LevitateOS
 
-A Linux distribution with an AI-powered installer and self-sufficient package manager.
+Linux where you maintain your own packages.
+
+## Philosophy
+
+**Be your own package maintainer.** Write simple recipes, build your own packages, stop waiting for upstream maintainers. You control what gets installed and how.
 
 ## Features
 
-### AI-Powered Installer
-- **SmolLM3-3B** runs locally - no internet required
-- Natural language commands: "use the whole 500gb drive", "create user vince with sudo"
-- Multi-turn conversation context understands "it", "that one", "yes"
-- TUI chat interface built with Ratatui
-- 7,000+ training examples for installation workflows
-
 ### S-Expression Package Recipes
-Lisp-like syntax designed for small LLMs to generate reliably:
+Simple Lisp-like syntax - 30-line parser, human-readable:
 
 ```lisp
 (package "ripgrep" "14.1.0"
@@ -52,6 +49,16 @@ LevitateOS uses **musl libc + GNU tools** = lightweight + full-featured.
 - Better static linking
 - Full GNU coreutils
 
+### LLM Recipe Assistant
+An optional local LLM (SmolLM3-3B) assists with tedious package maintenance tasks:
+
+- Generates initial recipe drafts from upstream sources
+- Suggests version updates and dependency changes
+- Helps debug build failures
+- Natural language interface for installation tasks
+
+The LLM is a *helper tool*, not the identity of LevitateOS.
+
 ## Quick Start
 
 ```bash
@@ -78,7 +85,7 @@ cargo xtask vm log
 ## Structure
 
 ```
-installer/        # AI-powered TUI installer
+installer/        # TUI installer with LLM assistant
 recipe/           # S-expression recipe parser + levitate CLI
 xtask/            # Dev tasks (VM control, tests)
 vendor/           # Reference implementations
@@ -94,8 +101,8 @@ website/          # Documentation website
 - 20GB disk minimum
 - UEFI recommended
 
-### AI Installer (SmolLM3-3B)
-The LLM requires GPU acceleration or sufficient RAM:
+### LLM Assistant (SmolLM3-3B)
+The optional LLM assistant requires GPU acceleration or sufficient RAM:
 
 | Hardware | VRAM/RAM | Notes |
 |----------|----------|-------|
@@ -133,7 +140,7 @@ See [LICENSE](LICENSE) for details.
 - [wofi](https://hg.sr.ht/~scoopta/wofi) - Application launcher
 - [mako](https://github.com/emersion/mako) - Notification daemon
 
-**AI/ML**
+**LLM Assistant**
 - [PyTorch](https://pytorch.org) - ML framework
 - [Transformers](https://huggingface.co/transformers) - Model inference
 - [PEFT](https://github.com/huggingface/peft) - LoRA fine-tuning
