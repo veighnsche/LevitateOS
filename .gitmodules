@@ -4,3 +4,6 @@
 [submodule "crates/installer"]
 	path = crates/installer
 	url = git@github.com:LevitateOS/installer.git
+[submodule "crates/recipe"]
+	path = crates/recipe
+	url = git@github.com:LevitateOS/recipe.git
