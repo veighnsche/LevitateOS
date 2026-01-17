@@ -387,41 +387,40 @@ pub fn setup(force: bool) -> Result<()> {
     println!("  Password: arch");
     println!();
     println!("Next steps:");
-    println!("  1. cargo xtask vm prepare     # Build levitate");
+    println!("  1. cargo xtask vm prepare     # Build recipe");
     println!("  2. cargo xtask vm start --gui # Boot VM");
-    println!("  3. cargo xtask vm copy        # Copy levitate to VM");
-    println!("  4. levitate desktop           # Install Sway");
-    println!("  5. sway                       # Run desktop!");
+    println!("  3. cargo xtask vm copy        # Copy recipe to VM");
+    println!("  4. recipe install <package>   # Install packages");
     println!();
 
     Ok(())
 }
 
-/// Build levitate binary and prepare files for VM
+/// Build recipe binary and prepare files for VM
 pub fn prepare() -> Result<()> {
     println!("=== Preparing LevitateOS files for VM ===\n");
 
-    // Build levitate binary for release
-    println!("[1/3] Building levitate binary...");
+    // Build recipe binary for release
+    println!("[1/3] Building recipe binary...");
     let status = Command::new("cargo")
-        .args(["build", "--release", "-p", "levitate-recipe", "--bin", "levitate"])
+        .args(["build", "--release", "-p", "levitate-recipe", "--bin", "recipe"])
         .current_dir(project_root())
         .status()
-        .context("Failed to build levitate")?;
+        .context("Failed to build recipe")?;
 
     if !status.success() {
-        bail!("Failed to build levitate binary");
+        bail!("Failed to build recipe binary");
     }
 
     // Copy to .vm directory
-    let levitate_src = project_root().join("target/release/levitate");
-    let levitate_dst = vm_dir().join("levitate");
+    let recipe_src = project_root().join("target/release/recipe");
+    let recipe_dst = vm_dir().join("recipe");
 
-    if levitate_src.exists() {
-        fs::copy(&levitate_src, &levitate_dst)?;
-        println!("   Built: {:?}", levitate_dst);
+    if recipe_src.exists() {
+        fs::copy(&recipe_src, &recipe_dst)?;
+        println!("   Built: {:?}", recipe_dst);
     } else {
-        bail!("Binary not found at {:?}", levitate_src);
+        bail!("Binary not found at {:?}", recipe_src);
     }
 
     // Copy recipes
@@ -468,9 +467,9 @@ pub fn install_script() -> Result<()> {
     println!();
     println!("# Then, in the VM (find host IP with: ip route | grep default):");
     println!("curl -O http://10.0.2.2:8080/install-arch.sh");
-    println!("curl -O http://10.0.2.2:8080/levitate");
+    println!("curl -O http://10.0.2.2:8080/recipe");
     println!("mkdir -p /tmp/recipes");
-    println!("curl -O http://10.0.2.2:8080/recipes/sway.recipe  # etc.");
+    println!("curl -O http://10.0.2.2:8080/example-recipes/ripgrep.recipe  # (EXAMPLES ONLY - for testing)");
     println!("chmod +x install-arch.sh");
     println!("./install-arch.sh");
     println!();
@@ -492,11 +491,9 @@ pub fn install_script() -> Result<()> {
     println!("mkdir -p /mnt/boot");
     println!("mount /dev/vda1 /mnt/boot");
     println!();
-    println!("# Install:");
+    println!("# Install (minimal - NO GUI):");
     println!("pacstrap -K /mnt base linux linux-firmware base-devel git \\");
-    println!("  meson ninja cmake networkmanager openssh sudo \\");
-    println!("  mesa wayland wayland-protocols libxkbcommon libinput \\");
-    println!("  cairo pango gdk-pixbuf2 scdoc");
+    println!("  meson ninja cmake networkmanager openssh sudo");
     println!();
     println!("# Configure:");
     println!("genfstab -U /mnt >> /mnt/etc/fstab");
@@ -518,9 +515,7 @@ pub fn install_script() -> Result<()> {
     println!("reboot");
     println!();
     println!("# After reboot, login as live:live");
-    println!("# Then copy levitate binary and recipes, and run:");
-    println!("#   levitate desktop");
-    println!("#   sway");
+    println!("# Then copy levitate binary to test the package manager");
 
     Ok(())
 }

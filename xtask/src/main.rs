@@ -81,13 +81,13 @@ enum VmAction {
         force: bool,
     },
 
-    /// Build levitate binary and prepare files for VM
+    /// Build recipe binary and prepare files for VM
     Prepare,
 
     /// Show the install script to run inside VM
     InstallScript,
 
-    /// Copy levitate binary and recipes to running VM
+    /// Copy recipe binary and recipes to running VM
     Copy,
 }
 

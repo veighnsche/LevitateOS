@@ -1,5 +1,9 @@
 # Sway Desktop E2E Test Instructions
 
+> **NOTE: This is for TESTING the `levitate` package manager only.**
+> Sway/Wayland is NOT part of default LevitateOS. LevitateOS boots to terminal.
+> This test uses Sway because it has a complex dependency chain - good for testing.
+
 Test the complete Sway desktop installation using the levitate package manager.
 
 ## Prerequisites

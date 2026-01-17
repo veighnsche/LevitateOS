@@ -105,23 +105,23 @@ initrd  /initramfs-linux.img
 options root=PARTUUID=$(blkid -s PARTUUID -o value ${DISK}2) rw
 EOF
 
-# Create levitate directories
-mkdir -p /usr/share/levitate/recipes
+# Create recipe directories
+mkdir -p /usr/share/recipe/recipes
 mkdir -p /usr/local/bin
 CHROOT
 
-# Copy levitate binary (if available)
-echo "[7/8] Installing levitate..."
-if [ -f /tmp/levitate ]; then
-    cp /tmp/levitate /mnt/usr/local/bin/levitate
-    chmod 755 /mnt/usr/local/bin/levitate
-    echo "  Installed levitate binary"
+# Copy recipe binary (if available)
+echo "[7/8] Installing recipe package manager..."
+if [ -f /tmp/recipe ]; then
+    cp /tmp/recipe /mnt/usr/local/bin/recipe
+    chmod 755 /mnt/usr/local/bin/recipe
+    echo "  Installed recipe binary"
 fi
 
-# Copy recipes (if available)
+# Copy example recipes (OPTIONAL - for testing package manager only)
 if [ -d /tmp/recipes ]; then
-    cp /tmp/recipes/*.recipe /mnt/usr/share/levitate/recipes/ 2>/dev/null || true
-    echo "  Installed $(ls /mnt/usr/share/levitate/recipes/*.recipe 2>/dev/null | wc -l) recipes"
+    cp /tmp/recipes/*.recipe /mnt/usr/share/recipe/recipes/ 2>/dev/null || true
+    echo "  Installed $(ls /mnt/usr/share/recipe/recipes/*.recipe 2>/dev/null | wc -l) example recipes (for testing)"
 fi
 
 # Cleanup
@@ -134,9 +134,6 @@ echo "You can now reboot and log in as:"
 echo "  Username: $USERNAME"
 echo "  Password: $PASSWORD"
 echo ""
-echo "To install Sway desktop, run:"
-echo "  levitate desktop"
-echo ""
-echo "Then start Sway with:"
-echo "  sway"
+echo "To install packages, use the recipe command:"
+echo "  recipe install <package>"
 echo ""
