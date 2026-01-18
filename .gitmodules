@@ -17,3 +17,6 @@
 [submodule "docs-content"]
 	path = docs-content
 	url = git@github.com:LevitateOS/docs-content.git
+[submodule "recipes"]
+	path = recipes
+	url = git@github.com:LevitateOS/recipes.git
