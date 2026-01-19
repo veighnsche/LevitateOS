@@ -44,6 +44,26 @@ These are recurring mistakes. **DO NOT REPEAT THEM:**
 **Wrong:** Skip authentication, use root, take shortcuts
 **Right:** This is a REAL OS - proper users, proper login, proper security
 
+### 8. PUTTING REQUIRED FEATURES BEHIND FLAGS
+**This is NOT acceptable. EVER.**
+
+When a feature is REQUIRED for the system to work properly on modern hardware, it must work BY DEFAULT. Do not hide it behind a flag.
+
+**Example of what NOT to do:**
+- UEFI boot is required for most modern computers
+- Wrong: `cargo run -- test --uefi` (flag required for UEFI)
+- Right: ISO boots both BIOS and UEFI automatically
+
+**The pattern:**
+- Required features work by default
+- Optional features get flags
+- UEFI is NOT optional in 2026 - it's required
+- Don't make users add flags just to use standard hardware
+
+**If you're adding a flag, ask yourself:** "Is this actually optional, or am I just being lazy?"
+
+---
+
 ### 7. DELETING DIRECTORIES WITHOUT CHECKING FOR VALUABLE GITIGNORED FILES
 **This destroyed $12 of API costs, a full night of work, and a critical presentation.**
 
@@ -123,18 +143,16 @@ Linux distribution builder using Rust. Output: bootable initramfs.
 ## Commands
 
 ```bash
-# Build
-cargo run --bin builder -- initramfs
+# Build ISO (in leviso/)
+cd leviso
+cargo run -- build        # Full build from scratch
+cargo run -- initramfs    # Rebuild initramfs only
+cargo run -- iso          # Rebuild ISO only
 
-# VM (use xtask, NOT builder)
-cargo xtask vm start
-cargo xtask vm stop
-cargo xtask vm send "command"
-cargo xtask vm log
-
-# Quick run
-./run.sh              # GUI
-./run-term.sh         # Serial
+# Testing - Claude uses test, User uses run
+cargo run -- test         # Claude: quick debug (terminal, direct kernel boot)
+cargo run -- run          # User: real test (QEMU GUI, full ISO, UEFI)
+cargo run -- run --bios   # User: same but BIOS boot
 ```
 
 ## Architecture
