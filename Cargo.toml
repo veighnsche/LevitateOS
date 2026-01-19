@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "leviso",
+    "recipe",
+    "recipe/xtask",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/levitate-os/levitateos"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tempfile = "3"

@@ -1,64 +1,78 @@
 # LevitateOS
 
-A Linux distribution with an AI-powered installer and self-sufficient package manager.
+A Linux distribution built with Rust, combining Arch Linux's elegant build system
+with Rocky Linux's enterprise-grade packages.
 
-## Features
+## Core Principles
 
-### AI-Powered Installer
+### 1. Arch-like ISO Builder (leviso)
+
+Borrowed from archiso - the tool that builds Arch Linux ISOs:
+
+- **Profile-based configuration**: `profile/packages.txt` + `profile/airootfs/` overlay
+- **Declarative package lists**: Just list package names, leviso handles the rest
+- **SquashFS compression**: xz + BCJ filter for minimal ISO size
+- **Hybrid boot**: BIOS + UEFI support via xorriso
+- **dracut + dmsquash-live**: Standard Linux live boot infrastructure
+
+### 2. Rocky Linux 10 Prebuilt Binaries
+
+No compilation required - builds in minutes, not hours:
+
+- **Extract RPMs directly** from Rocky Linux 10 minimal ISO
+- **Enterprise-grade packages** with security patches and stability
+- **glibc-based**: Rocky's packages, not musl
+- **`rpm --root`** for clean installation into any target directory
+
+### 3. Rhai-Scripted Recipe Package Manager
+
+Executable code, not static configuration:
+
+```rhai
+// recipes/ripgrep.rhai
+let pkg = #{
+    name: "ripgrep",
+    version: "14.1.0",
+};
+
+fn install() {
+    let url = `https://github.com/BurntSushi/ripgrep/releases/download/${pkg.version}/ripgrep-${pkg.version}-x86_64-unknown-linux-musl.tar.gz`;
+    download(url);
+    extract("tar.gz");
+    install_bin("rg");
+}
+```
+
+- **State lives in recipe files**: No external database - the engine writes `installed = true` back
+- **Supports variables, conditionals, loops**: Real programming, not limited DSL
+- **Self-sufficient**: No apt/dnf/pacman dependency
+- **Helpers**: `rpm_install()`, `install_bin()`, `install_lib()`, `install_man()`
+
+## Three-Layer Architecture
+
+```
+ISO Builder → Live Environment → Installed System
+```
+
+1. **leviso** creates bootable ISO from Rocky packages
+2. **Live environment** boots with recipe binary and tools
+3. **`recipe bootstrap /mnt`** installs base system (like Arch's pacstrap)
+4. **`recipe install`** adds packages post-install
+
+## AI-Powered Installer
 
 - **SmolLM3-3B** runs locally - no internet required
 - Natural language commands: "use the whole 500gb drive", "create user vince with sudo"
 - Multi-turn conversation context understands "it", "that one", "yes"
 - TUI chat interface built with Ratatui
-- 7,000+ training examples for installation workflows
-
-### S-Expression Package Recipes
-Lisp-like syntax designed for small LLMs to generate reliably:
-
-```lisp
-(package "ripgrep" "14.1.0"
-  (acquire (binary (x86_64 "URL")))
-  (build (extract tar-gz))
-  (install (to-bin "rg")))
-```
-
-- 30-line parser - simple and reliable
-- Single recipe handles both binary and source builds
-- Version constraints: `>=`, `<=`, `~=` (compatible release)
-- Conditional features: `(if vulkan "vulkan-loader >= 1.3")`
-- Split packages for -dev files
-
-### Self-Sufficient Package Manager (`levitate`)
-
-- **No apt, dnf, or pacman dependency**
-- Full lifecycle: acquire → build → install → configure → start/stop → remove
-- SHA256 verification, patches support
-
-```bash
-levitate install ripgrep
-levitate deps firefox
-levitate desktop  # Install Sway stack
-```
-
-### Pure Wayland Desktop
-
-- Complete Sway compositor stack (17 recipes)
-- wayland, wlroots, sway, foot, waybar, wofi, mako
-- XWayland disabled by default
-- No X11 bloat
-
-### musl + GNU Stack
-Most distros use glibc+GNU (Fedora) or musl+busybox (Alpine).
-LevitateOS uses **musl libc + GNU tools** = lightweight + full-featured.
-
-- ~1MB libc vs ~10MB glibc
-- Better static linking
-- Full GNU coreutils
 
 ## Quick Start
 
 ```bash
-# Build the ISO
+# Build the ISO with leviso
+cargo run -p leviso -- build
+
+# Or use the wrapper script
 ./build-iso.sh
 
 # Boot in VM
@@ -68,7 +82,7 @@ LevitateOS uses **musl libc + GNU tools** = lightweight + full-featured.
 ## Development
 
 ```bash
-# Build
+# Build initramfs (for testing)
 cargo run --bin builder -- initramfs
 
 # VM control
@@ -81,11 +95,12 @@ cargo xtask vm log
 ## Structure
 
 ```
+leviso/           # Arch-like ISO builder
+recipe/           # Rhai-based package manager
 crates/
   builder/        # Builds artifacts (kernel, initramfs)
   installer/      # AI-powered TUI installer
-  levitate/       # Package manager
-  recipe/         # S-expression recipe parser
+  levitate/       # Package manager CLI
 
 xtask/            # Dev tasks (VM control, tests)
 vendor/           # Reference implementations (systemd, util-linux, brush, uutils)
@@ -103,6 +118,7 @@ website/          # Documentation website
 - UEFI recommended
 
 ### AI Installer (SmolLM3-3B)
+
 The LLM requires GPU acceleration or sufficient RAM:
 
 | Hardware | VRAM/RAM | Notes |
@@ -118,7 +134,7 @@ The LLM requires GPU acceleration or sufficient RAM:
 
 - **LevitateOS code**: MIT
 - **SmolLM3 model**: Apache-2.0
-- **Fedora components**: GPL-2.0/GPL-3.0/LGPL-2.1
+- **Rocky Linux components**: Various open source licenses
 
 See [LICENSE](LICENSE) for details.
 
@@ -127,8 +143,10 @@ See [LICENSE](LICENSE) for details.
 **Core Technologies**
 
 - [SmolLM3](https://huggingface.co/HuggingFaceTB/SmolLM3-3B) - 3B parameter LLM by Hugging Face
-- [Fedora](https://fedoraproject.org) - Base distribution
+- [Rocky Linux](https://rockylinux.org) - Enterprise Linux base packages
+- [Arch Linux](https://archlinux.org) - Build system inspiration (archiso)
 - [Rust](https://www.rust-lang.org) - Systems programming language
+- [Rhai](https://rhai.rs) - Embedded scripting language for recipes
 
 **Rust Crates**
 

@@ -19,3 +19,7 @@
 [submodule "leviso"]
 	path = leviso
 	url = git@github.com:LevitateOS/leviso.git
+[submodule "linux"]
+	path = linux
+	url = git@github.com:LevitateOS/linux.git
+	commit = 7d0a66e4bb9081d75c82ec4957c50034cb0ea449
