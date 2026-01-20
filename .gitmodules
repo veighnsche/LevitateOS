@@ -26,6 +26,6 @@
 [submodule "install-tests"]
 	path = install-tests
 	url = git@github.com:LevitateOS/install-tests.git
-[submodule "stage-3"]
-	path = stage-3
-	url = git@github.com:LevitateOS/stage-3.git
+[submodule "stage3"]
+	path = stage3
+	url = git@github.com:LevitateOS/stage3.git
