@@ -23,3 +23,6 @@
 [submodule "install-tests"]
 	path = install-tests
 	url = git@github.com:LevitateOS/install-tests.git
+[submodule "distro-spec"]
+	path = distro-spec
+	url = git@github.com:LevitateOS/distro-spec.git

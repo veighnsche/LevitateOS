@@ -20,16 +20,20 @@ Right: UEFI default, `--bios` flag to opt out
 ### 2. Ask before architecture decisions
 Don't silently add autologin/workarounds. Ask first.
 
-### 3. Check vendor/ before inventing solutions
+### 3. Question "is this necessary?" BEFORE building
+Don't build solutions without questioning assumptions. Ask "why do we need this?"
+**Costly example (TEAM_075):** Built entire bootstrap system (busybox, 34 recipes, static binaries) before realizing the live ISO already provides everything needed. Recipe can install directly to /mnt. No bootstrap tarball necessary. Wasted tokens = wasted money.
+
+### 4. Check vendor/ before inventing solutions
 ```bash
 grep -rn "your_problem" vendor/systemd/
 ```
 
-### 4. No false positives in tests
+### 5. No false positives in tests
 Never move missing items from CRITICAL to OPTIONAL just to pass tests.
 If users need it → test fails when missing. No "optional" trash bin.
 
-### 5. Before deleting directories
+### 6. Before deleting directories
 ```bash
 git status --ignored  # Check for valuable gitignored files
 ```
