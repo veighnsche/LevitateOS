@@ -1,0 +1,17 @@
+[package]
+name = "cheat-test"
+version = "0.1.0"
+edition = "2021"
+description = "Proc-macro for cheat-aware test documentation"
+license = "MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits"] }
+proc-macro2 = "1"
+
+[dev-dependencies]
+# None needed - proc-macro tests are tricky
