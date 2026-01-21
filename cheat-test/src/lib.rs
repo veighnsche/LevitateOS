@@ -3,6 +3,11 @@
 //! A proc-macro crate for creating "cheat-aware" tests that document how they
 //! could be cheated and what the consequences would be for users.
 //!
+//! # STOP. READ. THEN ACT.
+//!
+//! Before modifying this crate, read the existing implementation to understand
+//! how cheat documentation is structured.
+//!
 //! ## Why This Exists
 //!
 //! On 2026-01-20, a developer created false positives by moving missing binaries

@@ -1,5 +1,17 @@
 # CLAUDE.md - Rootfs Tests
 
+## ⛔ STOP. READ. THEN ACT.
+
+Every time you think you know where something goes - **stop. Read first.**
+
+Every time you think something is worthless and should be deleted - **stop. Read it first.**
+
+Every time you're about to write code - **stop. Read what already exists first.**
+
+The five minutes you spend reading will save hours of cleanup.
+
+---
+
 ## What is rootfs-tests?
 
 User experience tests for LevitateOS rootfs. Uses systemd-nspawn to test the OS as a **daily driver competing with Arch Linux**.

@@ -2,6 +2,13 @@
 //!
 //! Tests the rootfs as a daily driver OS using systemd-nspawn.
 //! Each test answers: "Can a user do X with this OS?"
+//!
+//! # STOP. READ. THEN ACT.
+//!
+//! Before modifying this crate:
+//! 1. Read `tests/` to understand existing test patterns
+//! 2. Read `container.rs` to understand how nspawn is used
+//! 3. Check if similar test already exists before adding new ones
 
 mod container;
 mod tests;
