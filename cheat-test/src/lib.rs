@@ -250,6 +250,9 @@ pub fn cheat_aware(args: TokenStream, input: TokenStream) -> TokenStream {
             let _cheats = #cheats_joined;
             let _legitimate_change = #legitimate_change;
 
+            // Print what this test ensures (visible with --nocapture)
+            println!("  ensures: {}", _protects);
+
             // For async tests, we run directly and let the test framework handle panics
             // The cheat metadata is available in the source code for documentation
             #fn_block
@@ -265,6 +268,9 @@ pub fn cheat_aware(args: TokenStream, input: TokenStream) -> TokenStream {
             let _cheats = #cheats_joined;
             let _legitimate_change = #legitimate_change;
             let _has_legitimate_change = #has_legitimate_change;
+
+            // Print what this test ensures (visible with --nocapture)
+            println!("  ensures: {}", _protects);
 
             // Wrap the test body to enhance panic messages
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
