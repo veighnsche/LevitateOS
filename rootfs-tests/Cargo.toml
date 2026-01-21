@@ -1,0 +1,9 @@
+[package]
+name = "rootfs-tests"
+version = "0.1.0"
+edition = "2024"
+description = "User experience tests for LevitateOS rootfs"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4", features = ["derive"] }
