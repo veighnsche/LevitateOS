@@ -85,23 +85,31 @@ ls .teams/TEAM_*.md | tail -1  # Find next number
 Wrong: `--uefi` flag for required UEFI boot
 Right: UEFI default, `--bios` flag to opt out
 
-### 2. Ask before architecture decisions
-Don't silently add autologin/workarounds. Ask first.
+### 2. Ask "What does archiso do?"
+LevitateOS competes with Arch Linux. The live ISO experience should match archiso behavior:
+- **Autologin**: archiso has autologin → LevitateOS live ISO has autologin
+- **Root shell**: archiso boots to root shell → LevitateOS boots to root shell
+- **Installer**: archiso requires manual install → LevitateOS uses `recstrap` (our archinstall equivalent)
 
-### 3. Question "is this necessary?" BEFORE building
+When making UX decisions about the live ISO, CHECK archiso first. Don't invent different behavior.
+
+### 3. Ask before architecture decisions
+Don't silently add workarounds. Ask first.
+
+### 4. Question "is this necessary?" BEFORE building
 Don't build solutions without questioning assumptions. Ask "why do we need this?"
 **Costly example (TEAM_075):** Built entire bootstrap system (busybox, 34 recipes, static binaries) before realizing the live ISO already provides everything needed. Recipe can install directly to /mnt. No bootstrap tarball necessary. Wasted tokens = wasted money.
 
-### 4. Check vendor/ before inventing solutions
+### 5. Check vendor/ before inventing solutions
 ```bash
 grep -rn "your_problem" vendor/systemd/
 ```
 
-### 5. No false positives in tests
+### 6. No false positives in tests
 Never move missing items from CRITICAL to OPTIONAL just to pass tests.
 If users need it → test fails when missing. No "optional" trash bin.
 
-### 6. Before deleting directories
+### 7. Before deleting directories
 ```bash
 git status --ignored  # Check for valuable gitignored files
 ```
