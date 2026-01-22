@@ -89,9 +89,14 @@ Right: UEFI default, `--bios` flag to opt out
 LevitateOS competes with Arch Linux. The live ISO experience should match archiso behavior:
 - **Autologin**: archiso has autologin → LevitateOS live ISO has autologin
 - **Root shell**: archiso boots to root shell → LevitateOS boots to root shell
-- **Installer**: archiso requires manual install → LevitateOS uses `recstrap` (our archinstall equivalent)
+- **Installer**: archiso uses pacstrap → LevitateOS uses `recstrap` (our pacstrap equivalent, NOT archinstall)
 
 When making UX decisions about the live ISO, CHECK archiso first. Don't invent different behavior.
+
+**NAMING CONVENTION:**
+- pacman + bootstrap = **pacstrap** (extracts packages to directory)
+- recipe + bootstrap = **recstrap** (extracts squashfs to directory)
+- archinstall = AUTOMATED installer (we don't have this, user does manual install)
 
 ### 3. Ask before architecture decisions
 Don't silently add workarounds. Ask first.
@@ -109,7 +114,28 @@ grep -rn "your_problem" vendor/systemd/
 Never move missing items from CRITICAL to OPTIONAL just to pass tests.
 If users need it → test fails when missing. No "optional" trash bin.
 
-### 7. Before deleting directories
+### 7. FAIL FAST - NO WARNINGS FOR REQUIRED COMPONENTS
+If something is REQUIRED, the build MUST FAIL if it's missing.
+
+**WRONG:**
+```rust
+if !required_thing.exists() {
+    println!("Warning: thing not found");  // ← USELESS, scrolls by, ignored
+}
+```
+
+**RIGHT:**
+```rust
+if !required_thing.exists() {
+    bail!("thing not found - build cannot continue");  // ← FAILS IMMEDIATELY
+}
+```
+
+A warning for a required component is DISRESPECTFUL of developer time.
+The build runs, produces a broken artifact, and the developer wastes hours debugging.
+FAIL FAST. FAIL LOUD. FAIL NOW.
+
+### 8. Before deleting directories
 ```bash
 git status --ignored  # Check for valuable gitignored files
 ```
