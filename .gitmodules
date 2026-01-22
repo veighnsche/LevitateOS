@@ -35,3 +35,6 @@
 [submodule "cheat-test"]
 	path = cheat-test
 	url = https://github.com/LevitateOS/cheat-test.git
+[submodule "cheat-guard"]
+	path = cheat-guard
+	url = git@github.com:LevitateOS/cheat_guard.git
