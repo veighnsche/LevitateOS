@@ -74,3 +74,4 @@ node_modules/
 bun.lock
 bun.lockb
 .turbo/
+.gource/historical/installer
