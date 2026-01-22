@@ -10,7 +10,7 @@ Built with Rust, combining Arch's philosophy (minimal base, user builds up) with
 | Philosophy | Minimal, DIY | Minimal, DIY |
 | Package manager | pacman + AUR | recipe (Rhai) |
 | Build time | Hours | Minutes |
-| Base size | ~1.5 GB | ~70 MB |
+| Base size | ~1.5 GB | ~500 MB |
 
 ## Core Principles
 
@@ -78,43 +78,42 @@ ISO Builder → Live Environment → Installed System
 ## Quick Start
 
 ```bash
-# Build the ISO with leviso
-cargo run -p leviso -- build
+cd leviso
 
-# Or use the wrapper script
-./build-iso.sh
+# Build the ISO
+cargo run -- build
 
-# Boot in VM
-./run-vm.sh
+# Boot in QEMU (UEFI, GUI)
+cargo run -- run
+
+# Quick debug (serial console)
+cargo run -- test
 ```
 
 ## Development
 
 ```bash
-# Build initramfs (for testing)
-cargo run --bin builder -- initramfs
+cd leviso
 
-# VM control
-cargo xtask vm start
-cargo xtask vm stop
-cargo xtask vm send "command"
-cargo xtask vm log
+cargo run -- build      # Full build
+cargo run -- initramfs  # Rebuild initramfs only
+cargo run -- iso        # Rebuild ISO only
+cargo run -- test       # Quick debug (serial console)
+cargo run -- run        # Full test (QEMU GUI, UEFI)
 ```
 
 ## Structure
 
 ```
-leviso/           # Arch-like ISO builder
+leviso/           # ISO builder (kernel, initramfs, squashfs, ISO packaging)
 recipe/           # Rhai-based package manager
-crates/
-  builder/        # Builds artifacts (kernel, initramfs)
-  installer/      # AI-powered TUI installer
-  levitate/       # Package manager CLI
+recstrap/         # System installer (like archinstall for Arch)
+install-tests/    # E2E installation test runner
+distro-spec/      # Distribution specification (constants, paths, defaults)
 
-xtask/            # Dev tasks (VM control, tests)
 vendor/           # Reference implementations (systemd, util-linux, brush, uutils)
 docs/             # Design docs
-website/          # Documentation website
+website/          # Documentation website (Astro)
 .teams/           # Work history
 ```
 
