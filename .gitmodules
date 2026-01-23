@@ -1,14 +1,14 @@
 [submodule "website"]
-	path = website
+	path = docs/website
 	url = git@github.com:LevitateOS/website.git
 [submodule "recipe"]
-	path = recipe
+	path = tools/recipe
 	url = git@github.com:LevitateOS/recipe.git
 [submodule "llm-toolkit"]
 	path = llm-toolkit
 	url = git@github.com:LevitateOS/llm-toolkit.git
 [submodule "docs-content"]
-	path = docs-content
+	path = docs/content
 	url = git@github.com:LevitateOS/docs-content.git
 [submodule "leviso"]
 	path = leviso
@@ -18,29 +18,29 @@
 	url = git@github.com:LevitateOS/linux.git
 	commit = 7d0a66e4bb9081d75c82ec4957c50034cb0ea449
 [submodule "docs-tui"]
-	path = docs-tui
+	path = docs/tui
 	url = git@github.com:LevitateOS/docs-tui.git
 [submodule "install-tests"]
-	path = install-tests
+	path = testing/install-tests
 	url = git@github.com:LevitateOS/install-tests.git
 [submodule "distro-spec"]
 	path = distro-spec
 	url = git@github.com:LevitateOS/distro-spec.git
 [submodule "recstrap"]
-	path = recstrap
+	path = tools/recstrap
 	url = git@github.com:LevitateOS/recstrap.git
 [submodule "rootfs-tests"]
-	path = rootfs-tests
+	path = testing/rootfs-tests
 	url = git@github.com:LevitateOS/rootfs-test.git
 [submodule "cheat-test"]
-	path = cheat-test
+	path = testing/cheat-test
 	url = https://github.com/LevitateOS/cheat-test.git
 [submodule "cheat-guard"]
-	path = cheat-guard
+	path = testing/cheat-guard
 	url = git@github.com:LevitateOS/cheat_guard.git
 [submodule "recfstab"]
-	path = recfstab
+	path = tools/recfstab
 	url = git@github.com:LevitateOS/recfstab.git
 [submodule "recchroot"]
-	path = recchroot
+	path = tools/recchroot
 	url = git@github.com:LevitateOS/recchroot.git
