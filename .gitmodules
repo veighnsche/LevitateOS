@@ -38,3 +38,9 @@
 [submodule "cheat-guard"]
 	path = cheat-guard
 	url = git@github.com:LevitateOS/cheat_guard.git
+[submodule "recfstab"]
+	path = recfstab
+	url = git@github.com:LevitateOS/recfstab.git
+[submodule "recchroot"]
+	path = recchroot
+	url = git@github.com:LevitateOS/recchroot.git
