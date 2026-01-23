@@ -7,7 +7,7 @@
 | | Arch | LevitateOS |
 |---|------|------------|
 | Target user | Power users who want control | Same |
-| Philosophy | Minimal base, user builds up | Same |
+| Philosophy | Base system, user builds up | Same |
 | Package manager | pacman + AUR | recipe (Rhai-scripted) |
 | Binary source | Compiled from source | Extracted from Fedora/Rocky RPMs |
 | Build time | Hours (compiling) | Minutes (extracting) |
@@ -21,7 +21,7 @@ We are NOT:
 We ARE:
 - A daily driver desktop/workstation OS
 - Competing directly with Arch Linux
-- Minimal by default, complete via `recipe install`
+- **COMPLETE and FUNCTIONAL** out of the box, extensible via `recipe install`
 - **For modern hardware with a local LLM**
 
 ---
@@ -141,7 +141,29 @@ git status --ignored  # Check for valuable gitignored files
 ```
 ASK before deleting. Gitignored ≠ worthless.
 
-### 9. LLM is a TOOL, not the IDENTITY
+### 9. NEVER use the word "minimal"
+
+**The word "minimal" is BANNED from this project.**
+
+Every time an LLM says "minimal," it's making excuses for missing functionality. It's saying "this is broken, but let's pretend it's a feature."
+
+**WRONG:**
+- "This is minimal by design"
+- "A minimal config for a minimal system"
+- "Minimal but functional"
+
+**RIGHT:**
+- "This is missing X, Y, Z - here's how to fix it"
+- "This config is incomplete because..."
+- "Production systems need X, this doesn't have it"
+
+If something is missing that a production daily-driver desktop needs, that's a **BUG**, not a "minimal design choice."
+
+LevitateOS is **COMPLETE**. If it's not complete, we fix it. We don't relabel broken as "minimal."
+
+---
+
+### 10. LLM is a TOOL, not the IDENTITY
 
 **The target audience (Linux power users) has a ~50% chance of visceral anti-AI sentiment.**
 
