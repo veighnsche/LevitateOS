@@ -84,4 +84,4 @@ installer/python/               # Installer-specific
 1. **No more code duplication** - Core ML logic in one place
 2. **Installer uses toolkit** - Thin wrappers with customizations
 3. **Extensible design** - Other domains can subclass LLMServer
-4. **Backwards compatible** - All installer scripts work the same way
+4. **Same interface** - All installer scripts use the same API

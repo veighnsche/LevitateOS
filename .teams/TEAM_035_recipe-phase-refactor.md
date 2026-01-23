@@ -49,7 +49,7 @@ recipe/src/
 
 ## Decisions Made
 - Following the plan exactly as written
-- No backwards compatibility concerns
+- API changes fixed at compile time
 - Added PHASES.md to document phase order and reasoning
 
 ## Verification

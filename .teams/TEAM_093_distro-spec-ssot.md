@@ -1,119 +1,156 @@
-# TEAM_093: distro-spec SSOT Integration
+# TEAM_093: distro-spec SSOT Optimization
 
-**Status**: PHASE 2 COMPLETE - AWAITING LEVISO REFACTOR COMPLETION
+**Status**: PHASE 1-4 COMPLETE
 **Started**: 2026-01-23
 
 ## Objective
 
-Make distro-spec the actual Single Source of Truth (SSOT) with compile-time enforcement. Currently leviso declares distro-spec as dependency but imports nothing.
-
-## BLOCKED
-
-**Another agent (TEAM_092) is actively refactoring leviso.** Do NOT modify leviso code until that work is complete.
+Make distro-spec the actual Single Source of Truth (SSOT) with compile-time enforcement. Eliminate duplication between levitate and acorn modules by extracting shared types.
 
 ---
 
-## Phase 1: Audit Results (COMPLETE)
+## Completed Work
 
-### Constants Found in leviso That Should Come From distro-spec
+### Phase 1: Extract Shared Boot Types (COMPLETE)
 
-| File | Line | Current Value | Proposed Constant | Notes |
-|------|------|---------------|-------------------|-------|
-| `iso.rs` | 13 | `"LEVITATEOS"` | `ISO_LABEL` | Volume label for boot device detection |
-| `iso.rs` | 33 | `"filesystem.squashfs"` | `SQUASHFS_NAME` | Already exists in distro-spec! |
-| `iso.rs` | 143 | `"live/filesystem.squashfs"` | Use `SQUASHFS_NAME` | Path construction |
-| `squashfs/pack.rs` | 32 | `"gzip"` | `SQUASHFS_COMPRESSION` | Compression algorithm |
-| `squashfs/pack.rs` | 33 | `"1M"` | `SQUASHFS_BLOCK_SIZE` | Block size for mksquashfs |
-| `initramfs/mod.rs` | 58-70 | `BOOT_MODULES` array | `BOOT_MODULES` | Kernel modules for initramfs |
+Created `distro-spec/src/shared/boot.rs`:
+- `BootEntry` struct with builder methods
+- `LoaderConfig` struct with builder methods
+- Shared constants: `ESP_MOUNT_POINT`, `LOADER_CONF_PATH`, `ENTRIES_DIR`, `DEFAULT_TIMEOUT`
+- `bootctl_install_command()` function
 
-### Constants That Already Exist in distro-spec (Unused!)
+Updated `levitate/boot.rs`:
+- Re-exports shared types
+- Keeps `BOOT_MODULES` (distro-specific kernel modules)
+- Added convenience functions: `default_boot_entry()`, `default_loader_config()`, etc.
 
-- `SQUASHFS_NAME` = `"filesystem.squashfs"` (in `paths.rs`)
-- `SQUASHFS_CDROM_PATH` = `"/media/cdrom/live/filesystem.squashfs"` (in `paths.rs`)
+Updated `acorn/boot.rs`:
+- Re-exports shared types
+- Added `BOOT_MODULES` (Alpine-specific, with .ko.gz extensions)
+- Added convenience functions matching levitate API
 
-### Constants NOT Worth Moving (Build-Time Details)
+**Lines eliminated:** ~95 (duplicated BootEntry/LoaderConfig implementations)
 
-- `BUSYBOX_COMMANDS` - Only used by initramfs builder
-- `SUPPLEMENTARY_RPMS` - Build-time RPM list
-- `DEFAULT_BUSYBOX_URL` - Download URL (env-overridable)
+### Phase 2: Create ServiceManager Trait (COMPLETE)
 
----
-
-## Phase 2: Constants Added to distro-spec (COMPLETE)
-
-Added to `distro-spec/src/levitate/paths.rs`:
-
+Created `distro-spec/src/shared/services.rs`:
 ```rust
-// ISO constants
-pub const ISO_LABEL: &str = "LEVITATEOS";
-
-// Squashfs build constants
-pub const SQUASHFS_COMPRESSION: &str = "gzip";
-pub const SQUASHFS_BLOCK_SIZE: &str = "1M";
-```
-
-Added to `distro-spec/src/levitate/boot.rs`:
-
-```rust
-/// Kernel modules required in the initramfs for boot.
-pub const BOOT_MODULES: &[&str] = &[
-    "kernel/drivers/cdrom/cdrom.ko.xz",
-    "kernel/drivers/scsi/sr_mod.ko.xz",
-    "kernel/drivers/scsi/virtio_scsi.ko.xz",
-    "kernel/fs/isofs/isofs.ko.xz",
-    "kernel/drivers/block/virtio_blk.ko.xz",
-    "kernel/drivers/block/loop.ko.xz",
-    "kernel/fs/squashfs/squashfs.ko.xz",
-    "kernel/fs/overlayfs/overlay.ko.xz",
-];
-```
-
-Updated `distro-spec/src/levitate/mod.rs` to re-export:
-
-```rust
-pub use boot::{..., BOOT_MODULES};
-pub use paths::{..., ISO_LABEL, SQUASHFS_COMPRESSION, SQUASHFS_BLOCK_SIZE};
-```
-
----
-
-## Phase 3: leviso Import Updates (BLOCKED - DO NOT IMPLEMENT YET)
-
-After TEAM_092 completes, update these files:
-
-### iso.rs
-```rust
-use distro_spec::levitate::{ISO_LABEL, SQUASHFS_NAME};
-
-fn iso_label() -> String {
-    env::var("ISO_LABEL").unwrap_or_else(|_| ISO_LABEL.to_string())
+pub trait ServiceManager {
+    fn name(&self) -> &str;
+    fn description(&self) -> &str;
+    fn required(&self) -> bool;
+    fn enable_command(&self) -> String;
+    fn disable_command(&self) -> String;
+    fn start_command(&self) -> String;
+    fn stop_command(&self) -> String;
 }
 ```
 
-### squashfs/pack.rs
-```rust
-use distro_spec::levitate::{SQUASHFS_COMPRESSION, SQUASHFS_BLOCK_SIZE};
+Updated `levitate/services.rs`:
+- Implements `ServiceManager` for `ServiceSpec`
+- Commands: `systemctl enable/disable/start/stop`
 
-.args(["-comp", SQUASHFS_COMPRESSION])
-.args(["-b", SQUASHFS_BLOCK_SIZE])
-```
+Updated `acorn/services.rs`:
+- Implements `ServiceManager` for `ServiceSpec`
+- Commands: `rc-update add/del`, `rc-service start/stop`
 
-### initramfs/mod.rs
-```rust
-use distro_spec::levitate::BOOT_MODULES;
-// Remove local BOOT_MODULES constant
+### Phase 3: Complete AcornOS Foundation (COMPLETE)
+
+Added to `acorn/paths.rs`:
+- `ISO_LABEL = "ACORNOS"`
+- `SQUASHFS_COMPRESSION = "gzip"`
+- `SQUASHFS_BLOCK_SIZE = "1M"`
+- `SQUASHFS_NAME = "filesystem.squashfs"`
+- `SQUASHFS_CDROM_PATH`
+
+Added to `acorn/boot.rs`:
+- `BOOT_MODULES` array (Alpine kernel module paths with .ko.gz)
+
+### Phase 4: Documentation (COMPLETE)
+
+Updated `distro-spec/CLAUDE.md`:
+- Architecture diagram
+- Why structure decisions
+- How to add new distro variant
+- Usage examples
+- Consumer list
+
+### Phase 5: Consumer Updates (COMPLETE)
+
+Updated `install-tests/src/steps/phase5_boot.rs`:
+- Use `default_boot_entry()` instead of `BootEntry::with_root()`
+- Use `default_loader_config()` instead of `LoaderConfig { ..Default::default() }`
+- Import `ServiceManager` trait for `enable_command()` method
+
+---
+
+## STILL BLOCKED (Awaiting TEAM_092)
+
+The following changes require modifying leviso, which is being refactored by TEAM_092:
+
+- Make leviso import `ISO_LABEL` from distro-spec
+- Make leviso import `SQUASHFS_*` from distro-spec
+- Remove `BOOT_MODULES` duplication in `leviso/src/artifact/initramfs.rs`
+
+---
+
+## Verification
+
+```bash
+# All pass:
+cargo build -p distro-spec     # ✓
+cargo build -p install-tests   # ✓
+cargo clippy -p distro-spec    # ✓ (no warnings)
+cargo doc -p distro-spec       # ✓
 ```
 
 ---
 
-## Phase 4 & 5: Deferred
+## Files Modified
 
-Verification and documentation to be done after implementation.
+### New Files
+| File | Lines |
+|------|-------|
+| `src/shared/boot.rs` | ~195 |
+| `src/shared/services.rs` | ~40 |
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `src/shared/mod.rs` | Added boot, services modules |
+| `src/levitate/boot.rs` | Removed structs, re-exports, kept BOOT_MODULES |
+| `src/levitate/mod.rs` | Added new exports |
+| `src/levitate/services.rs` | Implemented ServiceManager |
+| `src/acorn/boot.rs` | Removed structs, re-exports, added BOOT_MODULES |
+| `src/acorn/mod.rs` | Added new exports (ISO_LABEL, SQUASHFS_*, etc.) |
+| `src/acorn/paths.rs` | Added ISO_LABEL, SQUASHFS_*, SQUASHFS_CDROM_PATH |
+| `src/acorn/services.rs` | Implemented ServiceManager |
+| `src/lib.rs` | Added shared boot and services re-exports |
+| `CLAUDE.md` | Complete rewrite with architecture docs |
+| `testing/install-tests/src/steps/phase5_boot.rs` | Updated to new API |
 
 ---
 
-## Notes
+## Result
 
-- 2026-01-23: Audit complete. Discovered leviso already depends on distro-spec but imports nothing.
-- 2026-01-23: BLOCKED - TEAM_092 is actively refactoring leviso. Cannot modify.
-- 2026-01-23: Phase 2 complete - Added ISO_LABEL, SQUASHFS_COMPRESSION, SQUASHFS_BLOCK_SIZE, BOOT_MODULES to distro-spec. Verified build passes.
+```
+distro-spec/src/
+├── lib.rs
+├── shared/
+│   ├── mod.rs
+│   ├── boot.rs        # BootEntry, LoaderConfig (SHARED)
+│   ├── chroot.rs
+│   ├── partitions.rs
+│   ├── services.rs    # ServiceManager trait (NEW)
+│   └── users.rs
+├── levitate/
+│   ├── mod.rs
+│   ├── boot.rs        # Re-exports + BOOT_MODULES + constructors
+│   ├── paths.rs
+│   └── services.rs    # ServiceSpec + ServiceManager impl
+└── acorn/
+    ├── mod.rs
+    ├── boot.rs        # Re-exports + BOOT_MODULES + constructors
+    ├── paths.rs       # ISO_LABEL, SQUASHFS_* (COMPLETE)
+    └── services.rs    # ServiceSpec + ServiceManager impl
+```

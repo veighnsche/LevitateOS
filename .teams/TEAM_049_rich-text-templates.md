@@ -77,7 +77,7 @@ import { rich, link, bold, code } from "@levitate/docs-content"
 { type: "text", content: rich`Use ${link("Rufus", "https://rufus.ie")} with ${bold("DD mode")}.` }
 ```
 
-Backwards compatible - existing markdown strings still work.
+Plain markdown strings also accepted.
 
 ## Full Migration Complete
 
