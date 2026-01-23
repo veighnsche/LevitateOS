@@ -70,7 +70,7 @@ jobs:
         run: |
           git add Cargo.toml
           git add Cargo.lock 2>/dev/null || true
-          git commit -m "chore: Bump version to ${{ steps.bump.outputs.version }}"
+          git commit -m "chore: Bump version to ${{ steps.bump.outputs.version }} [skip ci]"
           git push
 
       - name: Create and push tag
