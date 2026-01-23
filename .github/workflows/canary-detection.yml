@@ -20,26 +20,54 @@ jobs:
       - name: Get changed files
         id: changed
         run: |
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Use NUL separator to handle paths with spaces
+          git diff --name-only -z ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > /tmp/changed_files.txt
+          echo "count=$(wc -l < /tmp/changed_files.txt)" >> $GITHUB_OUTPUT
 
       - name: Check for canary modifications
         id: canary
         run: |
           CANARY_TRIGGERED=false
           CANARY_FILES=""
-          for file in ${{ steps.changed.outputs.files }}; do
-            if [[ -f "$file" ]] && grep -q '#\[cheat_canary' "$file" 2>/dev/null; then
+
+          # Read NUL-separated file list safely
+          while IFS= read -r -d '' file || [[ -n "$file" ]]; do
+            if [[ -n "$file" && -f "$file" ]] && grep -q '#\[cheat_canary' "$file" 2>/dev/null; then
               CANARY_TRIGGERED=true
-              CANARY_FILES="$CANARY_FILES\n- $file"
+              CANARY_FILES="$CANARY_FILES- \`$file\`"$'\n'
             fi
-          done
+          done < /tmp/changed_files.txt
+
           echo "triggered=$CANARY_TRIGGERED" >> $GITHUB_OUTPUT
           echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$CANARY_FILES" >> $GITHUB_OUTPUT
+          echo "$CANARY_FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Ensure canary label exists
+        if: steps.canary.outputs.triggered == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labelName = 'CANARY TRIGGERED';
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelName
+              });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName,
+                  color: 'ff0000',
+                  description: 'PR modifies canary/honeypot tests - requires extra review'
+                });
+              } else {
+                throw e;
+              }
+            }
 
       - name: Add canary label
         if: steps.canary.outputs.triggered == 'true'
@@ -53,8 +81,26 @@ jobs:
               labels: ['CANARY TRIGGERED']
             });
 
-      - name: Post canary warning comment
+      - name: Check for existing canary comment
         if: steps.canary.outputs.triggered == 'true'
+        id: existing_comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            const canaryComment = comments.data.find(c =>
+              c.body.includes('CANARY TEST TRIGGERED') &&
+              c.user.login === 'github-actions[bot]'
+            );
+            return canaryComment ? 'true' : 'false';
+          result-encoding: string
+
+      - name: Post canary warning comment
+        if: steps.canary.outputs.triggered == 'true' && steps.existing_comment.outputs.result != 'true'
         uses: actions/github-script@v7
         with:
           script: |
