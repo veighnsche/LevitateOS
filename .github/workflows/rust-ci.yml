@@ -1,0 +1,104 @@
+name: Rust CI
+
+on:
+  workflow_call:
+    inputs:
+      msrv:
+        description: 'Minimum supported Rust version'
+        required: false
+        default: '1.93'
+        type: string
+      working-directory:
+        description: 'Working directory for cargo commands'
+        required: false
+        default: '.'
+        type: string
+      extra-apt-packages:
+        description: 'Space-separated apt packages to install'
+        required: false
+        default: ''
+        type: string
+      smoke-test-script:
+        description: 'Optional smoke test script to run after build'
+        required: false
+        default: ''
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        if: inputs.extra-apt-packages != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ inputs.extra-apt-packages }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - run: cargo test --verbose
+
+      - run: cargo build --verbose
+
+      - name: Smoke test
+        if: inputs.smoke-test-script != ''
+        run: ${{ inputs.smoke-test-script }}
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy -- -D warnings
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt -- --check
+
+  msrv:
+    name: MSRV (${{ inputs.msrv }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ inputs.msrv }}
+      - run: rm -f Cargo.lock
+      - run: cargo check --verbose
