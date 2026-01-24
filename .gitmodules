@@ -56,3 +56,6 @@
 [submodule "testing/hardware-compat"]
 	path = testing/hardware-compat
 	url = git@github.com:LevitateOS/hardware-compat.git
+[submodule "distro-builder"]
+	path = distro-builder
+	url = git@github.com:LevitateOS/distro-builder.git
