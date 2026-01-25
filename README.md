@@ -1,17 +1,17 @@
 # LevitateOS
 
-Linux distribution that extracts Rocky Linux packages into a custom ISO. Manual installation like Arch.
+Daily driver Linux for power users. Extract, configure, control. No compilation required.
 
 ## Status
 
-**Alpha. Not for production use.**
+**E2E tested, boots on real hardware. Installation workflow complete.**
 
-| Works | Doesn't work yet |
-|-------|------------------|
-| ISO boots in QEMU (UEFI + BIOS) | Bare metal testing incomplete |
-| Live environment reaches shell | AI installer not integrated |
-| `recstrap` extracts system to /mnt | Desktop environment not packaged |
-| `recipe install` runs Rhai scripts | No binary package repository |
+| Working | In Progress |
+|---------|-------------|
+| ISO boots in QEMU (UEFI + BIOS) | AI-assisted installer integration |
+| Live environment with root shell | Desktop environment packaging |
+| `recstrap` extracts system to /mnt | Binary package repository |
+| `recipe install` runs Rhai scripts | Extended bare metal testing |
 
 Tested on: QEMU 8.x with OVMF (8GB RAM, NVMe virtio), bare metal (Intel/AMD desktops).
 
@@ -157,6 +157,13 @@ cd tools/recchroot && cargo build --release
 ## License
 
 MIT (LevitateOS code), various open source (Rocky Linux packages).
+
+## Documentation
+
+- [Installation Guide](docs/content/src/content/01-getting-started/)
+- [Architecture FAQ](docs/content/src/content/04-architecture/01-faq.ts)
+- [How We Compare](docs/content/src/content/04-architecture/02-how-we-compare.ts)
+- [Supply Chain](SUPPLY_CHAIN.md)
 
 ## Links
 
