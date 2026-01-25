@@ -49,7 +49,7 @@
 ### Example: Confirmation Flow
 ```
 User: "yes" (confirming partition plan)
-Expected: sgdisk -Z /dev/vda && sgdisk -n 1:0:+512M -t 1:ef00 ...
+Expected: sgdisk -Z /dev/vda && sgdisk -n 1:0:+1G -t 1:ef00 ...
 Actual: "The disk /dev/vda is 20G in size. It's a VirtIO Block device..."
 ```
 The model describes the disk instead of executing the partitioning command.

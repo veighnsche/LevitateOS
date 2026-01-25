@@ -126,6 +126,24 @@ Marketing: "You write recipes. A local LLM can help." NOT "AI writes packages fo
 
 ---
 
+## Target Hardware Profile
+
+When reasoning about hardware, think **modern desktop/laptop** not server/embedded:
+
+| Component | Minimum | Typical User | Power User |
+|-----------|---------|--------------|------------|
+| RAM | 8 GB | 16-32 GB | 64-128 GB |
+| Storage | 64 GB NVMe | 256-512 GB NVMe | 1-4 TB NVMe |
+| CPU | x86-64-v3 | Ryzen 5 / i5 | Ryzen 9 / i9 |
+| GPU | Integrated | RTX 3060 / RX 6700 | RTX 4090 / RX 7900 |
+
+**WRONG mental model:** "What's the minimum to boot?"
+**RIGHT mental model:** "What would a developer or gamer have?"
+
+Reference: `distro_spec::shared::LEVITATE_REQUIREMENTS`
+
+---
+
 ## Commands
 
 ```bash
