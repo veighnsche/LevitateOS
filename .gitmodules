@@ -44,9 +44,6 @@
 [submodule "recchroot"]
 	path = tools/recchroot
 	url = git@github.com:LevitateOS/recchroot.git
-[submodule "leviso-deps"]
-	path = leviso-deps
-	url = git@github.com:LevitateOS/leviso-deps.git
 [submodule "leviso-elf"]
 	path = leviso-elf
 	url = git@github.com:LevitateOS/leviso-elf.git
