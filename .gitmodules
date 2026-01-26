@@ -56,3 +56,6 @@
 [submodule "distro-builder"]
 	path = distro-builder
 	url = git@github.com:LevitateOS/distro-builder.git
+[submodule "tools/recinit"]
+	path = tools/recinit
+	url = git@github.com:LevitateOS/recinit.git

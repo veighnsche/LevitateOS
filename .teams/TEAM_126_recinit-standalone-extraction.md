@@ -145,8 +145,24 @@ test result: ok. 13 passed; 0 failed
 - [x] Verify tests pass (`cargo test` - 13/13 passed)
 - [x] Verify CLI works (`recinit --help`)
 
-## Next Steps (Future Work)
+## Monorepo Integration (2026-01-27)
 
-1. Push to `git@github.com:LevitateOS/recinit.git`
-2. Update leviso to use recinit as dependency
-3. Remove duplicate code from leviso/src/artifact/initramfs.rs
+1. [x] Added recinit as git submodule at `tools/recinit`
+2. [x] Updated `leviso/Cargo.toml` with `recinit = { path = "../tools/recinit" }`
+3. [x] Replaced 833-line `leviso/src/artifact/initramfs.rs` with ~170-line wrapper
+   - Removed all direct CPIO, busybox, module, systemd copying code
+   - Now just configures `TinyConfig` and `InstallConfig` and calls recinit
+   - Retained leviso-specific logic: finding modules in staging vs downloads
+4. [x] Build verified: `cargo build` succeeds in leviso
+
+## Code Reduction
+
+| Before | After | Reduction |
+|--------|-------|-----------|
+| 833 lines | ~170 lines | **80% reduction** |
+
+The initramfs.rs now only contains:
+- `build_tiny_initramfs(base_dir)` - configures TinyConfig, calls recinit
+- `build_install_initramfs(base_dir)` - configures InstallConfig, calls recinit
+- `find_kernel_modules_dir(base_dir)` - leviso-specific module path logic
+- `find_kernel_version(modules_dir)` - helper for kernel version detection
