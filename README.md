@@ -1,5 +1,7 @@
 # LevitateOS
 
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](LICENSE)
+
 Daily driver Linux for power users. Extract, configure, control. No compilation required.
 
 ## Status

@@ -4,28 +4,25 @@ LevitateOS License Information
 This project contains multiple components with different licenses:
 
 
-1. LEVITATEOS RUST CODE (installer/, recipe/, xtask/)
-----------------------------------
-License: MIT
+1. LEVITATEOS SOURCE CODE
+-------------------------
+License: MIT OR Apache-2.0 (dual-licensed)
 Copyright (c) 2024-2026 LevitateOS Contributors
 
-The Rust source code (installer, levitate, recipe parser) is MIT licensed.
-See LICENSES/MIT.txt for the full license text.
+All LevitateOS source code is dual-licensed under MIT and Apache-2.0.
+You may choose either license. See LICENSE-MIT and LICENSE-APACHE.
+
+This includes:
+  - Rust crates (leviso, distro-spec, tools/*, etc.)
+  - TypeScript packages (docs/content, docs/tui, docs/website)
+  - Python code (llm-toolkit)
+
+Contributions are accepted under the same dual license (inbound = outbound).
 
 
-2. SMOLLM3-3B MODEL (vendor/models/)
-------------------------------------
-License: Apache-2.0
-Copyright (c) 2025 Hugging Face
-
-The SmolLM3-3B language model used for the AI installer is Apache 2.0 licensed.
-See LICENSES/Apache-2.0.txt for the full license text.
-Source: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
-
-
-3. FEDORA BASE SYSTEM
----------------------
-When you build an ISO, the resulting image contains Fedora packages
+2. LEVITATEOS ISO - FEDORA BASE
+-------------------------------
+When you build a LevitateOS ISO, the resulting image contains Fedora packages
 under various licenses:
 
   - Linux kernel           : GPL-2.0-only
@@ -36,33 +33,100 @@ under various licenses:
   - NetworkManager         : GPL-2.0-or-later
   - GRUB2                  : GPL-3.0-or-later
 
-The GPL-licensed components require source availability when distributing.
-Fedora provides source packages at https://src.fedoraproject.org
+Source packages available at: https://src.fedoraproject.org
 
 
-4. WEBSITE (website/)
+3. ACORNOS ISO - ALPINE BASE
+----------------------------
+When you build an AcornOS ISO (Alpine-based variant), the resulting image
+contains Alpine Linux packages under various licenses:
+
+  - musl                   : MIT
+  - busybox                : GPL-2.0
+  - OpenRC                 : BSD-2-Clause
+  - linux-lts              : GPL-2.0-only
+  - apk-tools              : GPL-2.0
+  - eudev                  : GPL-2.0-or-later
+  - bash                   : GPL-3.0-or-later
+  - coreutils              : GPL-3.0-or-later
+  - GRUB                   : GPL-3.0-or-later
+
+Alpine distribution itself is MIT licensed.
+Source packages available at: https://pkgs.alpinelinux.org/packages
+Source repositories: https://gitlab.alpinelinux.org
+
+
+4. LINUX KERNEL SOURCE AVAILABILITY
+-----------------------------------
+LevitateOS uses the vanilla Linux kernel with configuration-only customization:
+
+  - Version: 6.18.x-levitate (CONFIG_LOCALVERSION="-levitate")
+  - Patches: None (vanilla kernel)
+  - Configuration: leviso/kconfig
+
+GPL-2.0 compliance is satisfied through:
+
+  Upstream source:
+    https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+
+  LevitateOS mirror (with our config):
+    https://github.com/LevitateOS/linux
+
+No modifications to kernel source are distributed; only the kernel
+configuration file (leviso/kconfig) which is MIT OR Apache-2.0 licensed.
+
+
+5. RUST DEPENDENCIES
+--------------------
+LevitateOS depends on 268 external Rust crates, all under permissive licenses:
+
+  - MIT OR Apache-2.0      : 168 crates
+  - MIT only               : 46 crates
+  - Apache-2.0 only        : 17 crates
+  - Unicode-3.0            : 18 crates (unicode-* crates)
+  - BSD variants           : 3 crates
+  - CC0 / Unlicense        : 9 crates
+  - MPL-2.0                : 3 crates
+
+No copyleft licenses (GPL, AGPL, SSPL) are present in Rust dependencies.
+
+Verification: Run `cargo deny check licenses` from the repository root.
+Configuration: deny.toml
+
+
+6. THIRD-PARTY MODELS
 ---------------------
-License: MIT
-The documentation website is MIT licensed.
+License: Apache-2.0
+Copyright (c) 2025 Hugging Face
+
+The SmolLM3-3B language model used for the AI installer is Apache 2.0 licensed.
+See LICENSES/Apache-2.0.txt for the full license text.
+Source: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
 
 
-5. DISTRIBUTION NOTICE
-----------------------
-If you distribute LevitateOS images, you must:
+7. DISTRIBUTION OBLIGATIONS
+---------------------------
+If you distribute LevitateOS or AcornOS images, you must:
 
   a) Include this LICENSE file or equivalent notices
   b) Provide access to source code for GPL/LGPL components
   c) Preserve copyright notices
 
-Fedora source packages: https://src.fedoraproject.org
-SmolLM3 source: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+Source availability for GPL/LGPL compliance:
+
+  Fedora packages:    https://src.fedoraproject.org
+  Alpine packages:    https://pkgs.alpinelinux.org/packages
+  Linux kernel:       https://github.com/LevitateOS/linux
+  SmolLM3 model:      https://huggingface.co/HuggingFaceTB/SmolLM3-3B
 
 
-6. FULL LICENSE TEXTS
+8. FULL LICENSE TEXTS
 ---------------------
 See the LICENSES/ directory:
-  - LICENSES/MIT.txt          (LevitateOS code, website)
-  - LICENSES/Apache-2.0.txt   (SmolLM3 model)
-  - LICENSES/GPL-2.0.txt      (Linux kernel, util-linux)
-  - LICENSES/GPL-3.0.txt      (coreutils, bash, GRUB2)
-  - LICENSES/LGPL-2.1.txt     (systemd)
+
+  LICENSES/MIT.txt           LevitateOS code, musl
+  LICENSES/Apache-2.0.txt    LevitateOS code, SmolLM3 model
+  LICENSES/GPL-2.0.txt       Linux kernel, busybox, util-linux, apk-tools
+  LICENSES/GPL-3.0.txt       GNU coreutils, bash, GRUB
+  LICENSES/LGPL-2.1.txt      systemd
+  LICENSES/BSD-2-Clause.txt  OpenRC

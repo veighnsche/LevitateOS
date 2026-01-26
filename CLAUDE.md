@@ -52,7 +52,6 @@ LevitateOS/
 │   ├── cheat-guard/           #   Anti-cheat macros (runtime)
 │   └── cheat-test/            #   Anti-cheat macros (proc-macro)
 │
-├── leviso-deps/               # External dependency resolution
 ├── leviso-elf/                # ELF analysis & library copying
 ├── distro-builder/            # Shared ISO building infrastructure
 ├── AcornOS/                   # [SUBMODULE] Alpine-based variant

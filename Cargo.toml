@@ -5,7 +5,6 @@ members = [
     "distro-builder",
     "leviso",
     "AcornOS",
-    "leviso-deps",
     "leviso-elf",
     "tools/recipe",
     "tools/recstrap",
