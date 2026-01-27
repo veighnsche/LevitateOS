@@ -59,3 +59,12 @@
 [submodule "tools/recinit"]
 	path = tools/recinit
 	url = git@github.com:LevitateOS/recinit.git
+[submodule "tools/recuki"]
+	path = tools/recuki
+	url = git@github.com:LevitateOS/recuki.git
+[submodule "tools/reciso"]
+	path = tools/reciso
+	url = git@github.com:LevitateOS/reciso.git
+[submodule "tools/recqemu"]
+	path = tools/recqemu
+	url = git@github.com:LevitateOS/recqemu.git
