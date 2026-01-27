@@ -1,66 +1,57 @@
 # TEAM_127: Visual Install Testing via Puppeteer + noVNC
 
-## Objective
-Visually test LevitateOS installation: see what users see, type what they type, verify via screenshots.
-
 ## Status: COMPLETE
 
-## Architecture
-```
-Puppeteer MCP ──► noVNC (browser) ──► websockify ──► QEMU VNC
-     │                                                  │
-     └─ puppeteer_fill: send keystrokes ────────────────┘
-     └─ puppeteer_screenshot: capture screen
-```
+## Quick Reference (READ THIS FIRST)
 
-## Setup
-
-### Prerequisites
-```bash
-# Clone noVNC (one-time)
-git clone --depth 1 https://github.com/novnc/noVNC.git /tmp/novnc
-
-# websockify (pip install websockify)
-```
-
-### Running
+### Step 1: Start VM and Bridge
 ```bash
 # Terminal 1: QEMU with VNC
 qemu-system-x86_64 -enable-kvm -m 4G -cpu host \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE.fd \
   -cdrom output/levitateos.iso -vnc :0 -device virtio-vga -boot d -display none
 
-# Terminal 2: websockify bridge
+# Terminal 2: websockify (noVNC must be cloned to /tmp/novnc first)
 websockify 6080 localhost:5900 --web /tmp/novnc
 ```
 
-## Puppeteer MCP Usage
+### Step 2: Connect Puppeteer
+```
+puppeteer_navigate url="http://localhost:6080/vnc.html?autoconnect=true"
+```
+Wait 3 seconds for connection.
 
-### Connect to VM
+### Step 3: Send Commands
 ```
-puppeteer_navigate → http://localhost:6080/vnc.html?autoconnect=true
+puppeteer_fill selector="#noVNC_keyboardinput" value="your command here\n"
+```
+- Always include `\n` at the end to press Enter
+- That's it. This is the reliable method.
+
+### Step 4: Take Screenshot
+```
+puppeteer_screenshot name="descriptive-name" width=1024 height=768
 ```
 
-### Send Keystrokes
+### One-Time Setup (if noVNC not present)
+```bash
+git clone --depth 1 https://github.com/novnc/noVNC.git /tmp/novnc
 ```
-puppeteer_fill selector="#noVNC_keyboardinput" value="echo hello\n"
-```
-- Include `\n` at end to press Enter
-- Text is typed character by character
 
-### Capture Screenshot
+---
+
+## Why This Works
+
+- `#noVNC_keyboardinput` is noVNC's hidden textarea for mobile keyboard input
+- `puppeteer_fill` types into it character by character, triggering real VNC keystrokes
+- Don't use `puppeteer_evaluate` with keyboard events - it's unreliable
+
+## Architecture
 ```
-puppeteer_screenshot name="test" width=1024 height=768
+Puppeteer MCP ──► noVNC (browser) ──► websockify ──► QEMU VNC
 ```
 
 ## Verified Working (2026-01-27)
-- Boot LevitateOS ISO in QEMU with VNC
-- Connect Puppeteer to noVNC
-- Type `echo hello world` → Output: `hello world`
-- Type `uname -a` → Shows kernel version
+- `echo hello world` → Output: `hello world`
+- `uname -a` → Shows kernel version
 - Screenshots capture VM display correctly
-
-## Notes
-- The `puppeteer_evaluate` approach for sending keystrokes via JS events is unreliable
-- `puppeteer_fill` on `#noVNC_keyboardinput` works reliably (noVNC's hidden keyboard textarea)
-- Serial backend still works for CI/CD where visual testing isn't needed

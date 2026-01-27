@@ -155,6 +155,28 @@ cargo run -- run        # Boot in QEMU
 
 ---
 
+## Visual Testing with Puppeteer + noVNC
+
+When you need to visually test the ISO (type commands, take screenshots):
+
+**1. Start QEMU + websockify** (in background):
+```bash
+qemu-system-x86_64 -enable-kvm -m 4G -cpu host \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE.fd \
+  -cdrom output/levitateos.iso -vnc :0 -device virtio-vga -boot d -display none &
+websockify 6080 localhost:5900 --web /tmp/novnc &
+```
+
+**2. Connect**: `puppeteer_navigate` → `http://localhost:6080/vnc.html?autoconnect=true`
+
+**3. Type commands**: `puppeteer_fill` selector=`#noVNC_keyboardinput` value=`"command\n"`
+
+**4. Screenshot**: `puppeteer_screenshot` name=`"name"` width=`1024` height=`768`
+
+Full docs: `.teams/TEAM_127_visual-install-testing.md`
+
+---
+
 ## First Step: Create Team File
 
 ```bash
