@@ -76,3 +76,7 @@ bun.lockb
 .turbo/
 .gource/historical/installer
 .gource/historical/recipes
+
+# Build artifacts
+output/
+ovmf_vars2.fd
