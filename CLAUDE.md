@@ -23,6 +23,29 @@
 
 ---
 
+## NEVER PIPE BUILD/TEST OUTPUT
+
+**STRICTLY FORBIDDEN:**
+```bash
+# NEVER DO THIS:
+cargo build 2>&1 | tail -20      # BLOCKS USER FROM SEEING ERRORS
+cargo test 2>&1 | grep -i error  # USER WAITS 10 MINUTES FOR NOTHING
+cargo run -- build 2>&1 | head   # HIDES REAL-TIME PROGRESS
+```
+
+**WHY:** When you pipe output, the user can't see what's happening. If a build fails at minute 3, they wait until the 10-minute timeout. They can't interrupt, they can't see the error, they can't help you.
+
+**ALWAYS DO THIS:**
+```bash
+cargo build 2>&1              # Full streaming output
+cargo test 2>&1               # User sees progress in real-time
+cargo run -- build qcow2 2>&1 # User can ctrl+c if something goes wrong
+```
+
+The user monitors the output. When something breaks, they tell you. Don't hide it from them.
+
+---
+
 ## Code Map: Where Things Live
 
 ```
@@ -75,6 +98,42 @@ LevitateOS/
 | Add user-facing installer tools | `tools/` | leviso |
 | Add package manager features | `tools/recipe/` | — |
 | Add ELF/library utilities | `leviso-elf/` | leviso |
+| Add auth/login specifications | `distro-spec/src/shared/auth/` | leviso |
+
+### Authentication Subsystem
+
+**Location**: `distro-spec/src/shared/auth/`
+
+All authentication and login configuration is consolidated in the auth subsystem:
+
+- `mod.rs` - Public API and architecture overview
+- `requirements.md` - Complete 700+ line specification document
+- `components.rs` - Auth binaries, PAM modules, security configs
+- `pam.rs` - 12+ PAM configuration file contents
+- `getty.rs` - Console/serial login constants
+- `ssh.rs` - SSH server configuration constants
+
+**What goes here**:
+- PAM configuration file contents (pam.rs)
+- Component lists (AUTH_BIN, AUTH_SBIN, PAM_MODULES, etc.)
+- Security file paths (SECURITY_FILES)
+- Configuration constants (getty, ssh)
+- Specifications and requirements documentation
+
+**What doesn't go here**:
+- PAM file creation logic (stays in `leviso/src/component/custom/pam.rs`)
+- Live overlay creation (stays in `leviso/src/component/custom/live.rs`)
+- Build orchestration
+
+**Key Insight**: distro-spec = data/specifications, leviso = build logic. Don't mix them.
+
+**Critical Files** (if something fails to login):
+- Must verify: `/usr/bin/login` symlink (agetty searches PATH)
+- Must verify: `/usr/sbin/unix_chkpwd` (pam_unix.so hardcoded path)
+- Must verify: PAM configs are correct (12 files, specific auth stacks)
+- Must verify: `/etc/shadow` has 0600 permissions (secret)
+
+See `distro-spec/src/shared/auth/requirements.md` for full specifications.
 
 ### Common Mistakes
 
