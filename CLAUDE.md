@@ -62,11 +62,12 @@ LevitateOS/
 │       ├── levitate/          #   LevitateOS-specific (systemd, paths)
 │       └── acorn/             #   AcornOS-specific (OpenRC, Alpine)
 │
-├── tools/                     # USER-FACING INSTALLER TOOLS
+├── tools/                     # USER-FACING TOOLS
 │   ├── recipe/                #   Package manager (like pacman+AUR)
 │   ├── recstrap/              #   System extractor (like pacstrap)
 │   ├── recfstab/              #   Fstab generator (like genfstab)
-│   └── recchroot/             #   Chroot helper (like arch-chroot)
+│   ├── recchroot/             #   Chroot helper (like arch-chroot)
+│   └── recqemu/               #   QEMU launcher (gui/vnc/serial modes)
 │
 ├── testing/                   # ALL TEST CRATES
 │   ├── install-tests/         #   E2E installation tests (QEMU)
@@ -268,10 +269,7 @@ When you need to visually test the ISO (type commands, take screenshots):
 
 **1. Start QEMU + websockify** (in background):
 ```bash
-qemu-system-x86_64 -enable-kvm -m 4G -cpu host \
-  -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE.fd \
-  -cdrom output/levitateos.iso -vnc :0 -device virtio-vga -boot d -display none &
-websockify 6080 localhost:5900 --web /tmp/novnc &
+recqemu vnc leviso/output/levitateos.iso --websockify &
 ```
 
 **2. Connect + Type + Screenshot** (MCP tool calls):
@@ -285,7 +283,7 @@ mcp__puppeteer__puppeteer_screenshot  name="after-echo" width=1024 height=768
 
 Key: Always use `#noVNC_keyboardinput` for typing, always add `\n` for Enter.
 
-Full docs: `.teams/TEAM_127_visual-install-testing.md`
+Full docs: `.teams/KNOWLEDGE_visual-install-testing.md`
 
 ---
 
