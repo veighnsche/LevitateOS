@@ -100,64 +100,58 @@ Installed levitate-docs (101.1 MB)
 Copying 5 library dependencies for levitate-docs...
 ```
 
-## Current Status (Jan 29, 2026 - After Changes)
+## Current Status (Jan 29, 2026 - FIXED)
 
 ✅ **Working**:
 - Console autologin executes on tty1
 - /etc/profile is sourced
 - live-docs.sh script runs
-- tmux session "live" is created
+- tmux session "live" is created with split panes
+- levitate-docs TUI displays on the RIGHT side
+- Shell on the LEFT side
 - recqemu vnc --background works properly
 - System boots in ~20 seconds
 - Welcome message displays
 
-❌ **Not Working**:
-- tmux split-window isn't showing the levitate-docs pane
-- Status bar shows only "0:bash" instead of "0:bash 1:levitate-docs"
-- split-window command or levitate-docs binary execution appears to fail silently
+## Root Cause Analysis (Jan 29, 2026)
 
-## Unresolved Issues
+### Issue 1: Terminal Width
+The original `split-window -h` (horizontal split, 50/50) gave the docs pane only 79 columns, but levitate-docs requires minimum 80 columns. The TUI would immediately exit with:
+```
+Error: Terminal too narrow (79 cols)
+Minimum width: 80 columns
+```
 
-### Why is split-window failing?
+**Fix**: Use `split-window -h -l 88` to give docs pane exactly 88 columns (enough for 80 col minimum plus margin).
 
-The tmux command in live-docs.sh:
+### Issue 2: Unicode Characters in Status Bar
+The original status bar used Unicode arrows (←/→) which may cause issues with some terminals.
+
+**Fix**: Changed to ASCII-safe `Left/Right` text.
+
+## Final Working Script
+
 ```bash
 exec tmux new-session -d -s live \; \
-    ... config ... \
-    split-window -h 'echo "Loading documentation..." && levitate-docs' \; \
-    ... more config ... \
+    set-option -g prefix None \; \
+    set-option -g mouse on \; \
+    set-option -g status-style 'bg=black,fg=white' \; \
+    set-option -g status-left '' \; \
+    set-option -g status-right ' Shift+Tab: switch | Ctrl+Left/Right: resize | F1: help ' \; \
+    set-option -g status-right-length 60 \; \
+    bind-key -n BTab select-pane -t :.+ \; \
+    bind-key -n C-Left resize-pane -L 5 \; \
+    bind-key -n C-Right resize-pane -R 5 \; \
+    bind-key -n F1 display-message 'Shift+Tab: switch panes | Ctrl+Left/Right: resize | In docs: Up/Down navigate, j/k scroll, q quit' \; \
+    split-window -h -l 88 levitate-docs \; \
+    select-pane -t 0 \; \
     attach-session -t live
 ```
 
-Possible causes:
-1. `split-window -h` command is failing within the tmux new-session chain
-2. `levitate-docs` binary is crashing immediately after starting
-3. `levitate-docs` binary is missing dependencies despite `copy_library()` calls
-4. The complex tmux command chain has a syntax or ordering issue
-
-### How to Debug
-
-1. **Check if levitate-docs binary exists in live ISO**:
-   ```bash
-   # Mount the ISO and search for it
-   mount -o loop leviso/output/levitateos.iso /mnt
-   find /mnt -name "levitate-docs"
-   ```
-
-2. **Check if levitate-docs can run**:
-   ```bash
-   # Boot serial console and try running it
-   recqemu serial leviso/output/levitateos.iso
-   # At root prompt: /usr/bin/levitate-docs --help
-   ```
-
-3. **Check tmux manually**:
-   ```bash
-   # Boot into shell, then test tmux directly
-   tmux new-session -d -s test
-   tmux split-window -h -t test
-   tmux list-windows -t test
-   ```
+Key changes from broken version:
+- `-l 88` instead of `-h` alone (fixed column width instead of percentage)
+- ASCII-safe status bar text
+- Simplified levitate-docs invocation (no error wrapper needed)
 
 ## Files Modified
 
@@ -166,12 +160,19 @@ Possible causes:
 3. `tools/recqemu/src/main.rs` - Added --background flag
 4. Submodule updates: `tools/recqemu`
 
-## Next Steps
+## Resolution Summary
 
-1. Debug why split-window fails (serial console or manual testing)
-2. Check levitate-docs binary for runtime issues
-3. Consider simpler approach if complex tmux setup is problematic
-4. Add explicit error handling to live-docs.sh to log failures instead of silently returning
+The TUI autologin is now working. The docs-TUI appears on the RIGHT side of the screen as intended, with the shell on the LEFT. Users can:
+- Use Shift+Tab to switch between panes
+- Use Ctrl+Left/Right to resize panes
+- Press F1 for help
+- Navigate docs with arrow keys, j/k for scrolling, q to quit
+
+## Testing Notes
+
+**ALWAYS use 1920x1080 resolution for visual testing.** See CLAUDE.md "Visual Testing" section.
+
+Previous debugging attempts used 1024x768 which is inappropriate for a daily-driver desktop OS.
 
 ## Related Issues
 

@@ -239,6 +239,7 @@ When reasoning about hardware, think **modern desktop/laptop** not server/embedd
 
 | Component | Minimum | Typical User | Power User |
 |-----------|---------|--------------|------------|
+| Display | 1920x1080 | 2560x1440 | 3840x2160 |
 | RAM | 8 GB | 16-32 GB | 64-128 GB |
 | Storage | 64 GB NVMe | 256-512 GB NVMe | 1-4 TB NVMe |
 | CPU | x86-64-v3 | Ryzen 5 / i5 | Ryzen 9 / i9 |
@@ -246,6 +247,8 @@ When reasoning about hardware, think **modern desktop/laptop** not server/embedd
 
 **WRONG mental model:** "What's the minimum to boot?"
 **RIGHT mental model:** "What would a developer or gamer have?"
+
+**NEVER use 1024x768 or other legacy resolutions for testing.** This is 2026, not 1999.
 
 Reference: `distro_spec::shared::LEVITATE_REQUIREMENTS`
 
@@ -267,6 +270,11 @@ cargo run -- run              # Boot in QEMU
 
 When you need to visually test the ISO (type commands, take screenshots):
 
+**RESOLUTION: 1920x1080 - ALWAYS**
+
+This is a daily-driver desktop OS, not a toy. Use full HD resolution for all visual testing.
+Never use 1024x768 or other legacy resolutions.
+
 **1. Start QEMU + websockify** (in background):
 ```bash
 recqemu vnc leviso/output/levitateos.iso --websockify &
@@ -276,9 +284,9 @@ recqemu vnc leviso/output/levitateos.iso --websockify &
 ```
 mcp__puppeteer__puppeteer_navigate  url="http://localhost:6080/vnc.html?autoconnect=true"
 # wait 3 seconds for connection
-mcp__puppeteer__puppeteer_screenshot  name="boot" width=1024 height=768
+mcp__puppeteer__puppeteer_screenshot  name="boot" width=1920 height=1080
 mcp__puppeteer__puppeteer_fill  selector="#noVNC_keyboardinput" value="echo hello\n"
-mcp__puppeteer__puppeteer_screenshot  name="after-echo" width=1024 height=768
+mcp__puppeteer__puppeteer_screenshot  name="after-echo" width=1920 height=1080
 ```
 
 Key: Always use `#noVNC_keyboardinput` for typing, always add `\n` for Enter.

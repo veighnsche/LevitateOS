@@ -1,5 +1,16 @@
 # Visual Installation Testing via QEMU + noVNC + Puppeteer
 
+## CRITICAL: Resolution Requirements
+
+**ALL screenshots MUST be 1920x1080. NO EXCEPTIONS.**
+
+LevitateOS is a daily-driver desktop OS targeting modern hardware. Users have 1080p+ displays.
+Never use 1024x768 or other legacy resolutions - this is 2026, not 1999.
+
+```
+mcp__puppeteer__puppeteer_screenshot  name="example" width=1920 height=1080
+```
+
 ## Purpose
 
 This document provides step-by-step instructions for testing LevitateOS installation in a headless QEMU VM using Puppeteer MCP tools and noVNC. This simulates a real user installing LevitateOS to disk.
