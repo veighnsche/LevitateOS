@@ -92,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: levitateos-iso
-          path: leviso/output/levitateos.iso
+          path: leviso/output/levitateos-x86_64.iso
           retention-days: 7
 
       - name: Upload squashfs artifact

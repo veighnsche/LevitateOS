@@ -27,7 +27,7 @@ cd /home/vince/Projects/LevitateOS/leviso
 cargo run -- build
 ```
 
-Output: `/home/vince/Projects/LevitateOS/output/levitateos.iso`
+Output: `/home/vince/Projects/LevitateOS/leviso/output/levitateos-x86_64.iso`
 
 ### Step 2: Generate Checksums
 
@@ -35,14 +35,14 @@ Output: `/home/vince/Projects/LevitateOS/output/levitateos.iso`
 cd /home/vince/Projects/LevitateOS/output
 
 # SHA256
-sha256sum levitateos.iso > SHA256SUMS
+sha256sum levitateos-x86_64.iso > SHA256SUMS
 
 # SHA512 (optional but recommended)
-sha512sum levitateos.iso > SHA512SUMS
+sha512sum levitateos-x86_64.iso > SHA512SUMS
 
 # Verify
 sha256sum -c SHA256SUMS
-# Expected output: levitateos.iso: OK
+# Expected output: levitateos-x86_64.iso: OK
 ```
 
 ### Step 3: Collect Release Metadata
@@ -108,7 +108,7 @@ LevitateOS is a Linux distribution for power users who want to build their own s
 ## Installation
 
 1. Download ISO and verify SHA256 below
-2. Create bootable USB: `dd if=levitateos.iso of=/dev/sdX bs=4M`
+2. Create bootable USB: `dd if=levitateos-x86_64.iso of=/dev/sdX bs=4M`
 3. Boot and follow installation guide (see docs link below)
 
 ## Documentation
@@ -159,7 +159,7 @@ Questions? Start a [discussion](https://github.com/LevitateOS/LevitateOS/discuss
 **Commit:** $(git rev-parse --short HEAD)
 EOF
 )" \
-  output/levitateos.iso \
+  leviso/output/levitateos-x86_64.iso \
   output/SHA256SUMS \
   output/SHA512SUMS
 ```
@@ -169,7 +169,7 @@ EOF
 - Tag: `v0.1.0-preview`
 - Title: `LevitateOS Tech Preview 0.1.0`
 - Description: Use template above
-- Attach: `levitateos.iso`, `SHA256SUMS`, `SHA512SUMS`
+- Attach: `levitateos-x86_64.iso`, `SHA256SUMS`, `SHA512SUMS`
 - Select: **"Set as pre-release"** checkbox
 - Click: **"Publish release"**
 
@@ -186,7 +186,7 @@ Edit `docs/website/src/routes/download/+page.svelte`:
   </p>
 
   <div class="download-button">
-    <a href="https://github.com/LevitateOS/LevitateOS/releases/download/v0.1.0-preview/levitateos.iso">
+    <a href="https://github.com/LevitateOS/LevitateOS/releases/download/v0.1.0-preview/levitateos-x86_64.iso">
       Download ISO (levitateos-0.1.0-preview.iso)
     </a>
   </div>

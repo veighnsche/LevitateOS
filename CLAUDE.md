@@ -277,7 +277,7 @@ Never use 1024x768 or other legacy resolutions.
 
 **1. Start QEMU + websockify** (in background):
 ```bash
-recqemu vnc leviso/output/levitateos.iso --websockify &
+recqemu vnc leviso/output/levitateos-x86_64.iso --websockify &
 ```
 
 **2. Connect + Type + Screenshot** (MCP tool calls):

@@ -34,7 +34,7 @@ recqemu ovmf              # Verify OVMF detection
 
 | File | Location | How to Build |
 |------|----------|--------------|
-| LevitateOS ISO | `leviso/output/levitateos.iso` | `cd leviso && cargo run -- build iso` |
+| LevitateOS ISO | `leviso/output/levitateos-x86_64.iso` | `cd leviso && cargo run -- build iso` |
 | OVMF UEFI firmware | Auto-detected | System package (edk2-ovmf) |
 
 ---
@@ -44,7 +44,7 @@ recqemu ovmf              # Verify OVMF detection
 Use `recqemu vnc` with `--websockify` to start everything in one command:
 
 ```bash
-recqemu vnc leviso/output/levitateos.iso --websockify &
+recqemu vnc leviso/output/levitateos-x86_64.iso --websockify &
 ```
 
 This automatically:
@@ -59,19 +59,19 @@ This automatically:
 recqemu vnc --help
 
 # Custom disk size
-recqemu vnc levitateos.iso --disk-size 50G --websockify &
+recqemu vnc levitateos-x86_64.iso --disk-size 50G --websockify &
 
 # Use existing disk
-recqemu vnc levitateos.iso --disk /path/to/disk.qcow2 --websockify &
+recqemu vnc levitateos-x86_64.iso --disk /path/to/disk.qcow2 --websockify &
 
 # Custom ports
-recqemu vnc levitateos.iso --display 1 --websockify-port 8080 --websockify &
+recqemu vnc levitateos-x86_64.iso --display 1 --websockify-port 8080 --websockify &
 ```
 
 **Alternative: Manual startup** (if you need more control):
 ```bash
 # Start QEMU with VNC only
-recqemu vnc levitateos.iso &
+recqemu vnc levitateos-x86_64.iso &
 
 # Start websockify separately
 websockify 6080 localhost:5900 --web /usr/share/novnc &
