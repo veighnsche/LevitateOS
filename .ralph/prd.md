@@ -130,7 +130,7 @@ focus on Phases 1-5.
 
 **AcornOS install-tests:**
 - [x] 8.1 [acorn] install-tests `--distro acorn` mode runs (AcornOS DistroContext already exists)
-- [ ] 8.2 [acorn] Phase 1 (Boot): ISO detected, UEFI boot, system clock reasonable
+- [BLOCKED] 8.2 [acorn] Phase 1 (Boot): ISO detected, UEFI boot, system clock reasonable
 - [ ] 8.3 [acorn] Phase 2 (Disk): GPT partitioning, FAT32 ESP + ext4 root, mounted correctly
 - [ ] 8.4 [acorn] Phase 3 (Base System): recstrap extracts rootfs, recfstab generates fstab, recchroot works
 - [ ] 8.5 [acorn] Phase 4 (Config): timezone, hostname, root password, user account created
