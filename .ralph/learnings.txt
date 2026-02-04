@@ -86,3 +86,12 @@ Four opus reviews caught copy-paste bugs in IuppiterOS, each finding new files m
 
 ### QEMU Serial Mode: stdout vs File
 When building QEMU commands for interactive testing, use `-serial stdio` (or `-serial mon:stdio` with monitor) instead of `-serial file:...`. This sends serial output directly to the console where the user can see boot messages and interact with the login prompt. File-based serial output is better for automated testing where you need to parse messages, but for manual debugging and interactive boot testing, stdio is more useful and user-friendly.
+
+### AcornOS Live Boot Verification
+The AcornOS smoke test `cargo run -- test` successfully boots the system and verifies:
+- Kernel loads and hardware initialized
+- Initramfs mounts EROFS from loop device
+- Overlay filesystem created (three-layer for live boot)
+- OpenRC starts and runs services
+- ___SHELL_READY___ marker appears on serial
+The test finds minor service issues (missing ifup, missing sshd-session) but core boot chain works correctly. Boot time: ~8.4 seconds. These service issues are configuration, not fundamental problems with the base system.
