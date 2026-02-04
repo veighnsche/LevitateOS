@@ -57,9 +57,9 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 3.13 [acorn] SSH: sshd installed, host keys generated, sshd_config allows root login for live ISO
 - [x] 3.14 [acorn] All Tier 0-2 packages from distro-spec::acorn::packages installed in rootfs
 - [x] 3.15 [acorn] Test instrumentation: /etc/profile.d/00-test.sh emits ___SHELL_READY___ marker for install-tests
-- [ ] 3.16 [acorn] Live overlay configuration: rootfs is EROFS (read-only), init creates tmpfs overlay
-- [ ] 3.17 [acorn] EROFS rootfs builds without errors (mkfs.erofs with zstd compression)
-- [ ] 3.18 [acorn] EROFS rootfs size < 500MB compressed
+- [x] 3.16 [acorn] Live overlay configuration: rootfs is EROFS (read-only), init creates tmpfs overlay
+- [x] 3.17 [acorn] EROFS rootfs builds without errors (mkfs.erofs with zstd compression)
+- [x] 3.18 [acorn] EROFS rootfs size < 500MB compressed
 - [ ] 3.19 [iuppiter] IuppiterOS rootfs: same FHS structure as AcornOS, using iuppiter package tiers
 - [ ] 3.20 [iuppiter] /etc/inittab: getty on ttyS0 (serial console primary), NOT tty1
 - [ ] 3.21 [iuppiter] /etc/os-release contains IuppiterOS identity from distro-spec

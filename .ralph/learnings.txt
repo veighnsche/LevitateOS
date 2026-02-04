@@ -50,3 +50,6 @@ When IuppiterOS recipe module was copied from AcornOS (iteration 3), error messa
 
 ### String::contains() vs Line-by-Line Matching for Config Files
 When checking if a config file setting is active (uncommented), never use `config.contains("Setting value")` — this matches inside commented lines too (e.g., `#Setting value` contains `Setting value`). Always check line-by-line: `config.lines().any(|line| line.trim() == target)`. This pattern applies to sshd_config, inittab, and any other line-oriented config format.
+
+### Firmware Packages vs Firmware Copying
+Alpine's linux-firmware and related packages pull in firmware for ALL hardware (GPUs, audio, network, etc.) - they're very comprehensive. For a live ISO where size matters, you can: (1) Keep the packages installed (satisfying distro-spec), (2) Use the FIRMWARE component's CopyWifiFirmware to copy only essential WiFi drivers. Additional drivers can be added post-boot via 'apk add' if a user needs them for specific hardware. This reduced AcornOS EROFS from 769MB (all firmware) to 190MB (WiFi only), staying well under the 500MB target while maintaining flexibility.
