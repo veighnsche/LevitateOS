@@ -101,3 +101,9 @@ Never hardcode ISO labels, OS names, or other identity strings in format strings
 
 ### QEMU serial_only Requires Explicit -display none
 When building a QEMU command with `-serial stdio` for headless serial-only mode, you must also pass `-display none` to prevent QEMU from opening a graphical window. Without it, QEMU defaults to opening an SDL/GTK display even when serial is on stdio. Compare with `-nographic` which combines both `-serial stdio` and `-display none`, but `-nographic` also redirects the QEMU monitor which may not be desired for interactive runs.
+
+### Verify Alpine Package Availability Before Adding to distro-spec
+Not all packages exist in Alpine repos. sdparm was listed in distro-spec REFURBISHMENT_PACKAGES but doesn't exist in Alpine v3.23 main or community repos. When adding packages to distro-spec, verify availability with `curl -s "https://dl-cdn.alpinelinux.org/alpine/v3.23/{main,community}/x86_64/" | grep packagename`. If a package is removed from the recipe, always update corresponding tests and distro-spec definitions.
+
+### When Removing a Package, Update ALL References
+Removing sdparm from packages.rhai required changes in 3 places: (1) the recipe itself (packages.rhai), (2) the unit test asserting its presence (lib.rs), (3) the distro-spec constant array (packages.rs). Missing any one of these causes test failures or spec drift. Pattern: grep for the package name across all submodules before declaring the removal complete.

@@ -411,3 +411,22 @@ IuppiterOS still had **pervasive AcornOS copy-paste bugs** throughout the entire
 
 **7.3**: Added sg3_utils binaries to IuppiterOS to provide SCSI/SAS disk diagnostics for the appliance. Changes: (1) Added 9 essential sg3_utils binaries to ADDITIONAL_BINS in IuppiterOS/src/component/definitions.rs: sg_inq (SCSI inquiry), sg_sat_identify (SATA identify via SCSI for smartctl integration), sg_readcap (read capacity), sg_scan (scan SCSI devices), sg_ses (enclosure services), sg_reset (error recovery), sg_turs (unit ready check), sg_vpd (vital product data), sg_requests (request sense); (2) Rebuilt IuppiterOS rootfs which now includes these binaries (verified sg_inq, sg_sat_identify, sg_readcap present in rootfs-staging/usr/bin/); (3) Rebuilt ISO with updated rootfs (size increased from 39MB to 47MB due to utility binaries); (4) All cargo tests pass. The three required binaries (sg_inq, sg_sat_identify, sg_readcap) are now in PATH as /usr/bin/sg_*. These enable comprehensive SCSI/SAS diagnostics for the refurbishment workflow, particularly for smartctl SAS drive support and direct SCSI command passthrough. Task 7.3 complete. Commit: feat(iuppiter): add sg3_utils binaries for SCSI/SAS disk diagnostics.
 
+## Opus Review (after Iteration 27)
+
+### Review of haiku iterations 25-27
+
+**Scope reviewed**: AcornOS uki.rs, iso.rs, packages.rhai (3 commits: UKI building, ISO_LABEL fix, APK --usermode removal); IuppiterOS definitions.rs, packages.rhai, lib.rs (3 commits: sg3_utils binaries, APK --usermode removal, refurbishment tools).
+
+**Verification results**:
+- `cargo check --workspace`: Clean (only pre-existing leviso warnings)
+- `cargo test -p acornos --lib`: 34 tests pass
+- `cargo test -p iuppiteros`: 22 tests pass (after fix)
+- `cargo test -p distro-builder`: 60+ tests pass
+- `cargo test -p distro-spec`: 73+ tests pass (after fix)
+
+**Bugs found and fixed**:
+
+1. **IuppiterOS test failure: sdparm assertion** (IuppiterOS lib.rs:121): Haiku removed sdparm from packages.rhai (not available in Alpine v3.23) but forgot to update the test that asserts its presence. Also removed sdparm from distro-spec REFURBISHMENT_PACKAGES since the package genuinely doesn't exist in Alpine v3.23 repos (verified via HTTP). Fixed in 2 commits across IuppiterOS and distro-spec.
+
+**No other bugs found**. The last 3 iterations' code is clean: AcornOS UKI builder uses constants correctly, IuppiterOS APK fixes are sound, sg3_utils binary additions are correct and well-scoped.
+
