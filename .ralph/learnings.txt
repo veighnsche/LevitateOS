@@ -47,3 +47,6 @@ Each distro (AcornOS and IuppiterOS) has its own packages.rhai recipe with hardc
 
 ### Copy-Paste Errors Require Full Audit
 When IuppiterOS recipe module was copied from AcornOS (iteration 3), error messages were fixed (iteration 9 opus review) but doc comments were missed. Lesson: when reviewing copy-paste modules, search for ALL references to the source name (e.g., grep for "acorn" case-insensitive), not just the specific pattern reported.
+
+### String::contains() vs Line-by-Line Matching for Config Files
+When checking if a config file setting is active (uncommented), never use `config.contains("Setting value")` — this matches inside commented lines too (e.g., `#Setting value` contains `Setting value`). Always check line-by-line: `config.lines().any(|line| line.trim() == target)`. This pattern applies to sshd_config, inittab, and any other line-oriented config format.

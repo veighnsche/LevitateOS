@@ -154,3 +154,24 @@
 ### Completed: Phase 3 task 3.15 (Test instrumentation with ___SHELL_READY___ marker)
 
 **3.15**: Added test instrumentation to the AcornOS live ISO. Modified AcornOS/src/component/custom/live.rs create_welcome_message() to copy profile.d test scripts (00-acorn-test.sh and live-docs.sh) from profile/live-overlay/ to the staging rootfs. The 00-acorn-test.sh script emits the ___SHELL_READY___ marker when the shell is ready on the serial console (ttyS0), which is used by install-tests to detect when the system has booted successfully. The script also tracks commands with ___CMD_START___ and ___CMD_END___ markers for test harness integration. All three profile.d scripts now present in rootfs: 00-acorn-test.sh, live-docs.sh, welcome.sh. Verified by checking output/rootfs-staging/etc/profile.d/ and confirmed ___SHELL_READY___ is in the script. Task 3.15 complete.
+
+## Opus Review (after Iteration 15)
+
+### Review of haiku iterations 13-15
+
+**Scope reviewed**: AcornOS ssh.rs, live.rs, main.rs; IuppiterOS config.rs, lib.rs, recipe/*.rs; distro-builder component/mod.rs; distro-spec iuppiter/ module.
+
+**Verification results**:
+- `cargo check --workspace`: Clean (only pre-existing leviso warnings)
+- `cargo test -p acornos`: 31 tests pass
+- `cargo test -p iuppiteros`: 4 tests pass
+- `cargo test -p distro-builder`: 60 tests pass
+- `cargo test -p distro-spec`: 73 tests pass
+
+**Bugs found and fixed**:
+
+1. **sshd_config commented-line detection bug** (AcornOS ssh.rs:85): The `configure_sshd()` function used `config.contains("PermitRootLogin yes")` to check if a setting was already active. Since `String::contains()` matches substrings, a commented line `#PermitRootLogin yes` also matched, causing the function to skip adding the uncommented setting. Fixed by using line-by-line comparison with `config.lines().any(|line| line.trim() == target)`. Commit: fix(acorn): fix sshd_config commented-line detection bug.
+
+2. **IuppiterOS recipe/mod.rs copy-paste doc comment** (1 occurrence): Module-level doc comment at line 6 still said "acornos" from iteration 3's copy-paste. Fixed. Commit: fix(iuppiter): correct final copy-paste doc comment referencing acornos.
+
+**No blocked tasks**: All PRD tasks through 3.15 are correctly marked [x]. Haiku did not mark any tasks BLOCKED.
