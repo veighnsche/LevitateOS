@@ -62,10 +62,10 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 3.18 [acorn] EROFS rootfs size < 500MB compressed
 - [x] 3.19 [iuppiter] IuppiterOS rootfs: same FHS structure as AcornOS, using iuppiter package tiers
 - [x] 3.20 [iuppiter] /etc/inittab: getty on ttyS0 (serial console primary), NOT tty1
-- [ ] 3.21 [iuppiter] /etc/os-release contains IuppiterOS identity from distro-spec
-- [ ] 3.22 [iuppiter] /etc/hostname set to "iuppiter" (from distro-spec)
-- [ ] 3.23 [iuppiter] Same test instrumentation as AcornOS (___SHELL_READY___ on serial console)
-- [ ] 3.24 [iuppiter] EROFS rootfs builds, size < AcornOS (fewer packages = smaller)
+- [x] 3.21 [iuppiter] /etc/os-release contains IuppiterOS identity from distro-spec
+- [x] 3.22 [iuppiter] /etc/hostname set to "iuppiter" (from distro-spec)
+- [x] 3.23 [iuppiter] Same test instrumentation as AcornOS (___SHELL_READY___ on serial console)
+- [x] 3.24 [iuppiter] EROFS rootfs builds, size < AcornOS (fewer packages = smaller)
 
 ### Phase 4: Initramfs + Boot
 

@@ -240,3 +240,23 @@
 ### Completed: Phase 3 task 3.20 (IuppiterOS inittab with ttyS0 as primary console)
 
 **3.20**: Configured IuppiterOS /etc/inittab to have serial console (ttyS0) as PRIMARY, not tty1. IuppiterOS is a headless appliance with no display. Changes: (1) BASE_INITTAB now contains ONLY ttyS0 (no tty1-tty6); removed all VGA console entries; (2) LIVE_FINAL override also prioritizes ttyS0 with autologin; (3) Both configurations explicitly comment "appliance has no display". This satisfies PRD task 3.20: "getty on ttyS0 (serial console primary), NOT tty1". All 18 IuppiterOS tests pass. Commit: feat(iuppiter): configure /etc/inittab with ttyS0 as primary serial console.
+
+## Iteration 19
+
+### Completed: Phase 3 task 3.21 (IuppiterOS /etc/os-release contains IuppiterOS identity)
+
+**3.21**: Verified that IuppiterOS /etc/os-release file contains correct IuppiterOS identity from distro-spec. The BRANDING component in IuppiterOS/src/component/definitions.rs was already properly configured with hardcoded OS_RELEASE constant containing NAME="IuppiterOS", ID=iuppiter, and other required fields. The component was registered in ALL_COMPONENTS. The issue was that the rootfs had been built with stale code. Rebuilt the rootfs by deleting output/rootfs-staging and rerunning `cargo run -- build rootfs`. Verification: Checked /etc/os-release in rebuilt rootfs — correctly shows NAME="IuppiterOS", ID=iuppiter, VERSION_ID=1.0, PRETTY_NAME="IuppiterOS". Hostname file shows "iuppiter", MOTD shows IuppiterOS branding with correct ASCII art. All 18 IuppiterOS tests pass. Task 3.21 complete.
+
+## Iteration 20
+
+### Completed: Phase 3 task 3.22 (IuppiterOS /etc/hostname set to "iuppiter")
+
+**3.22**: Verified that IuppiterOS /etc/hostname is correctly set to "iuppiter" from distro-spec. The BRANDING component in IuppiterOS/src/component/definitions.rs already contains the operation `write_file("etc/hostname", "iuppiter\n")` on line 413, which writes the hostname file during rootfs build. The BRANDING component is properly registered in ALL_COMPONENTS (line 544). Verification: Checked /etc/hostname in IuppiterOS/output/rootfs-staging and confirmed it contains "iuppiter" (without newline padding). Confirmed distro-spec::iuppiter::paths::DEFAULT_HOSTNAME = "iuppiter". All 18 IuppiterOS tests pass. Task 3.22 complete.
+
+### Completed: Phase 3 task 3.23 (IuppiterOS test instrumentation with ___SHELL_READY___ marker)
+
+**3.23**: Created IuppiterOS-specific test instrumentation script with ___SHELL_READY___ marker on serial console. Implementation: (1) Created `/etc/profile.d/00-iuppiter-test.sh` in IuppiterOS/profile/live-overlay/ with IuppiterOS-specific branding (replaces old copy-pasted AcornOS version); (2) Script detects ttyS0 (serial console) and sets IUPPITER_TEST_MODE=1 (vs ACORN_TEST_MODE); (3) Emits ___SHELL_READY___ marker on line 63 when shell is ready; (4) Emits ___CMD_START___, ___CMD_END___ markers for command tracking on serial console; (5) Uses ash-compatible shell hooks (no DEBUG trap); (6) Disables stty echo to prevent output contamination. Verification: Rebuilt rootfs with `cargo run -- build rootfs`, confirmed /etc/profile.d/00-iuppiter-test.sh is present in rootfs-staging with correct content, verified ___SHELL_READY___ marker is in the script. All 18 IuppiterOS tests pass. Commit: feat(iuppiter): add test instrumentation with ___SHELL_READY___ marker on serial console. Task 3.23 complete.
+
+### Completed: Phase 3 task 3.24 (IuppiterOS EROFS rootfs builds, size < AcornOS)
+
+**3.24**: Verified that IuppiterOS EROFS rootfs builds successfully and is significantly smaller than AcornOS. Size comparison: AcornOS EROFS = 190 MB, IuppiterOS EROFS = 39 MB. IuppiterOS is 79% smaller due to: (1) fewer packages (appliance-focused vs. desktop); (2) no wireless firmware (WiFi, sof-firmware); (3) no desktop packages (iwd, wireless-regdb, cryptsetup, lvm2, btrfs-progs); (4) smaller binary footprint overall. The EROFS builds without errors using mkfs.erofs with zstd compression (level 3). Both distros are well under size constraints: AcornOS < 500 MB, IuppiterOS < 100 MB. Verification: Confirmed filesystem.erofs exists and file sizes match expectations. All 18 IuppiterOS tests pass. Task 3.24 complete.
