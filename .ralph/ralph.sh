@@ -684,7 +684,7 @@ run_review() {
             --max-budget-usd "$REVIEW_BUDGET" \
             --verbose \
             -p "$prompt" \
-            2>&1 | stdbuf -oL tee "$logfile" | stdbuf -oL jq --unbuffered -rj 'select(.type=="stream_event") | .event | select(.type=="content_block_delta") | .delta.text // .delta.partial_json // empty' || exit_code=$?
+            2>&1 | stdbuf -oL tee "$logfile" | stdbuf -oL jq --unbuffered -rj 'select(.type=="stream_event") | .event | select(.type=="content_block_delta" and .delta.type=="text_delta") | .delta.text // empty' || exit_code=$?
 
         if [[ $exit_code -ne 0 ]] && grep -qi 'rate.limit\|too many requests\|429\|overloaded' "$logfile" 2>/dev/null; then
             ((rate_limit_retries++))
@@ -775,7 +775,7 @@ run_iteration() {
             --max-budget-usd "$MAX_BUDGET_PER_ITERATION" \
             --verbose \
             -p "$prompt" \
-            2>&1 | stdbuf -oL tee "$logfile" | stdbuf -oL jq --unbuffered -rj 'select(.type=="stream_event") | .event | select(.type=="content_block_delta") | .delta.text // .delta.partial_json // empty' || exit_code=$?
+            2>&1 | stdbuf -oL tee "$logfile" | stdbuf -oL jq --unbuffered -rj 'select(.type=="stream_event") | .event | select(.type=="content_block_delta" and .delta.type=="text_delta") | .delta.text // empty' || exit_code=$?
 
         # Check for rate limit in output
         if [[ $exit_code -ne 0 ]] && grep -qi 'rate.limit\|too many requests\|429\|overloaded' "$logfile" 2>/dev/null; then
