@@ -16,10 +16,10 @@ install to disk, reboot, login, and use the system.
 
 ### Phase A: Builder Compiles and Runs
 
-- [ ] A1. `cargo check` passes for AcornOS crate with zero errors
-- [ ] A2. `cargo run -- status` shows correct AcornOS configuration
-- [ ] A3. `cargo run -- preflight` validates host tools (xorriso, mkfs.erofs, etc.)
-- [ ] A4. All AcornOS commands match leviso equivalents (build, run, clean, etc.)
+- [x] A1. `cargo check` passes for AcornOS crate with zero errors
+- [x] A2. `cargo run -- status` shows correct AcornOS configuration
+- [x] A3. `cargo run -- preflight` validates host tools (xorriso, mkfs.erofs, etc.)
+- [x] A4. All AcornOS commands match leviso equivalents (build, run, clean, etc.)
 
 ### Phase B: Alpine Package Extraction
 

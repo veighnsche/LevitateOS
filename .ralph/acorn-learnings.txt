@@ -1,0 +1,7 @@
+## Learnings
+
+### Preflight Infrastructure Already Exists
+The preflight module (disk space, host tools, network checks) was already fully implemented in AcornOS/src/preflight/. Only needed to wire up the CLI command using tokio async runtime. PreflightChecker::run_all() is async and needs rt.block_on() in CLI context.
+
+### Command Architecture Differs from LevitateOS
+AcornOS has a slightly flatter command structure vs leviso (initramfs and iso as top-level vs. under build subcommand). This is fine—the functionality is equivalent. The structure was likely chosen for Alpine's different build pattern.

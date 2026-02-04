@@ -1,0 +1,5 @@
+## Iteration 1
+
+### Completed: Phase A - Builder Compiles and Runs
+
+**A1-A4**: Added preflight CLI command (validates xorriso, mkfs.erofs, tar, cpio, curl, disk space, network). All Phase A tasks pass. Builder compiles, status command works, all major CLI commands functional and equivalent to leviso.
