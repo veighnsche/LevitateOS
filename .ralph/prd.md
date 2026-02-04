@@ -111,7 +111,7 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 
 - [x] 7.1 [iuppiter] smartmontools installed and `smartctl --version` runs
 - [x] 7.2 [iuppiter] hdparm installed and `hdparm --version` runs
-- [ ] 7.3 [iuppiter] sg3_utils installed: sg_inq, sg_sat_identify, sg_readcap all in PATH
+- [x] 7.3 [iuppiter] sg3_utils installed: sg_inq, sg_sat_identify, sg_readcap all in PATH
 - [ ] 7.4 [iuppiter] sdparm, lsscsi, nvme-cli installed and in PATH
 - [ ] 7.5 [iuppiter] /var/data mount point exists (data partition for refurbishment artifacts)
 - [ ] 7.6 [iuppiter] /etc/iuppiter/ config directory exists
