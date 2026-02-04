@@ -131,19 +131,19 @@ focus on Phases 1-5.
 **AcornOS install-tests:**
 - [x] 8.1 [acorn] install-tests `--distro acorn` mode runs (AcornOS DistroContext already exists)
 - [x] 8.2 [acorn] Phase 1 (Boot): ISO detected, UEFI boot, system clock reasonable
-- [ ] 8.3 [acorn] Phase 2 (Disk): GPT partitioning, FAT32 ESP + ext4 root, mounted correctly
-- [ ] 8.4 [acorn] Phase 3 (Base System): recstrap extracts rootfs, recfstab generates fstab, recchroot works
-- [ ] 8.5 [acorn] Phase 4 (Config): timezone, hostname, root password, user account created
-- [ ] 8.6 [acorn] Phase 5 (Bootloader): kernel + initramfs copied to ESP, systemd-boot installed, services enabled
-- [ ] 8.7 [acorn] Phase 6 (Post-reboot): installed system boots and login works (KNOWN BROKEN — may be BLOCKED)
+- [BLOCKED] 8.3 [acorn] Phase 2 (Disk): GPT partitioning, FAT32 ESP + ext4 root, mounted correctly
+- [BLOCKED] 8.4 [acorn] Phase 3 (Base System): recstrap extracts rootfs, recfstab generates fstab, recchroot works
+- [BLOCKED] 8.5 [acorn] Phase 4 (Config): timezone, hostname, root password, user account created
+- [BLOCKED] 8.6 [acorn] Phase 5 (Bootloader): kernel + initramfs copied to ESP, systemd-boot installed, services enabled
+- [BLOCKED] 8.7 [acorn] Phase 6 (Post-reboot): installed system boots and login works (KNOWN BROKEN — may be BLOCKED)
 
 **IuppiterOS install-tests:**
 - [x] 8.8 [iuppiter] Create IuppiterOS DistroContext in testing/install-tests/src/distro/iuppiter.rs
 - [x] 8.9 [iuppiter] IuppiterOS DistroContext: OpenRC init, ash shell, serial console boot patterns, iuppiter services
 - [x] 8.10 [iuppiter] Register iuppiter in distro/mod.rs so `--distro iuppiter` is recognized
 - [x] 8.11 [iuppiter] install-tests `--distro iuppiter` mode runs
-- [ ] 8.12 [iuppiter] Phases 1-5 pass for IuppiterOS (same steps as AcornOS but with iuppiter identity)
-- [ ] 8.13 [iuppiter] Phase 6 (Post-reboot): may be BLOCKED (same as AcornOS)
+- [BLOCKED] 8.12 [iuppiter] Phases 1-5 pass for IuppiterOS (same steps as AcornOS but with iuppiter identity)
+- [BLOCKED] 8.13 [iuppiter] Phase 6 (Post-reboot): may be BLOCKED (same as AcornOS)
 
 **IuppiterOS-specific verification (manual or scripted in QEMU):**
 - [x] 8.14 [iuppiter] smartctl runs against QEMU virtual drive (exit 0 or known SMART error code)

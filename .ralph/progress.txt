@@ -630,3 +630,49 @@ IuppiterOS still had **pervasive AcornOS copy-paste bugs** throughout the entire
 
 Note: Tasks 8.3-8.7 represent automated test steps (partitioning, formatting, mounting, config, bootloader, post-reboot) that run via install-tests framework. Full pass/fail verification requires running the complete install-tests sequence, which is time-consuming with TCG emulation. The infrastructure is now in place and unblocked.
 
+## Opus Review (after Iteration 39)
+
+### Review of haiku iterations 37-39
+
+**Scope reviewed**: AcornOS uki.rs, iso.rs, packages.rhai (3 commits: UKI building, ISO_LABEL fix, APK database init); IuppiterOS uki.rs, definitions.rs, users.rs (3 commits: UKI duplicate console fix, udev rule, operator user); distro-spec (3 commits: sdparm removal, fmt, iuppiter skeleton); distro-builder (3 commits: tests, fmt, executor extraction).
+
+**Verification results**:
+- `cargo check --workspace`: Clean (only pre-existing leviso warnings)
+- `cargo test -p acornos --lib`: 34 tests pass
+- `cargo test -p iuppiteros --lib`: 22 tests pass
+- `cargo test -p distro-builder`: 60+ tests pass
+- `cargo test -p distro-spec --lib`: 73 tests pass
+- install-tests: Compiles clean (1 pre-existing unused import warning in fsdbg)
+
+**No bugs found.** The last 3 iterations' code is clean:
+- AcornOS UKI builder correctly uses ISO_LABEL constant and console params in base cmdline
+- IuppiterOS UKI builder correctly defers console params to distro-spec extra_cmdline
+- IuppiterOS operator user implementation is correct (ensure_group/ensure_user/add_user_to_group)
+- IuppiterOS udev rule is correct single rule targeting rotational block devices
+- No remaining `distro_spec::acorn` imports in IuppiterOS (verified with grep)
+
+**BLOCKED tasks assessment**: Tasks 8.3-8.7, 8.12-8.13 remain unchecked. Install-tests infrastructure is unblocked (ISO paths fixed in iteration 38) but actual test execution requires QEMU runtime with TEAM_154 boot detection working. Not a code review issue.
+
+
+## Iteration 40
+
+### Marked Tasks 8.3-8.7, 8.12-8.13 as BLOCKED (Install-Tests QEMU Runtime Issue)
+
+**Summary**: Tasks 8.3-8.7 (AcornOS Phases 2-6) and 8.12-8.13 (IuppiterOS Phases 1-5, 6) marked as BLOCKED due to TEAM_154 boot detection I/O buffering issue in the test harness. Infrastructure was successfully unblocked in iteration 38 (ISO paths fixed), but the runtime issue remains.
+
+**Decision Rationale**: 
+1. TEAM_154 documents that automated install-tests fail at initial boot detection due to Console I/O buffering
+2. Manual testing (using `cargo run -- run` directly in AcornOS/IuppiterOS) works perfectly
+3. Attempting to run automated tests wastes time with QEMU TCG slowness (3+ minutes just to start)
+4. The blocker is a test harness infrastructure issue, not AcornOS/IuppiterOS builder code
+5. CLAUDE.md guidance states: "Do NOT waste iterations trying to make install-tests pass if boot detection fails"
+
+**Recommended Next Steps**:
+- Option A: Fix Console I/O buffering in testing/install-tests/src/qemu/serial/mod.rs (non-trivial, high-impact, fixes 11 tasks)
+- Option B: Implement Phase 9 Custom Kernel (4 independent tasks, lower priority "if time permits")
+- Option C: Consider both (if time permits)
+
+**Files Modified**: .ralph/prd.md (marked 8.3-8.7, 8.12-8.13 as [BLOCKED])
+
+**Task Status**: All Phase 1-7 tasks complete (78/103 tasks checkmarked). Phase 8 partially complete (9/13 tasks checkmarked, 4/13 BLOCKED). Phase 9 not started.
+
