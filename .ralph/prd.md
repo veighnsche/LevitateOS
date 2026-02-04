@@ -60,8 +60,8 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 3.16 [acorn] Live overlay configuration: rootfs is EROFS (read-only), init creates tmpfs overlay
 - [x] 3.17 [acorn] EROFS rootfs builds without errors (mkfs.erofs with zstd compression)
 - [x] 3.18 [acorn] EROFS rootfs size < 500MB compressed
-- [ ] 3.19 [iuppiter] IuppiterOS rootfs: same FHS structure as AcornOS, using iuppiter package tiers
-- [ ] 3.20 [iuppiter] /etc/inittab: getty on ttyS0 (serial console primary), NOT tty1
+- [x] 3.19 [iuppiter] IuppiterOS rootfs: same FHS structure as AcornOS, using iuppiter package tiers
+- [x] 3.20 [iuppiter] /etc/inittab: getty on ttyS0 (serial console primary), NOT tty1
 - [ ] 3.21 [iuppiter] /etc/os-release contains IuppiterOS identity from distro-spec
 - [ ] 3.22 [iuppiter] /etc/hostname set to "iuppiter" (from distro-spec)
 - [ ] 3.23 [iuppiter] Same test instrumentation as AcornOS (___SHELL_READY___ on serial console)

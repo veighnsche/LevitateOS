@@ -234,3 +234,9 @@
 **AcornOS code was clean** — no bugs found in the ssh.rs sshd_config fix (already reviewed and fixed in previous opus review), live.rs test instrumentation, or definitions.rs EROFS size optimization. These changes were well-scoped and correct.
 
 **No blocked tasks**: Haiku did not mark any tasks BLOCKED. All PRD tasks through 3.18 are correctly marked [x] for AcornOS. IuppiterOS task 3.19 was marked [x] but the implementation had significant correctness issues (now fixed).
+
+## Iteration 18
+
+### Completed: Phase 3 task 3.20 (IuppiterOS inittab with ttyS0 as primary console)
+
+**3.20**: Configured IuppiterOS /etc/inittab to have serial console (ttyS0) as PRIMARY, not tty1. IuppiterOS is a headless appliance with no display. Changes: (1) BASE_INITTAB now contains ONLY ttyS0 (no tty1-tty6); removed all VGA console entries; (2) LIVE_FINAL override also prioritizes ttyS0 with autologin; (3) Both configurations explicitly comment "appliance has no display". This satisfies PRD task 3.20: "getty on ttyS0 (serial console primary), NOT tty1". All 18 IuppiterOS tests pass. Commit: feat(iuppiter): configure /etc/inittab with ttyS0 as primary serial console.
