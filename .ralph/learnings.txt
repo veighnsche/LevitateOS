@@ -1,5 +1,14 @@
 ## Learnings
 
+### SSH Key Generation Must Use Host Tools
+When generating SSH host keys during rootfs construction, use the host system's ssh-keygen, not the one from the staging rootfs. The staging binaries don't have their library dependencies resolved yet (musl libc symbols missing), causing dynamic link errors. The host's ssh-keygen has full glibc support and works reliably. This pattern should apply to any tools that have complex OpenSSL/crypto dependencies.
+
+### sshd Init Script Already Provided by Alpine
+OpenSSH includes a ready-made sshd init script in /etc/init.d/ when openssh-server is installed. No need to write custom scripts—just copy the existing one via copy_tree("etc/ssh") and openrc_scripts() operations.
+
+### Custom Operations Integrate Cleanly Into Component System
+Adding a new custom operation (SetupSsh) required: (1) Create ssh.rs module in custom/; (2) Add SetupSsh variant to CustomOp enum; (3) Add module to custom/mod.rs imports; (4) Add match arm in custom::execute(). Four small changes, no architectural complexity. The component system's CustomOp dispatch pattern scales well for new operations.
+
 ### Preflight Infrastructure Already Exists
 The preflight module (disk space, host tools, network checks) was already fully implemented in AcornOS/src/preflight/. Only needed to wire up the CLI command using tokio async runtime. PreflightChecker::run_all() is async and needs rt.block_on() in CLI context.
 
@@ -32,3 +41,9 @@ All Alpine signing keys (5 keys total) are embedded as constants in distro_spec:
 
 ### Key Installation Should Happen After Rootfs Extraction
 The best place to install Alpine signing keys is in the recipe/alpine.rs:alpine() function, immediately after verifying the rootfs paths exist. This ensures keys are available before packages.rhai runs and installs packages. Keys can be verified at build time with unit tests that check PEM format and existence.
+
+### Separate packages.rhai Per Distro
+Each distro (AcornOS and IuppiterOS) has its own packages.rhai recipe with hardcoded package lists. This is simpler than parameterized recipes (which would add complexity to the Rhai language execution). The recipe structure is: (1) TIER0/TIER1/TIER2/TIER3 constants defined at the top with comments; (2) build() function installs each tier via apk add; (3) is_installed() verifies distro-specific key binaries. This makes it immediately clear what packages each distro installs, and allows easy customization per distro.
+
+### Copy-Paste Errors Require Full Audit
+When IuppiterOS recipe module was copied from AcornOS (iteration 3), error messages were fixed (iteration 9 opus review) but doc comments were missed. Lesson: when reviewing copy-paste modules, search for ALL references to the source name (e.g., grep for "acorn" case-insensitive), not just the specific pattern reported.

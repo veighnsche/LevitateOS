@@ -54,7 +54,7 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 3.10 [acorn] /etc/resolv.conf configured (or dhcpcd manages it)
 - [x] 3.11 [acorn] User creation works: doas (not sudo), root password for live, user in wheel group
 - [x] 3.12 [acorn] /etc/os-release contains AcornOS identity from distro-spec
-- [ ] 3.13 [acorn] SSH: sshd installed, host keys generated, sshd_config allows root login for live ISO
+- [x] 3.13 [acorn] SSH: sshd installed, host keys generated, sshd_config allows root login for live ISO
 - [ ] 3.14 [acorn] All Tier 0-2 packages from distro-spec::acorn::packages installed in rootfs
 - [ ] 3.15 [acorn] Test instrumentation: /etc/profile.d/00-test.sh emits ___SHELL_READY___ marker for install-tests
 - [ ] 3.16 [acorn] Live overlay configuration: rootfs is EROFS (read-only), init creates tmpfs overlay
