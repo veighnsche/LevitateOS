@@ -116,8 +116,8 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 7.5 [iuppiter] /var/data mount point exists (data partition for refurbishment artifacts)
 - [x] 7.6 [iuppiter] /etc/iuppiter/ config directory exists
 - [x] 7.7 [iuppiter] /opt/iuppiter/ binary directory exists
-- [ ] 7.8 [iuppiter] iuppiter-engine OpenRC service script in /etc/init.d/ (placeholder binary OK — just needs to start/stop cleanly)
-- [ ] 7.9 [iuppiter] Operator user created with wheel + disk group membership (disk group for /dev/sd* access)
+- [x] 7.8 [iuppiter] iuppiter-engine OpenRC service script in /etc/init.d/ (placeholder binary OK — just needs to start/stop cleanly)
+- [x] 7.9 [iuppiter] Operator user created with wheel + disk group membership (disk group for /dev/sd* access)
 - [ ] 7.10 [iuppiter] udev rule: set mq-deadline I/O scheduler for rotational drives
 - [ ] 7.11 [iuppiter] /dev/sg* devices accessible after boot (SCSI generic for smartctl SG_IO passthrough)
 

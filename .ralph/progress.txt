@@ -450,3 +450,32 @@ IuppiterOS still had **pervasive AcornOS copy-paste bugs** throughout the entire
 
 **7.7**: Created `/opt/iuppiter/` binary directory in IuppiterOS FHS structure. Implementation: Added `"opt/iuppiter"` to FHS_DIRS array in IuppiterOS/src/component/definitions.rs, placing it after the core "opt" directory. The directory is automatically created during rootfs build by the FILESYSTEM component. Verified: Built fresh rootfs and confirmed `/opt/iuppiter` directory exists in output/rootfs-staging/opt/. All 22 IuppiterOS tests pass. Cargo check clean. This directory follows FHS standards for third-party application binaries and will store IuppiterOS-specific appliance binaries and utilities. Commit: feat(iuppiter): add /opt/iuppiter/ binary directory to FHS structure. Task 7.7 complete.
 
+## Opus Review (after Iteration 30)
+
+### Review of haiku iterations 28-30
+
+**Scope reviewed**: AcornOS (3 commits: APK --usermode fix, ISO_LABEL constant in UKI, UKI building); IuppiterOS (3 commits: iuppiter-engine service, /opt/iuppiter dir, /etc/iuppiter dir); distro-spec (3 commits: sdparm removal, cargo fmt, iuppiter skeleton).
+
+**Verification results**:
+- `cargo check --workspace`: FAILED before fix (IuppiterOS compilation error)
+- After fix: Clean (only pre-existing leviso warnings)
+- `cargo test -p acornos --lib`: 34 tests pass
+- `cargo test -p iuppiteros`: 22 tests pass
+- `cargo test -p distro-builder`: 60+ tests pass
+- `cargo test -p distro-spec`: 73+ tests pass
+
+**Bugs found and fixed (1 commit, 1 file)**:
+
+1. **CRITICAL: IuppiterOS failed to compile** (definitions.rs:402): The IUPPITER_ENGINE component referenced `CustomOp::SetupIuppiterEngine` which was never added to the `CustomOp` enum and never implemented. This is a compilation-breaking bug — `cargo check -p iuppiteros` fails. Additionally, `"iuppiter-engine"` was added to OPENRC_SCRIPTS which would fail at build time since there's no Alpine package providing that init script (it's a custom IuppiterOS script, not from a package). Also, `copy_tree("opt/iuppiter")` would silently do nothing since the source rootfs has no `opt/iuppiter/` directory. Fixed by: (1) replacing CustomOp + copy_tree with inline WriteFileMode ops that write the init script and placeholder binary directly; (2) removing "iuppiter-engine" from OPENRC_SCRIPTS. Commit: fix(iuppiter): replace broken CustomOp::SetupIuppiterEngine with inline WriteFileMode ops.
+
+**AcornOS code was clean** — UKI builder uses ISO_LABEL constant correctly, packages.rhai --usermode removal is correct, iso.rs UKI integration is well-placed.
+
+**distro-spec code was clean** — sdparm removal is correct (verified not in Alpine v3.23), iuppiter skeleton has no copy-paste bugs from acorn.
+
+**No blocked tasks found in last 3 iterations**. PRD tasks 7.5-7.8 are correctly marked [x]. Task 7.8 (iuppiter-engine service) was functionally broken but is now fixed.
+
+## Iteration 32
+
+### Completed: Phase 7 task 7.9 (Operator user created with wheel + disk group membership)
+
+**7.9**: Implemented operator user creation for IuppiterOS with wheel and disk group memberships. Initial investigation found that the component infrastructure was already in place (SetupOperatorUser CustomOp variant, users.rs module with setup_operator_user() function) but the user wasn't being created. Root cause: OPERATOR_USER component was in Phase::Services but the passwd/group files are created by BRANDING component in Phase::Config. When OPERATOR_USER tried to run, the files didn't exist yet. Fix: (1) Changed OPERATOR_USER phase from Phase::Services to Phase::Config; (2) Reordered ALL_COMPONENTS to place OPERATOR_USER after BRANDING (which creates passwd/group files). Verification: Rebuilt rootfs and confirmed operator user is present in /etc/passwd with UID 1000, GID 1000, home at /home/operator, shell /bin/ash. Verified /etc/group has operator user in wheel (GID 10) and disk (GID 6) groups for privileged commands and disk device access. Home directory and .ssh subdirectory created. All 22 IuppiterOS tests pass. ISO builds successfully. Commit: feat(iuppiter): ensure operator user is created after passwd/group files. Task 7.9 complete.
