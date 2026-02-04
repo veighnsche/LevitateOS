@@ -59,6 +59,7 @@ COMPLETED_TASKS=0
 FAILED_ITERATIONS=0
 TIMED_OUT_ITERATIONS=0
 RATE_LIMITED_WAITS=0
+REWARD_HACKS_BLOCKED=0
 
 # =============================================================================
 # Utilities
@@ -168,6 +169,109 @@ verify_claude_md() {
 }
 
 # =============================================================================
+# Anti-reward-hack guard
+# =============================================================================
+# These submodules must NOT be modified by the ralph loop.
+# If claude changes test code to make tests pass, we revert it.
+
+PROTECTED_SUBMODULES=(
+    "testing/install-tests"
+    "testing/cheat-guard"
+    "testing/cheat-test"
+    "testing/rootfs-tests"
+    "testing/fsdbg"
+    "testing/hardware-compat"
+    "leviso"
+    "tools/recstrap"
+    "tools/recfstab"
+    "tools/recchroot"
+    "tools/recqemu"
+    "tools/recuki"
+    "tools/reciso"
+    "tools/recinit"
+    "tools/recipe"
+)
+
+# Also protect specific paths inside non-submodule dirs
+PROTECTED_PATHS=(
+    "distro-spec/src/levitate"
+)
+
+check_and_revert_protected() {
+    local found_tampering=false
+
+    # Check submodules for uncommitted changes or new commits
+    for sub in "${PROTECTED_SUBMODULES[@]}"; do
+        local sub_path="$PROJECT_ROOT/$sub"
+        [[ -d "$sub_path/.git" || -f "$sub_path/.git" ]] || continue
+
+        # Check for dirty working tree inside submodule
+        local dirty
+        dirty=$(cd "$sub_path" && git status --porcelain 2>/dev/null)
+        if [[ -n "$dirty" ]]; then
+            error "REWARD HACK BLOCKED: $sub has uncommitted changes"
+            error "  Reverting: git -C $sub checkout -- ."
+            (cd "$sub_path" && git checkout -- . && git clean -fd) 2>/dev/null
+            found_tampering=true
+        fi
+
+        # Check if submodule pointer moved (new commits)
+        local parent_diff
+        parent_diff=$(cd "$PROJECT_ROOT" && git diff --submodule=short -- "$sub" 2>/dev/null)
+        if [[ -n "$parent_diff" ]]; then
+            error "REWARD HACK BLOCKED: $sub submodule pointer changed"
+            error "  Reverting: git checkout -- $sub"
+            (cd "$PROJECT_ROOT" && git checkout -- "$sub") 2>/dev/null
+            found_tampering=true
+        fi
+    done
+
+    # Check protected paths (not submodules, just directories)
+    for protected in "${PROTECTED_PATHS[@]}"; do
+        local ppath="$PROJECT_ROOT/$protected"
+        [[ -d "$ppath" ]] || continue
+
+        # Find the submodule this path belongs to
+        # distro-spec/src/levitate → submodule is distro-spec
+        local sub_root="${protected%%/*}"
+        local sub_path="$PROJECT_ROOT/$sub_root"
+
+        local changes
+        changes=$(cd "$sub_path" && git diff --name-only -- "${protected#*/}" 2>/dev/null)
+        if [[ -n "$changes" ]]; then
+            error "REWARD HACK BLOCKED: $protected has changes"
+            while IFS= read -r f; do
+                error "  Reverting: $sub_root/$f"
+                (cd "$sub_path" && git checkout -- "$f") 2>/dev/null
+            done <<< "$changes"
+            found_tampering=true
+        fi
+
+        # Also check for untracked files in protected path
+        local untracked
+        untracked=$(cd "$sub_path" && git ls-files --others --exclude-standard -- "${protected#*/}" 2>/dev/null)
+        if [[ -n "$untracked" ]]; then
+            error "REWARD HACK BLOCKED: $protected has new files"
+            while IFS= read -r f; do
+                error "  Removing: $sub_root/$f"
+                rm -f "$sub_path/$f"
+            done <<< "$untracked"
+            found_tampering=true
+        fi
+    done
+
+    if [[ "$found_tampering" == "true" ]]; then
+        ((REWARD_HACKS_BLOCKED++))
+        error "━━━ TAMPERING DETECTED AND REVERTED ━━━"
+        error "Claude tried to modify protected test/tool code instead of fixing the actual code."
+        error "This iteration's test results are INVALID."
+        return 1
+    fi
+
+    return 0
+}
+
+# =============================================================================
 # Summary & cleanup
 # =============================================================================
 
@@ -180,6 +284,7 @@ print_summary() {
     echo -e "  Failed iterations:   $FAILED_ITERATIONS"
     echo -e "  Timed out:           $TIMED_OUT_ITERATIONS"
     echo -e "  Rate limit waits:    $RATE_LIMITED_WAITS"
+    echo -e "  Reward hacks blocked: $REWARD_HACKS_BLOCKED"
     echo -e "  Logs:                $LOG_DIR/"
     echo ""
 }
@@ -359,6 +464,14 @@ run_iteration() {
 
     # Verify CLAUDE.md wasn't tampered with
     verify_claude_md "$phase"
+
+    # Anti-reward-hack: revert any changes to protected submodules
+    if ! check_and_revert_protected; then
+        warn "Iteration $iteration attempted reward hacking — treating as failed"
+        ((FAILED_ITERATIONS++))
+        echo "REWARD HACK: modified protected test/tool code — reverted" >> "$RALPH_DIR/${phase}-progress.txt"
+        return 1
+    fi
 
     # Check progress changed
     local progress_after
