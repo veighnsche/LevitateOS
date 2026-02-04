@@ -107,3 +107,12 @@ Not all packages exist in Alpine repos. sdparm was listed in distro-spec REFURBI
 
 ### When Removing a Package, Update ALL References
 Removing sdparm from packages.rhai required changes in 3 places: (1) the recipe itself (packages.rhai), (2) the unit test asserting its presence (lib.rs), (3) the distro-spec constant array (packages.rs). Missing any one of these causes test failures or spec drift. Pattern: grep for the package name across all submodules before declaring the removal complete.
+
+### Custom Operations Need Complete Implementation Before Adding to Components
+When adding a new CustomOp variant that's referenced in a component definition, ALL three pieces must be added atomically: (1) the variant in the CustomOp enum, (2) the match arm in custom::execute(), (3) the actual implementation function. Adding the component reference without the enum variant causes a compilation error. Consider using declarative WriteFileMode ops for simple static file content instead of custom ops — this avoids the dispatch boilerplate entirely and keeps the component definition self-contained.
+
+### OPENRC_SCRIPTS Only Works for Alpine-Provided Init Scripts
+The OPENRC_SCRIPTS array feeds into copy_init_script() which copies from the Alpine source rootfs's /etc/init.d/. Custom service scripts (like iuppiter-engine) that aren't from Alpine packages must NOT be in this array — they will fail with "init script not found". Instead, write custom init scripts using WriteFileMode ops directly in the component that owns the service.
+
+### UKI Extra Cmdline vs Base Cmdline: Avoid Double-Sourcing Console Parameters
+When distro-spec UKI entries include console parameters in their `extra_cmdline` field, the UKI builder must NOT also add those same console parameters to the base cmdline. This is especially important for IuppiterOS where every entry includes `console=ttyS0,115200n8` in extra_cmdline. The AcornOS pattern is different — its entries have empty extra_cmdline, so console params go in the base cmdline. When reviewing UKI builders, always check: does `base_cmdline + extra_cmdline` produce duplicate parameters?

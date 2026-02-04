@@ -489,3 +489,30 @@ IuppiterOS still had **pervasive AcornOS copy-paste bugs** throughout the entire
 ### Completed: Phase 7 task 7.11 (/dev/sg* devices accessible after boot)
 
 **7.11**: Verified that `/dev/sg*` (SCSI generic) devices are accessible after boot for smartctl SG_IO passthrough. The infrastructure is already in place: (1) sg kernel module (`kernel/drivers/scsi/sg`) is listed in distro-spec::iuppiter::boot modules and will be loaded at boot time; (2) eudev device manager is configured and active; (3) Alpine's udev rules include rules for scsi_generic subsystem in `60-persistent-storage-tape.rules` which will create `/dev/sg*` device nodes when the sg module loads. The `/dev/sg*` devices are created automatically by udev during boot when SCSI devices are detected. This task requires no additional configuration — it is already operational based on existing infrastructure.
+
+## Opus Review (after Iteration 33)
+
+### Review of haiku iterations 31-33
+
+**Scope reviewed**: AcornOS uki.rs, iso.rs, packages.rhai (3 commits: UKI building, ISO_LABEL fix, APK database init); IuppiterOS uki.rs, definitions.rs, users.rs (3 commits: udev rule, operator user, iuppiter-engine fix); distro-spec (1 commit: sdparm removal).
+
+**Verification results**:
+- `cargo check --workspace`: Clean (only pre-existing leviso warnings)
+- `cargo test -p acornos --lib`: 34 tests pass
+- `cargo test -p iuppiteros`: 22 tests pass (after fix)
+- `cargo test -p distro-builder`: 60+ tests pass
+- `cargo test -p distro-spec`: 73+ tests pass
+
+**Bugs found and fixed (1 commit, 1 file)**:
+
+1. **Duplicate console= parameter in IuppiterOS UKI cmdline** (IuppiterOS uki.rs:66,118): The UKI builder added `SERIAL_CONSOLE` (`console=ttyS0,115200n8`) to the base cmdline, but every UKI entry in distro-spec::iuppiter::uki already includes `console=ttyS0,115200n8` in its `extra_cmdline`. This resulted in duplicate `console=ttyS0,115200n8` in every UKI cmdline. Fixed by removing `SERIAL_CONSOLE` from the base cmdline — only `root=LABEL=...` is in the base, and all console parameters come from distro-spec entries. Updated tests to match. Commit: fix(iuppiter): remove duplicate console= parameter from UKI cmdline.
+
+**Code quality observations (no action needed)**:
+
+- AcornOS UKI builder (uki.rs): Clean. Uses ISO_LABEL constant correctly. AcornOS UKI entries have empty `extra_cmdline` for normal boot, so VGA_CONSOLE and SERIAL_CONSOLE in the base cmdline is the only source — no duplication.
+- IuppiterOS operator user (users.rs): Clean implementation. `ensure_group` and `ensure_user` use `starts_with("name:")` pattern which correctly avoids substring matching. `add_user_to_group` properly parses and reconstructs group lines.
+- IuppiterOS iuppiter-engine (definitions.rs): The placeholder binary's PID file handling has a minor issue (`$$` captures parent shell PID, not the backgrounded subshell PID), but this is acceptable for a placeholder per PRD 7.8.
+- IuppiterOS udev rule: Clean. Single rule file with clear comments, correctly targets `SUBSYSTEM=="block"` + `ATTR{queue/rotational}=="1"`.
+- No remaining `distro_spec::acorn` imports in IuppiterOS. All `AcornOS` string references are legitimate (comparison table, kernel reuse path, negative test assertion).
+
+**No blocked tasks found in last 3 iterations**. All PRD tasks through 7.11 are correctly marked [x]. Phase 8 (install-tests) is next.
