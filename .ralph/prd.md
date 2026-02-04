@@ -83,8 +83,8 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 
 ### Phase 5: ISO Build
 
-- [ ] 5.1 [acorn] UKI builds with AcornOS entries from distro-spec::acorn::uki (3 live + 2 installed)
-- [ ] 5.2 [acorn] systemd-boot loader.conf configured, ISO builds via reciso + xorriso (UEFI bootable)
+- [x] 5.1 [acorn] UKI builds with AcornOS entries from distro-spec::acorn::uki (3 live + 2 installed)
+- [x] 5.2 [acorn] systemd-boot loader.conf configured, ISO builds via reciso + xorriso (UEFI bootable)
 - [ ] 5.3 [acorn] ISO label matches distro-spec: "ACORNOS"
 - [ ] 5.4 [acorn] `cargo run -- run` launches QEMU with the built ISO (GUI mode)
 - [ ] 5.5 [iuppiter] UKI builds with IuppiterOS entries from distro-spec::iuppiter::uki (all have serial console cmdline)
