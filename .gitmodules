@@ -71,3 +71,6 @@
 [submodule "testing/fsdbg"]
 	path = testing/fsdbg
 	url = git@github.com:LevitateOS/fsdbg.git
+[submodule "IuppiterOS"]
+	path = IuppiterOS
+	url = git@github.com:veighnsche/iuppiterOS.git
