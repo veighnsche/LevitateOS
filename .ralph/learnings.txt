@@ -1,0 +1,13 @@
+## Learnings
+
+### Preflight Infrastructure Already Exists
+The preflight module (disk space, host tools, network checks) was already fully implemented in AcornOS/src/preflight/. Only needed to wire up the CLI command using tokio async runtime. PreflightChecker::run_all() is async and needs rt.block_on() in CLI context.
+
+### Command Architecture Differs from LevitateOS
+AcornOS has a slightly flatter command structure vs leviso (initramfs and iso as top-level vs. under build subcommand). This is fine—the functionality is equivalent. The structure was likely chosen for Alpine's different build pattern.
+
+### Install-Tests Boot Detection Broken (TEAM_154)
+The automated install-tests fail before Phase 1 due to Console I/O buffering in the test harness. Manual QEMU boot works perfectly. Don't waste time on install-tests until the Console I/O is fixed. Use `cargo run -- run` for manual verification.
+
+### Phase 6 Post-Reboot Long-Broken
+Phase 6 of install-tests (post-reboot verification) has been broken for a long time. Focus on Phases 1-5.

@@ -4,10 +4,10 @@
 
 ```bash
 cd ~/Projects/LevitateOS
-tmux new -s ralph '.ralph/ralph.sh all'
+tmux new -s ralph '.ralph/ralph.sh'
 ```
 
-That's it. Detach with `Ctrl+B, D`. Go to sleep. AcornOS builds first, then IuppiterOS.
+That's it. Detach with `Ctrl+B, D`. Go to sleep. Both AcornOS and IuppiterOS build in one interleaved loop.
 
 ## Reconnect
 
@@ -20,12 +20,12 @@ Live output picks up where you left off. Scroll up with `Ctrl+B, [`.
 ## Commands
 
 ```bash
-.ralph/ralph.sh all              # AcornOS then IuppiterOS (50 iterations each)
-.ralph/ralph.sh all 30           # Same but 30 iterations each
-.ralph/ralph.sh acorn            # AcornOS only (50 iterations)
-.ralph/ralph.sh acorn 10         # AcornOS only, 10 iterations
-.ralph/ralph.sh iuppiter         # IuppiterOS only (50 iterations)
+.ralph/ralph.sh              # Default: 50 iterations
+.ralph/ralph.sh 30           # 30 iterations
+.ralph/ralph.sh build 30     # Same (explicit)
 ```
+
+Tasks are interleaved by dependency, not by variant. The PRD tags each task `[acorn]`, `[iuppiter]`, or `[shared]` — haiku picks the next unchecked task regardless of which variant it belongs to.
 
 ## What Happens
 
@@ -45,34 +45,35 @@ Each iteration:
 4. Commits inside the submodule
 5. Marks the PRD task as done
 6. Appends to progress and learnings files
+7. Creates a team file in `.teams/`
 
 ## Stops When
 
 - All PRD tasks are `[x]` and tests pass (outputs `<promise>COMPLETE</promise>`)
-- Max iterations reached (default: 50 per phase)
+- Max iterations reached (default: 50)
 - 3 consecutive iterations with no progress (stagnation)
 - You press `Ctrl+C` (graceful cleanup, restores CLAUDE.md)
 
 ## Logs
 
 ```
-.ralph/logs/acorn-001.log        # Full haiku output, iteration 1
-.ralph/logs/acorn-002.log        # Iteration 2
-.ralph/logs/acorn-review-003.log # Opus review after iteration 3
-.ralph/logs/iuppiter-001.log     # IuppiterOS iterations
+.ralph/logs/build-001.log        # Full haiku output, iteration 1
+.ralph/logs/build-002.log        # Iteration 2
+.ralph/logs/review-003.log       # Opus review after iteration 3
 .ralph/logs/modifications.log    # Soft warnings (tools/testing changes)
 ```
 
 ## Progress Files
 
 ```
-.ralph/acorn-progress.txt        # What each iteration did
-.ralph/acorn-learnings.txt       # Patterns and gotchas discovered
-.ralph/acorn-prd.md              # Task checklist ([ ] → [x])
-.ralph/iuppiter-progress.txt
-.ralph/iuppiter-learnings.txt
-.ralph/iuppiter-prd.md
+.ralph/prd.md                    # Consolidated task checklist ([ ] → [x])
+.ralph/progress.txt              # What each iteration did
+.ralph/learnings.txt             # Patterns and gotchas discovered
 ```
+
+## Team Files
+
+Each iteration creates a team file in `.teams/TEAM_NNN_description.md` documenting what was implemented, decisions made, and any issues found.
 
 ## Safety
 
@@ -102,6 +103,14 @@ Installed in AcornOS, IuppiterOS, distro-spec, distro-builder:
 
 If Claude hits a rate limit, the script waits 5 minutes and retries (up to 5 times per iteration). No iterations wasted.
 
+## Known Issues
+
+### Install-Tests Boot Detection (TEAM_154)
+
+The automated install-tests runner fails during initial boot detection. This is a Console I/O buffering issue in the test harness, not an ISO problem. Manual QEMU boot works perfectly. Phase 6 (post-reboot verification) has also been broken for ages.
+
+See `.teams/TEAM_154_install-tests-broken-boot-detection.md` for details.
+
 ## If Things Go Wrong
 
 ### Reset to before the ralph loop ran
@@ -118,7 +127,7 @@ See `.ralph/RESET.md` for more reset options.
 If the loop aborted due to stagnation at iteration 20:
 
 ```bash
-.ralph/ralph.sh acorn 30    # 30 more iterations from where it stopped
+.ralph/ralph.sh 30    # 30 more iterations from where it stopped
 ```
 
 The PRD and progress files persist, so haiku picks up where it left off.
@@ -133,7 +142,7 @@ If tmux shows haiku is stuck (no output for minutes), press `Ctrl+C` once. The t
 |-------|--------------|---------------|
 | Haiku | ~$0.01-0.10 | ~$0.50-5.00 |
 | Opus review | ~$1-3 | ~$16-48 (16 reviews) |
-| **Total `all` run** | | **~$5-60** |
+| **Total run** | | **~$5-60** |
 
 ## Config
 
@@ -144,7 +153,7 @@ MODEL="haiku"              # Worker model
 REVIEW_MODEL="opus"        # Reviewer model
 REVIEW_EVERY=3             # Opus review frequency
 REVIEW_BUDGET=5.00         # USD cap per opus review
-DEFAULT_MAX_ITERATIONS=50  # Iterations per phase
+DEFAULT_MAX_ITERATIONS=50  # Iterations per run
 ITERATION_TIMEOUT=3600     # 60 min safety net per iteration
 COOLDOWN_SECONDS=5         # Pause between iterations
 MAX_BUDGET_PER_ITERATION=1.00  # USD cap per haiku iteration

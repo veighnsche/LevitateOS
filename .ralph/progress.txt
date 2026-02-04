@@ -1,0 +1,5 @@
+## Iteration 1
+
+### Completed: Phase 1 tasks 1.1-1.4 (AcornOS builder compiles)
+
+**1.1-1.4**: Added preflight CLI command (validates xorriso, mkfs.erofs, tar, cpio, curl, disk space, network). All Phase 1 AcornOS tasks pass. Builder compiles, status command works, all major CLI commands functional and equivalent to leviso.

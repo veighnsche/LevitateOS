@@ -3,21 +3,20 @@ set -uo pipefail
 # NOTE: no `set -e` — we handle errors explicitly throughout
 
 # =============================================================================
-# Ralph Loop — AcornOS + IuppiterOS Builder
+# Ralph Loop — AcornOS + IuppiterOS Consolidated Builder
 # =============================================================================
 #
-# Runs Claude Code (haiku) in a loop to build AcornOS and IuppiterOS.
-# Each iteration: read PRD + progress → implement one task → test → commit.
+# Runs Claude Code (haiku) in a loop to build both AcornOS and IuppiterOS.
+# Tasks are interleaved by dependency, not by variant. Each iteration picks
+# the next unchecked task from the consolidated PRD regardless of variant.
 #
 # Usage:
-#   .ralph/ralph.sh acorn [max_iterations]    # Build AcornOS (default: 50)
-#   .ralph/ralph.sh iuppiter [max_iterations] # Build IuppiterOS (default: 50)
-#   .ralph/ralph.sh all [max_iterations]      # AcornOS first, then IuppiterOS
+#   .ralph/ralph.sh [max_iterations]           # Build both (default: 50)
+#   .ralph/ralph.sh build [max_iterations]     # Same as above (explicit)
 #
 # Requirements:
 #   - claude CLI installed and authenticated
 #   - Running from LevitateOS project root
-#   - ~6 hours unattended time
 #   - Internet connection for Claude API
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -175,8 +174,7 @@ install_hooks() {
 # =============================================================================
 
 install_claude_md() {
-    local phase="$1"
-    local source="$RALPH_DIR/CLAUDE-${phase}.md"
+    local source="$RALPH_DIR/CLAUDE-build.md"
 
     if [[ ! -f "$source" ]]; then
         error "Missing $source"
@@ -192,7 +190,7 @@ install_claude_md() {
     cp "$source" "$PROJECT_ROOT/CLAUDE.md"
     # Store checksum to detect if claude modifies it
     md5_file "$PROJECT_ROOT/CLAUDE.md" > "$RALPH_DIR/.claude-md-checksum"
-    log "Installed CLAUDE.md for phase: $phase"
+    log "Installed CLAUDE.md (consolidated build context)"
 }
 
 restore_claude_md() {
@@ -204,15 +202,14 @@ restore_claude_md() {
 }
 
 verify_claude_md() {
-    local phase="$1"
     local expected
     expected=$(cat "$RALPH_DIR/.claude-md-checksum" 2>/dev/null || echo "")
     local actual
     actual=$(md5_file "$PROJECT_ROOT/CLAUDE.md")
 
     if [[ -n "$expected" && "$expected" != "$actual" ]]; then
-        warn "Claude modified CLAUDE.md — restoring phase context"
-        install_claude_md "$phase"
+        warn "Claude modified CLAUDE.md — restoring build context"
+        install_claude_md
     fi
 }
 
@@ -445,11 +442,10 @@ trap restore_claude_md EXIT
 # @file may not resolve in -p mode, and inlining guarantees claude sees them.
 
 build_prompt() {
-    local phase="$1"
-    local iteration="$2"
-    local prd="$RALPH_DIR/${phase}-prd.md"
-    local progress="$RALPH_DIR/${phase}-progress.txt"
-    local learnings="$RALPH_DIR/${phase}-learnings.txt"
+    local iteration="$1"
+    local prd="$RALPH_DIR/prd.md"
+    local progress="$RALPH_DIR/progress.txt"
+    local learnings="$RALPH_DIR/learnings.txt"
 
     local prd_content
     prd_content=$(cat "$prd")
@@ -463,8 +459,13 @@ build_prompt() {
     [[ -z "$learnings_content" ]] && learnings_content="(no learnings yet)"
 
     cat <<PROMPT
-You are iteration $iteration of a Ralph loop building ${phase^}OS.
+You are iteration $iteration of a Ralph loop building AcornOS + IuppiterOS.
 Work on ONE task only. Take the time you need, but don't wait on stuck commands.
+
+Tasks are tagged [acorn], [iuppiter], or [shared]. Use the tag to know:
+- [acorn] → work in AcornOS/ submodule, commit as feat(acorn): ...
+- [iuppiter] → work in IuppiterOS/ submodule, commit as feat(iuppiter): ...
+- [shared] → work in distro-builder/ or distro-spec/, commit as feat(shared): ...
 
 ═══════════════════════════════════════════
 PRD — find the FIRST unchecked [ ] task
@@ -490,16 +491,21 @@ INSTRUCTIONS
 
 1. Find the FIRST unchecked task in the PRD (marked with [ ]).
 2. Implement ONLY that one task. Do not batch multiple tasks.
-3. Run \`cargo check\` in the relevant crate to verify compilation.
-4. If tests exist, run them.
-5. Commit your changes in the relevant git submodule(s).
+3. Look at the task tag to know which submodule to work in.
+4. Run \`cargo check\` in the relevant crate to verify compilation.
+5. If tests exist, run them.
+6. Commit your changes in the relevant git submodule(s).
    - cd into the submodule directory first
    - git add the specific files you changed
-   - Commit format: feat($phase): short description  OR  fix($phase): short description
-6. Mark the completed task [x] in the PRD file at: $prd
-7. Append a 1-2 line summary to: $progress
-8. If you learned something non-obvious, append to: $learnings
-9. If ALL tasks in the PRD are [x] and tests pass, output exactly on its own line:
+   - Commit format: feat(acorn): ... OR feat(iuppiter): ... OR feat(shared): ...
+   - Match the commit scope to the task tag
+7. Mark the completed task [x] in the PRD file at: $prd
+8. Append a 1-2 line summary to: $progress
+9. If you learned something non-obvious, append to: $learnings
+10. Create a team file: .teams/TEAM_NNN_short-description.md
+    - Check \`ls .teams/TEAM_*.md | tail -1\` to find the next number
+    - Include: date, what you did, files changed, decisions, blockers
+11. If ALL tasks in the PRD are [x] and tests pass, output exactly on its own line:
    <promise>COMPLETE</promise>
 
 CRITICAL RULES:
@@ -518,11 +524,10 @@ PROMPT
 # =============================================================================
 
 build_review_prompt() {
-    local phase="$1"
-    local iteration="$2"
-    local prd="$RALPH_DIR/${phase}-prd.md"
-    local progress="$RALPH_DIR/${phase}-progress.txt"
-    local learnings="$RALPH_DIR/${phase}-learnings.txt"
+    local iteration="$1"
+    local prd="$RALPH_DIR/prd.md"
+    local progress="$RALPH_DIR/progress.txt"
+    local learnings="$RALPH_DIR/learnings.txt"
 
     local prd_content
     prd_content=$(cat "$prd")
@@ -566,7 +571,7 @@ $diff_stat
     done
 
     cat <<PROMPT
-You are an Opus REVIEW iteration for ${phase^}OS (after iteration $iteration).
+You are an Opus REVIEW iteration for AcornOS + IuppiterOS (after iteration $iteration).
 Your job is to REVIEW and FIX the last $REVIEW_EVERY haiku iterations. Do NOT pick up new PRD tasks.
 
 ═══════════════════════════════════════════
@@ -604,7 +609,7 @@ YOUR INSTRUCTIONS (Opus Review)
 ═══════════════════════════════════════════
 
 You are the senior reviewer. The last $REVIEW_EVERY iterations were done by haiku (fast but sloppy).
-Your job is targeted quality improvement — be surgical, not exhaustive.
+Your job is quality improvement AND unblocking complex tasks haiku couldn't handle.
 
 DO:
 1. Run \`cargo check\` across the workspace. Fix any compilation errors haiku left behind.
@@ -613,16 +618,21 @@ DO:
    - Layer boundary violations (AcornOS code in distro-builder, etc.)
    - Hardcoded values that should come from distro-spec
    - Dead code or unused imports haiku forgot to clean up
-3. If you find bugs, fix them and commit: fix($phase): description
+3. If you find bugs, fix them and commit with the right scope: fix(acorn): ... / fix(iuppiter): ... / fix(shared): ...
 4. If haiku marked a task [x] but the implementation is incomplete/wrong, unmark it [ ] and note why in progress.
 5. Run \`cargo test\` if tests exist for the changed crates. Fix failures.
-6. Append a review summary to: $progress
-7. If you learned something, append to: $learnings
+6. **IMPORTANT: Check for BLOCKED tasks or tasks haiku struggled with** (look in progress.txt).
+   If haiku marked a task BLOCKED or failed on it multiple times, YOU should attempt it.
+   You are more capable at complex integration work, debugging, and architecture decisions.
+   If you complete a BLOCKED task, mark it [x] in the PRD.
+7. Append a review summary to: $progress
+8. If you learned something, append to: $learnings
+9. Create a team file for your review: .teams/TEAM_NNN_review-iteration-$iteration.md
 
 DO NOT:
-- Pick up new PRD tasks. That's haiku's job.
+- Pick up NEW unchecked tasks that haiku hasn't attempted yet. That's haiku's job.
 - Refactor or restructure working code. If it compiles and is correct, leave it.
-- Add features, documentation, or tests beyond what's needed to fix bugs.
+- Add features, documentation, or tests beyond what's needed to fix bugs or unblock.
 - Spend time on style or formatting (pre-commit hooks handle that).
 
 CRITICAL RULES:
@@ -638,13 +648,12 @@ PROMPT
 # =============================================================================
 
 run_review() {
-    local phase="$1"
-    local after_iteration="$2"
-    local logfile="$LOG_DIR/${phase}-review-$(printf '%03d' "$after_iteration").log"
+    local after_iteration="$1"
+    local logfile="$LOG_DIR/review-$(printf '%03d' "$after_iteration").log"
 
     local iter_start=$SECONDS
 
-    header "━━━ OPUS REVIEW after iteration $after_iteration [$phase] ━━━"
+    header "━━━ OPUS REVIEW after iteration $after_iteration ━━━"
     dim "  Time: $(date '+%H:%M:%S')  |  Log: $logfile"
     dim "  Model: $REVIEW_MODEL  |  Budget: \$${REVIEW_BUDGET}"
     echo ""
@@ -653,7 +662,7 @@ run_review() {
     snapshot_baselines
 
     local prompt
-    prompt=$(build_review_prompt "$phase" "$after_iteration")
+    prompt=$(build_review_prompt "$after_iteration")
 
     # Run opus review
     local exit_code=0
@@ -700,7 +709,7 @@ run_review() {
     fi
 
     # Anti-hack guard applies to reviews too
-    verify_claude_md "$phase"
+    verify_claude_md
     if ! check_and_revert_protected; then
         warn "Review attempted reward hacking — changes reverted"
         return
@@ -715,18 +724,17 @@ run_review() {
 # =============================================================================
 
 run_iteration() {
-    local phase="$1"
-    local iteration="$2"
-    local max="$3"
-    local logfile="$LOG_DIR/${phase}-$(printf '%03d' "$iteration").log"
+    local iteration="$1"
+    local max="$2"
+    local logfile="$LOG_DIR/build-$(printf '%03d' "$iteration").log"
 
     local iter_start=$SECONDS
 
-    header "━━━ Iteration $iteration / $max [$phase] ━━━"
+    header "━━━ Iteration $iteration / $max ━━━"
     dim "  Time: $(date '+%H:%M:%S')  |  Log: $logfile"
     dim "  Budget: \$${MAX_BUDGET_PER_ITERATION}/iter  |  Timeout: ${ITERATION_TIMEOUT}s"
 
-    local prd="$RALPH_DIR/${phase}-prd.md"
+    local prd="$RALPH_DIR/prd.md"
     local done_count
     done_count=$(count_checked "$prd")
     local todo_count
@@ -739,11 +747,11 @@ run_iteration() {
 
     # Snapshot progress hash before iteration
     local progress_before
-    progress_before=$(md5_file "$RALPH_DIR/${phase}-progress.txt")
+    progress_before=$(md5_file "$RALPH_DIR/progress.txt")
 
     # Build prompt
     local prompt
-    prompt=$(build_prompt "$phase" "$iteration")
+    prompt=$(build_prompt "$iteration")
 
     # Run claude with timeout, stream to terminal and log
     # Retry on rate limits with backoff
@@ -787,7 +795,7 @@ run_iteration() {
     if [[ $exit_code -eq 124 ]]; then
         warn "Iteration $iteration TIMED OUT after $(elapsed $iter_elapsed)"
         ((TIMED_OUT_ITERATIONS++))
-        echo "TIMED OUT after ${ITERATION_TIMEOUT}s" >> "$RALPH_DIR/${phase}-progress.txt"
+        echo "TIMED OUT after ${ITERATION_TIMEOUT}s" >> "$RALPH_DIR/progress.txt"
         return 2  # timeout
     fi
 
@@ -801,19 +809,19 @@ run_iteration() {
     log "Iteration $iteration completed in $(elapsed $iter_elapsed)"
 
     # Verify CLAUDE.md wasn't tampered with
-    verify_claude_md "$phase"
+    verify_claude_md
 
     # Anti-reward-hack: revert any changes to protected submodules
     if ! check_and_revert_protected; then
         warn "Iteration $iteration attempted reward hacking — treating as failed"
         ((FAILED_ITERATIONS++))
-        echo "REWARD HACK: modified protected test/tool code — reverted" >> "$RALPH_DIR/${phase}-progress.txt"
+        echo "REWARD HACK: modified protected test/tool code — reverted" >> "$RALPH_DIR/progress.txt"
         return 1
     fi
 
     # Check progress changed
     local progress_after
-    progress_after=$(md5_file "$RALPH_DIR/${phase}-progress.txt")
+    progress_after=$(md5_file "$RALPH_DIR/progress.txt")
     if [[ "$progress_before" != "$progress_after" ]]; then
         local new_done
         new_done=$(count_checked "$prd")
@@ -829,7 +837,7 @@ run_iteration() {
     # Show latest progress
     echo ""
     dim "Latest progress:"
-    tail -3 "$RALPH_DIR/${phase}-progress.txt" 2>/dev/null | while read -r line; do
+    tail -3 "$RALPH_DIR/progress.txt" 2>/dev/null | while read -r line; do
         dim "  $line"
     done
     echo ""
@@ -846,14 +854,13 @@ run_iteration() {
 # Run phase loop
 # =============================================================================
 
-run_phase() {
-    local phase="$1"
-    local max_iterations="${2:-$DEFAULT_MAX_ITERATIONS}"
-    local phase_start=$SECONDS
+run_build() {
+    local max_iterations="${1:-$DEFAULT_MAX_ITERATIONS}"
+    local build_start=$SECONDS
 
-    header "═══ Starting phase: $phase (max $max_iterations iterations) ═══"
+    header "═══ Starting consolidated build (max $max_iterations iterations) ═══"
 
-    install_claude_md "$phase"
+    install_claude_md
     install_hooks
     mkdir -p "$LOG_DIR"
 
@@ -862,15 +869,15 @@ run_phase() {
 
     for ((i=1; i<=max_iterations; i++)); do
         local progress_before
-        progress_before=$(md5_file "$RALPH_DIR/${phase}-progress.txt")
+        progress_before=$(md5_file "$RALPH_DIR/progress.txt")
 
         local iter_result=0
-        run_iteration "$phase" "$i" "$max_iterations" || iter_result=$?
+        run_iteration "$i" "$max_iterations" || iter_result=$?
 
         case $iter_result in
             0)
                 # COMPLETE signal received
-                success "Phase $phase COMPLETE after $i iterations!"
+                success "BUILD COMPLETE after $i iterations!"
                 completed=true
                 break
                 ;;
@@ -880,14 +887,14 @@ run_phase() {
             *)
                 # Check stagnation
                 local progress_after
-                progress_after=$(md5_file "$RALPH_DIR/${phase}-progress.txt")
+                progress_after=$(md5_file "$RALPH_DIR/progress.txt")
                 if [[ "$progress_before" == "$progress_after" ]]; then
                     ((stagnant_count++))
                     warn "Stagnant iteration $stagnant_count / $MAX_STAGNANT_ITERATIONS"
                     if [[ $stagnant_count -ge $MAX_STAGNANT_ITERATIONS ]]; then
                         error "Aborting: $MAX_STAGNANT_ITERATIONS consecutive iterations with no progress"
                         error "Review logs at: $LOG_DIR/"
-                        error "Resume with: $0 $phase $((max_iterations - i))"
+                        error "Resume with: $0 $((max_iterations - i))"
                         break
                     fi
                 else
@@ -898,7 +905,7 @@ run_phase() {
 
         # Opus review every REVIEW_EVERY iterations
         if [[ $((i % REVIEW_EVERY)) -eq 0 && $i -lt $max_iterations ]]; then
-            run_review "$phase" "$i"
+            run_review "$i"
             dim "Cooling down ${COOLDOWN_SECONDS}s..."
             sleep "$COOLDOWN_SECONDS"
         fi
@@ -910,13 +917,13 @@ run_phase() {
         fi
     done
 
-    local phase_elapsed=$((SECONDS - phase_start))
+    local build_elapsed=$((SECONDS - build_start))
     echo ""
-    log "Phase $phase finished in $(elapsed $phase_elapsed)"
+    log "Build finished in $(elapsed $build_elapsed)"
 
     if [[ "$completed" != "true" ]]; then
-        local prd="$RALPH_DIR/${phase}-prd.md"
-        warn "Phase $phase incomplete: $(count_checked "$prd") done, $(count_unchecked "$prd") remaining"
+        local prd="$RALPH_DIR/prd.md"
+        warn "Build incomplete: $(count_checked "$prd") done, $(count_unchecked "$prd") remaining"
     fi
 }
 
@@ -925,19 +932,26 @@ run_phase() {
 # =============================================================================
 
 main() {
-    local command="${1:-}"
-    local max_iterations="${2:-$DEFAULT_MAX_ITERATIONS}"
+    # Accept: ralph.sh [iterations] OR ralph.sh build [iterations]
+    local first_arg="${1:-}"
+    local max_iterations="$DEFAULT_MAX_ITERATIONS"
 
-    if [[ -z "$command" ]]; then
-        echo "Usage: $0 <acorn|iuppiter|all> [max_iterations]"
+    # Parse args: if first arg is a number, it's the iteration count
+    # If first arg is "build" or empty, use second arg as count
+    if [[ "$first_arg" =~ ^[0-9]+$ ]]; then
+        max_iterations="$first_arg"
+    elif [[ "$first_arg" == "build" || "$first_arg" == "all" ]]; then
+        max_iterations="${2:-$DEFAULT_MAX_ITERATIONS}"
+    elif [[ -n "$first_arg" && "$first_arg" != "--help" && "$first_arg" != "-h" ]]; then
+        echo "Usage: $0 [build] [max_iterations]"
         echo ""
-        echo "Commands:"
-        echo "  acorn       Build AcornOS (desktop-ready Alpine variant)"
-        echo "  iuppiter    Build IuppiterOS (headless refurbishment appliance)"
-        echo "  all         AcornOS first, then IuppiterOS"
+        echo "Runs a consolidated build loop for both AcornOS and IuppiterOS."
+        echo "Tasks are interleaved by dependency — no separate phases."
         echo ""
-        echo "Options:"
-        echo "  max_iterations  Max iterations per phase (default: $DEFAULT_MAX_ITERATIONS)"
+        echo "Examples:"
+        echo "  $0              # 50 iterations (default)"
+        echo "  $0 30           # 30 iterations"
+        echo "  $0 build 30     # Same thing (explicit)"
         echo ""
         echo "Config (edit at top of script):"
         echo "  MODEL=$MODEL"
@@ -949,12 +963,33 @@ main() {
         exit 1
     fi
 
+    # Show help if explicitly requested
+    if [[ "$first_arg" == "--help" || "$first_arg" == "-h" ]]; then
+        echo "Usage: $0 [build] [max_iterations]"
+        echo ""
+        echo "Runs a consolidated build loop for both AcornOS and IuppiterOS."
+        echo "Tasks are interleaved by dependency — no separate phases."
+        echo ""
+        echo "Examples:"
+        echo "  $0              # 50 iterations (default)"
+        echo "  $0 30           # 30 iterations"
+        echo "  $0 build 30     # Same thing (explicit)"
+        echo ""
+        echo "Config (edit at top of script):"
+        echo "  MODEL=$MODEL"
+        echo "  ITERATION_TIMEOUT=${ITERATION_TIMEOUT}s"
+        echo "  COOLDOWN_SECONDS=${COOLDOWN_SECONDS}s"
+        echo "  MAX_BUDGET_PER_ITERATION=\$${MAX_BUDGET_PER_ITERATION}/iter"
+        echo "  REVIEW_MODEL=$REVIEW_MODEL (every $REVIEW_EVERY iters, \$$REVIEW_BUDGET/review)"
+        echo "  MAX_STAGNANT_ITERATIONS=$MAX_STAGNANT_ITERATIONS"
+        exit 0
+    fi
+
     preflight
 
-    header "Ralph Loop"
-    echo "  Phase:      $command"
+    header "Ralph Loop — Consolidated Build"
     echo "  Model:      $MODEL"
-    echo "  Iterations: $max_iterations per phase"
+    echo "  Iterations: $max_iterations"
     echo "  Timeout:    ${ITERATION_TIMEOUT}s per iteration"
     echo "  Budget:     \$${MAX_BUDGET_PER_ITERATION} per iteration"
     echo "  Review:     $REVIEW_MODEL every $REVIEW_EVERY iterations (\$${REVIEW_BUDGET}/review)"
@@ -965,25 +1000,7 @@ main() {
     warn "Running with --dangerously-skip-permissions (unattended mode)"
     echo ""
 
-    case "$command" in
-        acorn)
-            run_phase "acorn" "$max_iterations"
-            ;;
-        iuppiter)
-            run_phase "iuppiter" "$max_iterations"
-            ;;
-        all)
-            run_phase "acorn" "$max_iterations"
-            echo ""
-            log "AcornOS phase done. Switching to IuppiterOS..."
-            echo ""
-            run_phase "iuppiter" "$max_iterations"
-            ;;
-        *)
-            error "Unknown command: $command"
-            exit 1
-            ;;
-    esac
+    run_build "$max_iterations"
 
     print_summary
     restore_claude_md
