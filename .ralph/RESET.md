@@ -6,15 +6,16 @@ Created: 2026-02-04, before first ralph loop run.
 
 ```bash
 cd /home/vince/Projects/LevitateOS
-git reset --hard a8a3e34
+git reset --hard 6ed3d13
 ```
 
-This commit includes:
-- IuppiterOS submodule added and initialized
-- .ralph/ directory with ralph.sh, PRDs, CLAUDE.md files
-- All submodule pointers up to date (distro-spec, distro-builder, leviso, etc.)
-- ACORNOS_MIRROING_CHECKLIST.md
-- distro-builder executor extraction committed
+This commit includes everything below plus:
+- cargo fmt across all 17 submodules (clean formatting baseline)
+- Anti-reward-hack guard with baseline comparison
+- Pre-commit hooks (cargo fmt + cargo check + commit message format)
+- Rate limit retry logic
+
+Previous safe reset (before fmt + hooks): `a8a3e34`
 
 ## Nuclear Reset (before any ralph/iuppiter work)
 
