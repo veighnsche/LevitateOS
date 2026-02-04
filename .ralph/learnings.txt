@@ -134,3 +134,7 @@ When extending test infrastructure to support multiple distros, prefer adding ne
 
 ### ISO Checklist Constants Must Be Loaded Per-Distro
 Different distros have different ISO structures: LevitateOS has installed initramfs + installed UKIs in boot/uki/, while AcornOS/IuppiterOS only have live initramfs + live UKIs in EFI/Linux/. The volume ID, UKI filenames, and required boot files all differ per distro. Use a constants struct pattern (`DistroIsoConstants`) with a factory function per distro instead of global constants.
+
+### Test Infrastructure Blockers vs Product Defects
+The distinction between infrastructure blockers and product code issues is critical for iteration planning. TEAM_154 boot detection issue is a test harness I/O buffering problem, not a defect in the AcornOS/IuppiterOS builders. Manual testing via `cargo run -- run` proves the ISOs are functionally correct. When encountering test failures: (1) first verify the product works via manual testing, (2) if manual works but automated tests fail, the blocker is likely in the test infrastructure, (3) if manual also fails, it's a product bug. Spend iteration effort on product bugs and required features, not on debugging test harness infrastructure unless it's a planned iteration focus.
+
