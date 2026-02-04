@@ -44,7 +44,7 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 
 - [x] 3.1 [shared] distro-builder integration: components use Installable trait + Op enum, executor processes ops
 - [x] 3.2 [acorn] FHS directory structure created (/bin, /etc, /lib, /usr, /var, /tmp, /proc, /sys, /dev, /run, /home, /root)
-- [ ] 3.3 [acorn] Busybox symlinks created for all applets (/bin/sh → busybox, /bin/ls → busybox, etc.)
+- [x] 3.3 [acorn] Busybox symlinks created for all applets (/bin/sh → busybox, /bin/ls → busybox, etc.)
 - [ ] 3.4 [acorn] OpenRC installed and configured as init system (not systemd)
 - [ ] 3.5 [acorn] eudev installed for device management (not systemd-udevd)
 - [ ] 3.6 [acorn] /etc/inittab configured with getty on tty1 and ttyS0 (OpenRC console management)
