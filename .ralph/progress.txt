@@ -346,3 +346,9 @@ IuppiterOS still had **pervasive AcornOS copy-paste bugs** throughout the entire
 ### Completed: Phase 5 tasks 5.1-5.2 (AcornOS UKI building)
 
 **5.1-5.2**: Implemented UKI (Unified Kernel Image) building for AcornOS. Created src/artifact/uki.rs with build_uki(), build_live_ukis(), and build_installed_ukis() functions. Integrated UKI building into ISO creation as stage 4.5 (after artifact copy, before UEFI boot setup). Added systemd-boot loader.conf generation using default_loader_config(). Live UKIs use root=LABEL=ACORNOS kernel parameter; installed UKIs use root=LABEL=root. Three live entries (normal, emergency, debug) and two installed entries (normal, recovery) defined in distro-spec::acorn::uki. UKI directory (EFI/Linux) created and UKI files placed there for systemd-boot auto-discovery. Added recuki dependency to AcornOS Cargo.toml. Cargo check passes. Tasks 5.1-5.2 complete.
+
+## Iteration 24
+
+### Completed: Phase 5 tasks 5.5-5.6 (IuppiterOS UKI building)
+
+**5.5-5.6**: Implemented UKI (Unified Kernel Image) building for IuppiterOS. Created src/artifact/uki.rs mirroring AcornOS pattern but with IuppiterOS-specific branding and serial-console-primary configuration. All UKI entries include console=ttyS0,115200n8 per distro-spec::iuppiter::uki: (1) build_uki() wraps recuki; (2) build_live_ukis() creates 3 live UKIs (normal, emergency, debug) with root=LABEL=IUPPITER; (3) build_installed_ukis() creates 2 installed UKIs with root=LABEL=root rw; (4) All entries explicitly include console=ttyS0,115200n8 in extra_cmdline; (5) Fixed IuppiterOS iso.rs to use serial-only GRUB config (removed VGA_CONSOLE refs for headless appliance); (6) Integrated UKI building into ISO creation as Stage 4.5; (7) Added recuki dependency to Cargo.toml; (8) All 22 IuppiterOS tests pass, including 4 new UKI tests. Tasks 5.5-5.6 complete.

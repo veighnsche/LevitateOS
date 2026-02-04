@@ -87,8 +87,8 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 5.2 [acorn] systemd-boot loader.conf configured, ISO builds via reciso + xorriso (UEFI bootable)
 - [x] 5.3 [acorn] ISO label matches distro-spec: "ACORNOS"
 - [x] 5.4 [acorn] `cargo run -- run` launches QEMU with the built ISO (GUI mode)
-- [ ] 5.5 [iuppiter] UKI builds with IuppiterOS entries from distro-spec::iuppiter::uki (all have serial console cmdline)
-- [ ] 5.6 [iuppiter] All UKI entries include console=ttyS0,115200n8 in kernel cmdline
+- [x] 5.5 [iuppiter] UKI builds with IuppiterOS entries from distro-spec::iuppiter::uki (all have serial console cmdline)
+- [x] 5.6 [iuppiter] All UKI entries include console=ttyS0,115200n8 in kernel cmdline
 - [ ] 5.7 [iuppiter] ISO label matches distro-spec: "IUPPITER"
 - [ ] 5.8 [iuppiter] ISO builds via reciso + xorriso (UEFI bootable)
 - [ ] 5.9 [iuppiter] `cargo run -- run --serial` launches QEMU in serial-only mode (no display)
