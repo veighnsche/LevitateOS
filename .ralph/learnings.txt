@@ -119,3 +119,12 @@ When distro-spec UKI entries include console parameters in their `extra_cmdline`
 
 ### Install-Tests Uses Distro-Agnostic Architecture with DistroContext Trait
 The install-tests framework uses a trait-based design (`DistroContext`) to support multiple distros (LevitateOS, AcornOS, IuppiterOS) with a single test codebase. Each distro implements the trait with its own: boot patterns, service commands, init verification, bootloader setup, paths. The `context_for_distro()` factory function returns the appropriate context based on CLI `--distro` flag. This design allows adding new distros without duplicating test code—just implement the trait. Both AcornOS and LevitateOS contexts were already complete from earlier iterations, enabling the `--distro acorn` flag to work without additional work.
+
+### Multi-Distro Testing Infrastructure Requires Coordinated Updates
+When adding multi-distro support to install-tests (AcornOS alongside LevitateOS), multiple components need updates: (1) DistroContext trait implementation (already done for AcornOS), (2) preflight verification module (made distro-agnostic), (3) ISO verification checklist in fsdbg crate (hardcoded for LevitateOS structure, not yet updated). Adding a new distro requires changes across multiple crates, not just the test runner. Manual boot testing remains more reliable than install-tests until the entire test stack is refactored for multi-distro.
+
+### Preflight Verification Should Be Distro-Aware from Design
+The preflight verification module initially hardcoded LevitateOS details (`distro_spec::levitate::ISO_FILENAME`) instead of accepting distro context. Better design: either (1) pass DistroContext to preflight functions, (2) accept optional ISO filename and fall back to discovery, or (3) use a builder pattern for flexible configuration. The fallback-to-discovery approach is least invasive but requires ISO checklist to also be distro-agnostic.
+
+### ISO Verification Checklists Cannot Be Single-Distro
+The fsdbg checklist module hardcodes checks for specific file paths and volume IDs (e.g., Volume ID=LEVITATEOS, /EFI/Linux/levitateos-*.efi). Adding a new distro with different ISO structure (AcornOS uses /boot/uki/ instead of /EFI/Linux/, different volume ID) requires either: (1) distro-parameterized checklists, (2) separate checklist implementations per distro, (3) content verification without path checks. This is a design limitation of the current fsdbg checklist infrastructure.
