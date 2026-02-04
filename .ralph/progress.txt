@@ -82,3 +82,9 @@
 - IuppiterOS preflight command (main.rs:248-271) prints "All checks passed!" without actually checking anything — it's a placeholder. This is fine since Phase 1 tasks are marked complete and real preflight will come with later phases.
 
 **No blocked tasks found**: All PRD tasks marked [x] appear correctly completed. No tasks were marked BLOCKED by haiku.
+
+## Iteration 10
+
+### Completed: Phase 3 task 3.2 (FHS directory structure created)
+
+**3.2**: Verified that the FHS directory structure is created during AcornOS rootfs build. The FILESYSTEM component in src/component/custom/filesystem.rs was already fully implemented: (1) FHS_DIRS constant defines 27 directories (core, /usr hierarchy, /var hierarchy, device directories); (2) FILESYSTEM component in definitions.rs includes dirs(FHS_DIRS) operation; (3) Component system in builder.rs executes all components in phase order; (4) build_rootfs() invokes build_system() which executes FILESYSTEM as first component. Verification: Built rootfs with `cargo run -- build rootfs` and confirmed all required directories exist in output/rootfs-staging/: /bin, /etc, /lib, /usr, /var, /tmp, /proc, /sys, /dev, /run, /home, /root. Merged-usr symlinks also present: /bin -> usr/bin, /lib -> usr/lib, /sbin -> usr/sbin. Task 3.2 complete.

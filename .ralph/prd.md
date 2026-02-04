@@ -37,13 +37,13 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 - [x] 2.3 [acorn] Package dependency resolution works — all deps pulled in correct order via recipe
 - [x] 2.4 [acorn] Alpine signing key verification works (keys from distro-spec/acorn/keys/)
 - [x] 2.5 [iuppiter] IuppiterOS builder reuses AcornOS's Alpine package pipeline (same recipe integration)
-- [ ] 2.6 [iuppiter] Downloads use iuppiter package tiers from distro-spec::iuppiter::packages (NOT acorn list)
-- [ ] 2.7 [iuppiter] Verify NO desktop packages in download list (no iwd, wireless-regdb, sof-firmware, cryptsetup, lvm2, btrfs-progs)
+- [x] 2.6 [iuppiter] Downloads use iuppiter package tiers from distro-spec::iuppiter::packages (NOT acorn list)
+- [x] 2.7 [iuppiter] Verify NO desktop packages in download list (no iwd, wireless-regdb, sof-firmware, cryptsetup, lvm2, btrfs-progs)
 
 ### Phase 3: Rootfs Build
 
-- [ ] 3.1 [shared] distro-builder integration: components use Installable trait + Op enum, executor processes ops
-- [ ] 3.2 [acorn] FHS directory structure created (/bin, /etc, /lib, /usr, /var, /tmp, /proc, /sys, /dev, /run, /home, /root)
+- [x] 3.1 [shared] distro-builder integration: components use Installable trait + Op enum, executor processes ops
+- [x] 3.2 [acorn] FHS directory structure created (/bin, /etc, /lib, /usr, /var, /tmp, /proc, /sys, /dev, /run, /home, /root)
 - [ ] 3.3 [acorn] Busybox symlinks created for all applets (/bin/sh → busybox, /bin/ls → busybox, etc.)
 - [ ] 3.4 [acorn] OpenRC installed and configured as init system (not systemd)
 - [ ] 3.5 [acorn] eudev installed for device management (not systemd-udevd)
