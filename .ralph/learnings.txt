@@ -59,3 +59,9 @@ When creating IuppiterOS by copying AcornOS's entire src/, every `use distro_spe
 
 ### IuppiterOS Package Exclusions Are Functional, Not Cosmetic
 IuppiterOS explicitly excludes: iwd/wireless-regdb (no WiFi), cryptsetup/lvm (no LUKS/LVM), mkfs.btrfs/sgdisk (no Btrfs). These aren't just "not needed" — including them would pull in unnecessary dependencies, increase image size, and violate the appliance design. When copying AcornOS component definitions, actively remove excluded packages from ADDITIONAL_SBINS, OPENRC_SCRIPTS, and NETWORK/FIRMWARE components.
+
+### Test Instrumentation Needs Distro-Specific Branding
+When creating test instrumentation for IuppiterOS based on AcornOS, don't just copy-paste the script. Update all variable names and comments to use distro-specific branding (IUPPITER_TEST_MODE vs ACORN_TEST_MODE). The markers (___SHELL_READY___, ___CMD_START___, etc.) should remain identical for compatibility with install-tests, but internal variables should reflect the distro. This keeps code maintainable and makes it clear which distro each component belongs to.
+
+### EROFS Size Reduction Through Package Discipline
+IuppiterOS achieved 79% smaller EROFS than AcornOS (39MB vs 190MB) not through clever optimizations, but through disciplined package selection: no desktop, no wireless, no encryption, no sound. The appliance focus naturally leads to smaller images. This demonstrates that distro-spec's package tier separation is effective — AcornOS's extra 151MB consists entirely of packages excluded from IuppiterOS.
