@@ -79,11 +79,15 @@ md5_file() {
 }
 
 count_checked() {
-    grep -c '^\- \[x\]' "$1" 2>/dev/null || echo 0
+    local n
+    n=$(grep -c '^- \[x\]' "$1" 2>/dev/null) || true
+    echo "${n:-0}"
 }
 
 count_unchecked() {
-    grep -c '^\- \[ \]' "$1" 2>/dev/null || echo 0
+    local n
+    n=$(grep -c '^- \[ \]' "$1" 2>/dev/null) || true
+    echo "${n:-0}"
 }
 
 # =============================================================================
