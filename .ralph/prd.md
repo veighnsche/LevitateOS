@@ -32,9 +32,9 @@ Tasks are ordered by dependency, not by variant. Tags: [acorn] [iuppiter] [share
 
 ### Phase 2: Alpine Package Pipeline
 
-- [ ] 2.1 [acorn] `cargo run -- download` fetches Alpine APK packages using the `recipe` crate for dependency resolution
-- [ ] 2.2 [acorn] APK extraction produces correct directory structure (musl, busybox, apk-tools at minimum)
-- [ ] 2.3 [acorn] Package dependency resolution works — all deps pulled in correct order via recipe
+- [x] 2.1 [acorn] `cargo run -- download` fetches Alpine APK packages using the `recipe` crate for dependency resolution
+- [x] 2.2 [acorn] APK extraction produces correct directory structure (musl, busybox, apk-tools at minimum)
+- [x] 2.3 [acorn] Package dependency resolution works — all deps pulled in correct order via recipe
 - [ ] 2.4 [acorn] Alpine signing key verification works (keys from distro-spec/acorn/keys/)
 - [ ] 2.5 [iuppiter] IuppiterOS builder reuses AcornOS's Alpine package pipeline (same recipe integration)
 - [ ] 2.6 [iuppiter] Downloads use iuppiter package tiers from distro-spec::iuppiter::packages (NOT acorn list)

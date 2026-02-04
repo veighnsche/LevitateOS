@@ -14,3 +14,15 @@ Phase 6 of install-tests (post-reboot verification) has been broken for a long t
 
 ### IuppiterOS inherits distro-spec::iuppiter constants
 All IuppiterOS builder configuration (OS_NAME, OS_ID, ISO_LABEL, BOOT_MODULES, etc.) comes from distro-spec::iuppiter module. The IuppiterConfig struct is a thin wrapper that delegates to distro_spec for all identity constants. Workspace membership must be added to root Cargo.toml for submodules to compile properly.
+
+### Recipe Module Pattern
+Recipe module mirrors leviso exactly: separate files for each dependency type (alpine.rs, linux.rs), shared infrastructure (find_recipe, run_recipe_json) in mod.rs. Each dependency's wrapper function handles path fallbacks and JSON parsing. Tools installation is separate and reuses same infrastructure. This pattern scales: can easily add new dependencies like additional package sets without duplicating recipe logic.
+
+### APK Extraction Produces Complete FHS Rootfs
+The alpine.rhai recipe (running apk.static with --root flag) correctly creates a full Filesystem Hierarchy Standard rootfs with all expected directories. The rootfs includes musl C library, busybox (with shell symlinks), apk-tools, and configured APK repositories. This is all we need—no additional initialization is required at this stage. The rootfs is ready for package installation via packages.rhai.
+
+### IuppiterOS Can Share AcornOS Downloads via Symlink
+Instead of downloading duplicate Alpine packages, IuppiterOS symlinks its downloads directory to AcornOS's. This requires: (1) symlinking IuppiterOS/downloads → AcornOS/downloads; (2) having separate recipe script files (deps/*.rhai) pointing to the shared downloads location. The recipe infrastructure already supports this pattern naturally since all paths are resolved at runtime. This is efficient and ensures both distros use identical Alpine packages, reducing disk usage and download time.
+
+### APK Handles Dependency Resolution Automatically
+When packages.rhai invokes apk-tools-static with multiple package names (e.g., "apk add dhcpcd iproute2 iputils"), APK automatically resolves all transitive dependencies and installs them in the correct order. This is proven by the APK database at lib/apk/db/installed which contains the complete dependency graph. No manual dependency ordering is needed—just pass package names to apk and it handles the rest. This is why the recipe infrastructure is so simple and reliable: APK's built-in dependency resolution does the heavy lifting.
