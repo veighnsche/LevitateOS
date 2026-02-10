@@ -1,5 +1,35 @@
 # CLAUDE.md — AcornOS + IuppiterOS Consolidated Build
 
+## ⛔ NEVER USE DNF (OR ANY SYSTEM PACKAGE MANAGER)
+
+**Recipe IS the package manager.** NEVER use `dnf`, `apt`, `yum`, `pacman`, or any
+system package manager to install dependencies. NEVER suggest the user install
+packages with a system package manager. NEVER use `dnf download` to fetch RPMs.
+
+If a tool is missing, recipe must handle it by:
+1. **Building from source** via a recipe
+2. **Adding a Rust helper** to the recipe binary itself
+3. **Eliminating the need** — use a simpler approach that doesn't require the tool
+
+dnf has been replaced with a guard script that blocks execution. This is intentional.
+
+## Recipe Collection Philosophy
+
+**Every dependency should be a recipe.** Even optional tools, even verification-only tools,
+even "nice to have" utilities. The goal is a complete recipe collection that makes the
+entire build reproducible from a bare Rocky Linux install with only gcc, make, and python3.
+
+**When you need a new tool:**
+1. Create a recipe in `distro-builder/recipes/` (if shared) or `leviso/deps/` (if leviso-specific)
+2. Follow the pattern in `rocky-deps.rhai` or `leviso-deps.rhai` — download source, build, install to TOOLS_PREFIX
+3. Wire it into the build via `let deps = ["recipe-name"]` in the consumer recipe
+4. NEVER skip creating a recipe because "it's just one tool" — that's how dnf creep starts
+
+**Existing recipe collection:**
+- `rocky-deps.rhai` — aria2c, 7zz, unsquashfs (for Rocky ISO extraction)
+- `linux-deps.rhai` — flex, bison, gcc, etc. (for kernel compilation)
+- `leviso-deps.rhai` — mkfs.erofs, xorriso, mkfs.fat, mtools, ukify, isoinfo (for ISO building)
+
 You are building **two Alpine-based OS variants** in a single Ralph loop.
 Read the PRD and progress file every iteration.
 
