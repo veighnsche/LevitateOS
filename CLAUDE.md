@@ -106,6 +106,35 @@ The automated install-tests runner fails during initial boot detection (before P
 Phase 6 (post-reboot verification) in install-tests has been broken for a long time.
 Do not expect Phase 6 to pass. Focus on Phases 1-5.
 
+## Checkpoint Development Loop (PREFERRED)
+
+Use checkpoints for incremental verification. Each gates the next.
+
+```bash
+# Run a single checkpoint
+cd testing/install-tests && cargo run --bin checkpoints -- --distro acorn --checkpoint 1
+
+# Run all checkpoints up to N
+cd testing/install-tests && cargo run --bin checkpoints -- --distro acorn --up-to 3
+
+# Check status
+cd testing/install-tests && cargo run --bin checkpoints -- --distro acorn --status
+
+# Reset after rebuild
+cd testing/install-tests && cargo run --bin checkpoints -- --distro acorn --reset
+```
+
+| # | Name | Validates |
+|---|------|-----------|
+| 1 | Live Boot | ISO boots in QEMU |
+| 2 | Live Tools | recstrap, recfstab, etc. present |
+| 3 | Installation | Full scripted install to disk |
+| 4 | Installed Boot | Boot from disk after install |
+| 5 | Automated Login | Harness can login + run commands |
+| 6 | Daily Driver Tools | sudo, ip, ssh, etc. present |
+
+State is in `.checkpoints/{distro}.json` (gitignored). Auto-resets when ISO mtime changes.
+
 ## How to Test
 
 ```bash
