@@ -14,15 +14,16 @@ Too slow? A locally running LLM (SmolLM3) generates, customizes, and maintains y
 
 **Manual install. Full control. AI-assisted packaging.**
 
-## Two Foundations
+## Variants
 
-| | LevitateOS | AcornOS |
-|---|---|---|
-| **Stack** | glibc / systemd / GNU | musl / OpenRC / busybox |
-| **Base** | Rocky Linux RPMs | Alpine Linux APKs |
-| **Best for** | Maximum compatibility | Minimal footprint |
+| | LevitateOS | AcornOS | IuppiterOS |
+|---|---|---|---|
+| **Purpose** | Daily-driver desktop | Daily-driver desktop | Refurbishment appliance (disk tooling) |
+| **Stack** | glibc / systemd / GNU | musl / OpenRC / busybox | musl / OpenRC / busybox |
+| **Base** | Rocky Linux RPMs | Alpine Linux APKs | Alpine Linux APKs |
+| **Best for** | Maximum compatibility | Smaller, simpler base | Headless-first systems + optional kiosk UI |
 
-Both share the same recipe system and tools.
+All three share the same recipe system and build tooling. Variant specs live in `distro-spec/src/{levitate,acorn,iuppiter}/`.
 
 ## Recipe System
 
@@ -118,6 +119,7 @@ tools/
 distro-spec/      # Shared specifications
 testing/          # E2E test suites
 AcornOS/          # Alpine-based variant
+IuppiterOS/       # Alpine-based appliance variant
 ```
 
 ## Hardware Requirements
