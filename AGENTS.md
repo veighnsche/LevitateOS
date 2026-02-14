@@ -4,7 +4,7 @@
 - `Cargo.toml`: Rust workspace (builders, shared libs, tools, tests).
 - `leviso/`, `AcornOS/`, `IuppiterOS/`: distro entrypoints (build ISO, run QEMU).
 - `distro-builder/`, `distro-spec/`, `distro-contract/`: shared build engine + specs/contracts.
-- `tools/`: standalone CLIs (`recipe`, `recstrap`, `recfstab`, `recchroot`, `reciso`, `recqemu`, ...).
+- `tools/`: standalone CLIs (`recipe`, `recstrap`, `recfstab`, `recchroot`, `reciso`, `recqemu`, `recart`, ...).
 - `testing/`: Rust test harnesses (notably `install-tests/` checkpoint tests and `rootfs-tests/`).
 - `docs/`: Bun/Turbo workspaces (`docs/website`, `docs/tui`, `docs/content`).
 - `llm-toolkit/`: Python utilities for local LLM workflows.
@@ -29,20 +29,30 @@ The checkpoint loop is implemented in `testing/install-tests` (CLI: `cargo run -
 - Run up to N: `just test-up-to 4 levitate`
 - Show status: `just test-status levitate`
 - Reset cached state: `just test-reset levitate`
+- Prefer `just ...` wrappers: `justfile` exports PATH/LD_LIBRARY_PATH and `OVMF_PATH` for the repo-managed QEMU tooling under `leviso/downloads/.tools/`.
 - Distro IDs: the harness uses `levitate`, `acorn`, `iuppiter`. The `just checkpoint` helper uses `leviso`, `acorn`, `iuppiter`.
 
 ### What Checkpoints Mean
 - Checkpoints are `1..=6` in code (`testing/install-tests/src/checkpoints/mod.rs`).
 - State is persisted under `.checkpoints/<distro>.json` and is gated (checkpoint N requires N-1 passed).
 - If the ISO file mtime changes, cached results are invalidated automatically.
-- Checkpoint 3+ uses temp artifacts (disk + OVMF vars):
-- Disk: `/tmp/checkpoint-<distro>-disk.qcow2`
-- OVMF vars: `/tmp/checkpoint-<distro>-vars.fd`
+- Checkpoint 3+ uses a temp disk + writable OVMF vars under `std::env::temp_dir()` (usually `/tmp`).
+
+### Artifacts & Paths
+- Checkpoint state: `.checkpoints/<distro>.json` (gitignored).
+- Checkpoint temp disk: `$TMPDIR/checkpoint-<distro>-disk.qcow2`
+- Checkpoint temp OVMF vars: `$TMPDIR/checkpoint-<distro>-vars.fd`
+- Full `install-tests` runner temp disk: `$TMPDIR/leviso-install-test.qcow2`
+- Full `install-tests` runner temp OVMF vars: `$TMPDIR/leviso-install-test-vars.fd`
+- QMP smoke test temp artifacts: `$TMPDIR/leviso-qmp-smoke.qcow2`, `$TMPDIR/leviso-qmp-smoke-vars.fd`, `$TMPDIR/leviso-qmp-smoke.sock`
+- Distro QEMU runners disk (interactive dev): `<DistroDir>/output/virtual-disk.qcow2`
 
 ### Interactive QEMU (Justfile)
 `just checkpoint` is a manual QEMU runner (defined in `justfile`), currently only:
 - `just checkpoint 1 <distro>`: direct QEMU boot of the live ISO (serial)
-- `just checkpoint 4 <distro>`: direct QEMU boot of an already-installed disk from `<DistroDir>/output/*test.qcow2` (separate from the harness disk in `/tmp`)
+- `just checkpoint 4 <distro>`: direct QEMU boot of an already-installed disk from `<DistroDir>/output/*test.qcow2` (separate from the harness disk in `$TMPDIR`)
+
+Note: the distro QEMU runners (`cargo run -- run`) use `output/virtual-disk.qcow2`. The justfile checkpoint-4 helper expects `*test.qcow2` + `*ovmf-vars.fd` under `output/`.
 
 Note: the `checkpoints` CLI accepts `--interactive`, and the WIP implementation lives in `testing/install-tests/src/interactive.rs`, but it is not currently wired up in `testing/install-tests/src/bin/checkpoints.rs`. Installed interactive checkpoints (3-6) are not implemented yet.
 
@@ -67,6 +77,27 @@ To verify whether a kernel is "built for this distro" vs "stolen", check the ker
 - IuppiterOS: `file IuppiterOS/output/staging/boot/vmlinuz` should include `-iuppiter`
 
 If AcornOS/IuppiterOS show `*-levitate`, that's theft-mode (kernel provenance is LevitateOS). A stronger confirmation is that the `sha256sum` of `output/staging/boot/vmlinuz` matches `leviso/output/staging/boot/vmlinuz`.
+
+## Centralized Artifact Store
+
+Build outputs are normally written under `<DistroDir>/output/` (and downloads under `<DistroDir>/downloads/`). To make incremental work and cross-distro reuse less scattered, the repo also maintains a repo-local content-addressed artifact store:
+- Store root (gitignored): `.artifacts/`
+- Index: `.artifacts/index/<kind>/<input_key>.json` where `input_key` is typically `output/.<artifact>-inputs.hash`
+- Blobs: `.artifacts/blobs/sha256/<prefix>/<sha256>`
+
+Supported kinds (initial):
+- `kernel_payload` (`output/staging/boot/vmlinuz` + kernel modules under `output/staging/{lib,usr/lib}/modules/`)
+- `rootfs_erofs` (e.g. `output/filesystem.erofs`)
+- `initramfs` (e.g. `output/initramfs-live.cpio.gz`)
+- `install_initramfs` (LevitateOS only, e.g. `output/initramfs-installed.img`)
+- `iso` (e.g. `output/*.iso`)
+- `iso_checksum` (e.g. `output/*.sha512` or `output/*.iso.sha512`)
+
+Tooling:
+- Status: `cargo run -p recart -- status`
+- List entries: `cargo run -p recart -- ls rootfs_erofs`
+- GC unreferenced blobs: `cargo run -p recart -- gc`
+- Prune (keep last N per kind, then GC): `cargo run -p recart -- prune --keep-last 3`
 
 ## Coding Style & Naming Conventions
 - Rust: `cargo fmt` formatting; keep `cargo clippy -- -D warnings` clean. Avoid

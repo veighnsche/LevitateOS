@@ -29,6 +29,9 @@ build_warnings*.txt
 .claude/
 .agent/
 
+# Centralized build artifact store (repo-local, not committed)
+.artifacts/
+
 # Selective exceptions
 !docs/**/*.txt
 !tests/golden_*.txt

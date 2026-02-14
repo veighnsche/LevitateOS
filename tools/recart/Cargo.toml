@@ -1,0 +1,23 @@
+[package]
+name = "recart"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.93"
+description = "Manage the LevitateOS centralized build artifact store"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LevitateOS/LevitateOS"
+homepage = "https://github.com/LevitateOS/LevitateOS"
+authors = ["LevitateOS Contributors"]
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+distro-builder = { path = "../../distro-builder" }
+distro-spec = { path = "../../distro-spec" }
+leviso = { path = "../../leviso" }
+acornos = { path = "../../AcornOS" }
+iuppiteros = { path = "../../IuppiterOS" }
+
+[profile.release]
+strip = true
+lto = true
