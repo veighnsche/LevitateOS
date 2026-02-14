@@ -23,20 +23,15 @@ Human-maintained progress table for the checkpoint-based dev loop in
 
 ## Progress Table
 
-### x86_64
-
-| OS | CP0 | CP1 | CP2 | CP3 | CP4 | CP5 | CP6 |
-|---|---|---|---|---|---|---|---|
-| LevitateOS (`levitate`, `leviso/`) | OK | OK | OK | TODO | TODO | TODO | TODO |
-| AcornOS (`acorn`, `AcornOS/`) | HALF | OK | OK | TODO | TODO | TODO | TODO |
-| IuppiterOS (`iuppiter`, `IuppiterOS/`) | ? | ? | ? | ? | ? | ? | ? |
-
-### AArch64
-
-| OS | CP0 | CP1 | CP2 | CP3 | CP4 | CP5 | CP6 |
-|---|---|---|---|---|---|---|---|
-| LevitateOS (`levitate`, `leviso/`) | ? | ? | ? | ? | ? | ? | ? |
-| AcornOS (`acorn`, `AcornOS/`) | ? | ? | ? | ? | ? | ? | ? |
+| Checkpoint | LevitateOS (`levitate`, `leviso/`) | AcornOS (`acorn`, `AcornOS/`) | IuppiterOS (`iuppiter`, `IuppiterOS/`) | RalphOS (`ralph`, `RalphOS/`) |
+|---|---|---|---|---|
+| CP0 (Build) | OK | HALF | ? | ? |
+| CP1 (Live Boot) | OK | OK | ? | ? |
+| CP2 (Live Tools) | OK | OK | ? | ? |
+| CP3 (Installation) | TODO | TODO | ? | ? |
+| CP4 (Installed Boot) | TODO | TODO | ? | ? |
+| CP5 (Automated Login) | TODO | TODO | ? | ? |
+| CP6 (Daily Driver Tools) | TODO | TODO | ? | ? |
 
 Notes:
-- AcornOS: kernel is currently "stolen" from LevitateOS (theft mode), so CP0 is HALF (verified: `.artifacts/out/AcornOS/staging/boot/vmlinuz` is `*-levitate`).
+- AcornOS: kernel is currently "stolen" from LevitateOS (theft mode), so CP0 is HALF.
