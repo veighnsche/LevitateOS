@@ -102,3 +102,20 @@ test-reset distro="levitate":
 # Build ISO
 build distro="leviso":
     cd {{distro}} && cargo run -- build
+
+# Docs content (shared by website + tui)
+docs-content-build:
+    cd docs/content && bun run build
+
+docs-content-check:
+    cd docs/content && bun run check
+
+# Website (Astro)
+website-dev:
+    cd docs/website && bun run dev
+
+website-build:
+    cd docs/website && bun run build
+
+website-typecheck:
+    cd docs/website && bun run typecheck

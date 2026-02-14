@@ -119,7 +119,9 @@ fdisk -l                    # detailed
 # Partition (UEFI/GPT)
 sgdisk -Z /dev/sda                              # wipe partition table
 sgdisk -n 1:0:+1G -t 1:ef00 /dev/sda            # EFI partition
-sgdisk -n 2:0:0 -t 2:8300 /dev/sda              # root partition
+sgdisk -n 2:0:+64G -t 2:8300 /dev/sda           # system-a (slot A)
+sgdisk -n 3:0:+64G -t 3:8300 /dev/sda           # system-b (slot B)
+sgdisk -n 4:0:0 -t 4:8300 /dev/sda              # var (persistent state)
 
 # Partition (BIOS/MBR)
 parted /dev/sda mklabel msdos
@@ -127,14 +129,16 @@ parted /dev/sda mkpart primary ext4 1MiB 100%
 
 # Format
 mkfs.fat -F32 /dev/sda1             # EFI
-mkfs.ext4 /dev/sda2                 # root (ext4)
-mkfs.btrfs /dev/sda2                # root (btrfs)
-mkfs.xfs /dev/sda2                  # root (xfs)
+mkfs.ext4 /dev/sda2                 # system-a (slot A)
+mkfs.ext4 /dev/sda3                 # system-b (slot B)
+mkfs.ext4 /dev/sda4                 # var (persistent state)
 
 # Mount
-mount /dev/sda2 /mnt                # root first
-mkdir -p /mnt/boot/efi
-mount /dev/sda1 /mnt/boot/efi       # then EFI
+mount /dev/sda2 /mnt                # system-a first
+mkdir -p /mnt/boot
+mount /dev/sda1 /mnt/boot           # then EFI
+mkdir -p /mnt/var
+mount /dev/sda4 /mnt/var            # then persistent state
 ```
 
 **CRITICAL:** LLM must ONLY reference disks that exist in the system context. Never hallucinate disk names.
@@ -235,8 +239,8 @@ The LLM must learn when to:
 ### A. Execute a Command (Function Call)
 Use when user requests an ACTION:
 - "list disks" → `lsblk`
-- "format sda2 as ext4" → `mkfs.ext4 /dev/sda2`
-- "mount root partition" → `mount /dev/sda2 /mnt`
+- "format system-a (sda2) as ext4" → `mkfs.ext4 /dev/sda2`
+- "mount system slot A" → `mount /dev/sda2 /mnt`
 
 **Output format:**
 ```
@@ -426,7 +430,7 @@ The LLM should understand variations:
     {"role": "assistant", "content": "$ lsblk\n\nNAME    SIZE TYPE\nsda     500G disk\nnvme0n1   1T disk"},
     {"role": "user", "content": "partition the samsung one for uefi"}
   ],
-  "expected_response": {"type": "command", "command": "sgdisk -Z /dev/sda && sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:0 -t 2:8300 /dev/sda"}
+  "expected_response": {"type": "command", "command": "sgdisk -Z /dev/sda && sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:+64G -t 2:8300 -n 3:0:+64G -t 3:8300 -n 4:0:0 -t 4:8300 /dev/sda"}
 }
 ```
 
@@ -448,15 +452,15 @@ The LLM should understand variations:
   "messages": [
     {"role": "user", "content": "show disks"},
     {"role": "assistant", "content": "$ lsblk\n\nNAME        SIZE\nsda         500G\nnvme0n1       1T"},
-    {"role": "user", "content": "use the bigger one"},
-    {"role": "assistant", "content": "$ sgdisk -Z /dev/nvme0n1\n\nPartition table wiped."},
-    {"role": "user", "content": "create partitions"},
-    {"role": "assistant", "content": "$ sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:0 -t 2:8300 /dev/nvme0n1\n\nCreated EFI (1G) and root partitions."},
-    {"role": "user", "content": "format them"}
-  ],
-  "expected_response": {"type": "command", "command": "mkfs.fat -F32 /dev/nvme0n1p1 && mkfs.ext4 /dev/nvme0n1p2"}
-}
-```
+	    {"role": "user", "content": "use the bigger one"},
+	    {"role": "assistant", "content": "$ sgdisk -Z /dev/nvme0n1\n\nPartition table wiped."},
+	    {"role": "user", "content": "create partitions"},
+	    {"role": "assistant", "content": "$ sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:+64G -t 2:8300 -n 3:0:+64G -t 3:8300 -n 4:0:0 -t 4:8300 /dev/nvme0n1\n\nCreated EFI (1G), system-a, system-b, and var partitions."},
+	    {"role": "user", "content": "format them"}
+	  ],
+	  "expected_response": {"type": "command", "command": "mkfs.fat -F32 /dev/nvme0n1p1 && mkfs.ext4 /dev/nvme0n1p2 && mkfs.ext4 /dev/nvme0n1p3 && mkfs.ext4 /dev/nvme0n1p4"}
+	}
+	```
 
 ### Key Points
 1. **messages array is ALWAYS present** - even for "first" messages (array of 1)
@@ -502,19 +506,19 @@ Each line below is a separate training example. Note how **each example is a sna
 
 **Snapshot 3 - After partition table wiped**
 ```json
-{"system_context": "- Boot mode: UEFI\n\n## Available Disks\n- /dev/sda: 500G (Samsung SSD) - no partitions", "messages": [{"role": "user", "content": "I want to install on sda"}, {"role": "assistant", "content": "I'll prepare /dev/sda for a UEFI installation."}, {"role": "user", "content": "ok do it"}, {"role": "assistant", "content": "$ sgdisk -Z /dev/sda\nGPT data structures destroyed."}, {"role": "user", "content": "now what"}], "expected_response": {"type": "command", "command": "sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:0 -t 2:8300 /dev/sda"}}
+{"system_context": "- Boot mode: UEFI\n\n## Available Disks\n- /dev/sda: 500G (Samsung SSD) - no partitions", "messages": [{"role": "user", "content": "I want to install on sda"}, {"role": "assistant", "content": "I'll prepare /dev/sda for a UEFI installation."}, {"role": "user", "content": "ok do it"}, {"role": "assistant", "content": "$ sgdisk -Z /dev/sda\nGPT data structures destroyed."}, {"role": "user", "content": "now what"}], "expected_response": {"type": "command", "command": "sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:+64G -t 2:8300 -n 3:0:+64G -t 3:8300 -n 4:0:0 -t 4:8300 /dev/sda"}}
 ```
 
 **Snapshot 4 - Partitions created, user says "format them"**
 ```json
-{"system_context": "- Boot mode: UEFI\n\n## Available Disks\n- /dev/sda: 500G\n  - /dev/sda1: 1G\n  - /dev/sda2: 499G", "messages": [{"role": "user", "content": "I want to install on sda"}, {"role": "assistant", "content": "..."}, {"role": "user", "content": "ok do it"}, {"role": "assistant", "content": "$ sgdisk -Z /dev/sda\n..."}, {"role": "user", "content": "now what"}, {"role": "assistant", "content": "$ sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:0 /dev/sda\nCreated EFI and root partitions."}, {"role": "user", "content": "format them"}], "expected_response": {"type": "command", "command": "mkfs.fat -F32 /dev/sda1 && mkfs.ext4 /dev/sda2"}}
+{"system_context": "- Boot mode: UEFI\n\n## Available Disks\n- /dev/sda: 500G\n  - /dev/sda1: 1G\n  - /dev/sda2: 64G\n  - /dev/sda3: 64G\n  - /dev/sda4: 371G", "messages": [{"role": "user", "content": "I want to install on sda"}, {"role": "assistant", "content": "..."}, {"role": "user", "content": "ok do it"}, {"role": "assistant", "content": "$ sgdisk -Z /dev/sda\n..."}, {"role": "user", "content": "now what"}, {"role": "assistant", "content": "$ sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:+64G -t 2:8300 -n 3:0:+64G -t 3:8300 -n 4:0:0 -t 4:8300 /dev/sda\nCreated EFI (1G), system-a, system-b, and var partitions."}, {"role": "user", "content": "format them"}], "expected_response": {"type": "command", "command": "mkfs.fat -F32 /dev/sda1 && mkfs.ext4 /dev/sda2 && mkfs.ext4 /dev/sda3 && mkfs.ext4 /dev/sda4"}}
 ```
 
 ### Example Set: Pronoun Resolution
 
 **User says "it" - must resolve from context**
 ```json
-{"system_context": "...", "messages": [{"role": "user", "content": "list disks"}, {"role": "assistant", "content": "$ lsblk\nsda    500G\nnvme0n1  1T"}, {"role": "user", "content": "use the nvme"}, {"role": "assistant", "content": "$ sgdisk -Z /dev/nvme0n1\nWiped."}, {"role": "user", "content": "partition it"}], "expected_response": {"type": "command", "command": "sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:0 -t 2:8300 /dev/nvme0n1"}}
+{"system_context": "...", "messages": [{"role": "user", "content": "list disks"}, {"role": "assistant", "content": "$ lsblk\nsda    500G\nnvme0n1  1T"}, {"role": "user", "content": "use the nvme"}, {"role": "assistant", "content": "$ sgdisk -Z /dev/nvme0n1\nWiped."}, {"role": "user", "content": "partition it"}], "expected_response": {"type": "command", "command": "sgdisk -n 1:0:+1G -t 1:ef00 -n 2:0:+64G -t 2:8300 -n 3:0:+64G -t 3:8300 -n 4:0:0 -t 4:8300 /dev/nvme0n1"}}
 ```
 
 **User says "yes" - must know what question was asked**
