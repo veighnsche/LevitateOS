@@ -125,7 +125,7 @@ fn ingest_all(repo_root: &Path, store: &ArtifactStore) -> Result<()> {
 
 fn ingest_leviso(base_dir: &Path, store: &ArtifactStore) -> Result<()> {
     println!("== Ingest leviso ==");
-    let out = base_dir.join("output");
+    let out = distro_builder::artifact_store::central_output_dir_for_distro(base_dir);
     if !out.exists() {
         println!("  [SKIP] No output dir at {}", out.display());
         return Ok(());
@@ -311,7 +311,7 @@ fn ingest_leviso(base_dir: &Path, store: &ArtifactStore) -> Result<()> {
 
 fn ingest_acorn(base_dir: &Path, store: &ArtifactStore) -> Result<()> {
     println!("== Ingest AcornOS ==");
-    let out = base_dir.join("output");
+    let out = distro_builder::artifact_store::central_output_dir_for_distro(base_dir);
     if !out.exists() {
         println!("  [SKIP] No output dir at {}", out.display());
         return Ok(());
@@ -466,7 +466,7 @@ fn ingest_acorn(base_dir: &Path, store: &ArtifactStore) -> Result<()> {
 
 fn ingest_iuppiter(base_dir: &Path, store: &ArtifactStore) -> Result<()> {
     println!("== Ingest IuppiterOS ==");
-    let out = base_dir.join("output");
+    let out = distro_builder::artifact_store::central_output_dir_for_distro(base_dir);
     if !out.exists() {
         println!("  [SKIP] No output dir at {}", out.display());
         return Ok(());

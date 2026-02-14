@@ -27,12 +27,12 @@ cd /home/vince/Projects/LevitateOS/leviso
 cargo run -- build
 ```
 
-Output: `/home/vince/Projects/LevitateOS/leviso/output/levitateos-x86_64.iso`
+Output: `.artifacts/out/leviso/levitateos-x86_64.iso`
 
 ### Step 2: Generate Checksums
 
 ```bash
-cd /home/vince/Projects/LevitateOS/output
+cd /home/vince/Projects/LevitateOS/.artifacts/out/leviso
 
 # SHA256
 sha256sum levitateos-x86_64.iso > SHA256SUMS
@@ -159,9 +159,9 @@ Questions? Start a [discussion](https://github.com/LevitateOS/LevitateOS/discuss
 **Commit:** $(git rev-parse --short HEAD)
 EOF
 )" \
-  leviso/output/levitateos-x86_64.iso \
-  output/SHA256SUMS \
-  output/SHA512SUMS
+  .artifacts/out/leviso/levitateos-x86_64.iso \
+  .artifacts/out/leviso/SHA256SUMS \
+  .artifacts/out/leviso/SHA512SUMS
 ```
 
 **If not using CLI:**

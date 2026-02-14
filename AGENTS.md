@@ -45,14 +45,14 @@ The checkpoint loop is implemented in `testing/install-tests` (CLI: `cargo run -
 - Full `install-tests` runner temp disk: `$TMPDIR/leviso-install-test.qcow2`
 - Full `install-tests` runner temp OVMF vars: `$TMPDIR/leviso-install-test-vars.fd`
 - QMP smoke test temp artifacts: `$TMPDIR/leviso-qmp-smoke.qcow2`, `$TMPDIR/leviso-qmp-smoke-vars.fd`, `$TMPDIR/leviso-qmp-smoke.sock`
-- Distro QEMU runners disk (interactive dev): `<DistroDir>/output/virtual-disk.qcow2`
+- Distro QEMU runners disk (interactive dev): `.artifacts/out/<DistroDir>/virtual-disk.qcow2` (legacy `<DistroDir>/output` is a symlink)
 
 ### Interactive QEMU (Justfile)
 `just checkpoint` is a manual QEMU runner (defined in `justfile`), currently only:
 - `just checkpoint 1 <distro>`: direct QEMU boot of the live ISO (serial)
-- `just checkpoint 4 <distro>`: direct QEMU boot of an already-installed disk from `<DistroDir>/output/*test.qcow2` (separate from the harness disk in `$TMPDIR`)
+- `just checkpoint 4 <distro>`: direct QEMU boot of an already-installed disk from `.artifacts/out/<DistroDir>/*test.qcow2` (separate from the harness disk in `$TMPDIR`)
 
-Note: the distro QEMU runners (`cargo run -- run`) use `output/virtual-disk.qcow2`. The justfile checkpoint-4 helper expects `*test.qcow2` + `*ovmf-vars.fd` under `output/`.
+Note: the distro QEMU runners (`cargo run -- run`) use `.artifacts/out/<DistroDir>/virtual-disk.qcow2` (legacy `output/virtual-disk.qcow2` still works via symlink). The justfile checkpoint-4 helper expects `*test.qcow2` + `*ovmf-vars.fd` under `.artifacts/out/<DistroDir>/`.
 
 Note: the `checkpoints` CLI accepts `--interactive`, and the WIP implementation lives in `testing/install-tests/src/interactive.rs`, but it is not currently wired up in `testing/install-tests/src/bin/checkpoints.rs`. Installed interactive checkpoints (3-6) are not implemented yet.
 
@@ -64,34 +64,34 @@ Wired for all three distros:
 - LevitateOS installs them into the live rootfs at `/usr/local/bin/checkpoint-*.sh` and `/usr/local/lib/checkpoint-tests/common.sh` (see `leviso/src/component/custom/mod.rs` and `leviso/src/component/definitions.rs`).
 
 To verify without booting, inspect the EROFS rootfs:
-- `dump.erofs --path /usr/local/bin/checkpoint-1-live-boot.sh <DistroDir>/output/filesystem.erofs`
+- `dump.erofs --path /usr/local/bin/checkpoint-1-live-boot.sh .artifacts/out/<DistroDir>/filesystem.erofs`
 
 ### Kernel "Theft Mode" (DEV-only)
-For Alpine-based distros (AcornOS/IuppiterOS), the shared kernel recipe (`distro-builder/recipes/linux.rhai`) may reuse/steal a prebuilt kernel from `leviso/output/kernel-build` instead of compiling.
+For Alpine-based distros (AcornOS/IuppiterOS), the shared kernel recipe (`distro-builder/recipes/linux.rhai`) may reuse/steal a prebuilt kernel from `.artifacts/out/leviso/kernel-build` instead of compiling.
 To force a real kernel build from source, pass the kernel flag and the confirmation flag, e.g.:
 - `cd AcornOS && cargo run -- build --kernel --dangerously-waste-the-users-time`
 
 To verify whether a kernel is "built for this distro" vs "stolen", check the kernel release suffix (from `CONFIG_LOCALVERSION` in each distro `kconfig`):
-- LevitateOS: `file leviso/output/staging/boot/vmlinuz` should include `-levitate`
-- AcornOS: `file AcornOS/output/staging/boot/vmlinuz` should include `-acorn`
-- IuppiterOS: `file IuppiterOS/output/staging/boot/vmlinuz` should include `-iuppiter`
+- LevitateOS: `file .artifacts/out/leviso/staging/boot/vmlinuz` should include `-levitate`
+- AcornOS: `file .artifacts/out/AcornOS/staging/boot/vmlinuz` should include `-acorn`
+- IuppiterOS: `file .artifacts/out/IuppiterOS/staging/boot/vmlinuz` should include `-iuppiter`
 
-If AcornOS/IuppiterOS show `*-levitate`, that's theft-mode (kernel provenance is LevitateOS). A stronger confirmation is that the `sha256sum` of `output/staging/boot/vmlinuz` matches `leviso/output/staging/boot/vmlinuz`.
+If AcornOS/IuppiterOS show `*-levitate`, that's theft-mode (kernel provenance is LevitateOS). A stronger confirmation is that the `sha256sum` of `staging/boot/vmlinuz` matches `.artifacts/out/leviso/staging/boot/vmlinuz`.
 
 ## Centralized Artifact Store
 
-Build outputs are normally written under `<DistroDir>/output/` (and downloads under `<DistroDir>/downloads/`). To make incremental work and cross-distro reuse less scattered, the repo also maintains a repo-local content-addressed artifact store:
+Build outputs are centralized under `.artifacts/out/<DistroDir>/` (and downloads remain under `<DistroDir>/downloads/`). Legacy `<DistroDir>/output/` is a symlink to the centralized location. To make incremental work and cross-distro reuse less scattered, the repo also maintains a repo-local content-addressed artifact store:
 - Store root (gitignored): `.artifacts/`
-- Index: `.artifacts/index/<kind>/<input_key>.json` where `input_key` is typically `output/.<artifact>-inputs.hash`
+- Index: `.artifacts/index/<kind>/<input_key>.json` where `input_key` is the contents of an inputs-hash file (typically `.artifacts/out/<DistroDir>/.<artifact>-inputs.hash`)
 - Blobs: `.artifacts/blobs/sha256/<prefix>/<sha256>`
 
 Supported kinds (initial):
-- `kernel_payload` (`output/staging/boot/vmlinuz` + kernel modules under `output/staging/{lib,usr/lib}/modules/`)
-- `rootfs_erofs` (e.g. `output/filesystem.erofs`)
-- `initramfs` (e.g. `output/initramfs-live.cpio.gz`)
-- `install_initramfs` (LevitateOS only, e.g. `output/initramfs-installed.img`)
-- `iso` (e.g. `output/*.iso`)
-- `iso_checksum` (e.g. `output/*.sha512` or `output/*.iso.sha512`)
+- `kernel_payload` (`.artifacts/out/<DistroDir>/staging/boot/vmlinuz` + kernel modules under `.artifacts/out/<DistroDir>/staging/{lib,usr/lib}/modules/`)
+- `rootfs_erofs` (e.g. `.artifacts/out/<DistroDir>/filesystem.erofs`)
+- `initramfs` (e.g. `.artifacts/out/<DistroDir>/initramfs-live.cpio.gz`)
+- `install_initramfs` (LevitateOS only, e.g. `.artifacts/out/leviso/initramfs-installed.img`)
+- `iso` (e.g. `.artifacts/out/<DistroDir>/*.iso`)
+- `iso_checksum` (e.g. `.artifacts/out/<DistroDir>/*.sha512` or `.artifacts/out/<DistroDir>/*.iso.sha512`)
 
 Tooling:
 - Status: `cargo run -p recart -- status`
