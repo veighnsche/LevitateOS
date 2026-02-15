@@ -1,4 +1,0 @@
-[alias]
-# This repo's "xtask" implementation currently lives under tools/recipe/xtask.
-xtask = "run -p recipe-xtask --"
-

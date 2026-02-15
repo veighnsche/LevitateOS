@@ -1,82 +1,14 @@
 # Sway Desktop E2E Test Instructions
 
+> NOTE (February 15, 2026): the old `cargo xtask vm ...` flow was removed. This document is archived until it is rewritten with the current VM/test harness.
+>
 > **NOTE: This is for TESTING the `levitate` package manager only.**
 > Sway/Wayland is NOT part of default LevitateOS. LevitateOS boots to terminal.
 > This test uses Sway because it has a complex dependency chain - good for testing.
 
 Test the complete Sway desktop installation using the levitate package manager.
 
-## Prerequisites
-
-- QEMU with KVM support (`qemu-system-x86_64`)
-- ~5GB free disk space
-- Internet connection
-
-## Quick Start (5 commands)
-
-```bash
-# 1. Download Arch cloud image (~500MB)
-cargo xtask vm setup
-
-# 2. Build levitate binary
-cargo xtask vm prepare
-
-# 3. Boot the VM
-cargo xtask vm start --gui
-
-# 4. In VM: login as arch/arch, then from host:
-cargo xtask vm copy
-
-# 5. In VM: install desktop and run
-levitate desktop
-sway
-```
-
-## Detailed Steps
-
-### Step 1: Setup
-
-```bash
-cargo xtask vm setup
-```
-
-Downloads the official Arch Linux cloud image (~500MB) and resizes it to 20GB.
-
-### Step 2: Prepare
-
-```bash
-cargo xtask vm prepare
-```
-
-Builds the `levitate` binary and stages it with all 22 recipes.
-
-### Step 3: Boot VM
-
-```bash
-cargo xtask vm start --gui
-```
-
-Starts QEMU with:
-- virtio-gpu (OpenGL for Wayland)
-- virtio-keyboard/mouse
-- SSH forwarding on port 2222
-
-### Step 4: Login
-
-Wait for the VM to boot. Login at the console:
-
-```
-Username: arch
-Password: arch
-```
-
-### Step 5: Copy levitate to VM
-
-From the **host** (another terminal):
-
-```bash
-cargo xtask vm copy
-```
+The remainder of this document previously described `cargo xtask vm ...` commands and is intentionally removed to avoid stale instructions.
 
 This copies:
 - `/usr/local/bin/levitate` (package manager)
