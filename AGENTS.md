@@ -20,6 +20,19 @@ This repo uses git submodules; prefer `git clone --recurse-submodules` or run
 - Install pre-commit hooks (fmt + clippy + unit tests): `tools/install-hooks.sh`.
 - Docs dev/build (Bun): `bun run dev`, `bun run build`, `bun run check`.
 
+## Working in Dirty Trees
+- If the git working tree already has changes, assume they are intentional and leave them untouched by default.
+- Do not revert/remove unrelated diffs unless the user explicitly asks to clean up, minimize a PR, or revert specific files.
+- It is still OK to mention that unrelated changes exist when it affects reviewability, submodule pointers, conflicts, or CI noise.
+
+## Commit Behavior ("Commit ALL")
+- If the user asks to commit "ALL" (or asks for a "full clean working tree"), the goal is a fully clean `git status` in the superproject and in every submodule.
+- Commit order:
+- 1) Commit inside each dirty submodule first (one or more commits per submodule, grouped by theme with meaningful Conventional Commit messages).
+- 2) Then commit the superproject changes (submodule pointer bumps, `.gitmodules`, workspace membership, docs, etc.), also grouped by theme with meaningful messages.
+- Never commit files the agent believes should be gitignored (build outputs, caches, temp artifacts, secrets), even if they are currently unignored, unless the user explicitly asks to commit them.
+- If "should-be-gitignored" files are present and are blocking a clean tree, prefer adding/adjusting `.gitignore` (and, if needed, removing them from tracking) rather than committing them.
+
 ## Checkpoint System
 
 The checkpoint loop is implemented in `testing/install-tests` (CLI: `cargo run --bin checkpoints -- ...`) and is intended to be the fast E2E boot/install regression signal.
