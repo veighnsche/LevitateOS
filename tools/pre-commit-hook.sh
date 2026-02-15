@@ -2,7 +2,7 @@
 #
 # LevitateOS shared pre-commit hook for Rust submodules
 #
-# Installs into each submodule via: tools/install-hooks.sh
+# Installs into each submodule via: cargo xtask hooks install
 #
 # What it does:
 #   1. Auto-fix: cargo fmt on staged .rs files (re-stages them)

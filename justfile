@@ -6,98 +6,61 @@ export PATH := tools_prefix / "usr/bin" + ":" + tools_prefix / "usr/libexec" + "
 export LD_LIBRARY_PATH := tools_prefix / "usr/lib64"
 export OVMF_PATH := tools_prefix / "usr/share/edk2/ovmf/OVMF_CODE.fd"
 
-ovmf := tools_prefix / "usr/share/edk2/ovmf/OVMF_CODE.fd"
+# -----------------------------------------------------------------------------
+# xtask wrappers
+# Prefer invoking xtask from just, and keep the justfile itself logic-light.
+
+# Print the environment exports that the justfile sets for QEMU/tooling.
+#
+# Usage:
+#   eval "$(just env bash)"
+env shell="bash":
+    cargo xtask env {{shell}}
+
+# Check that local toolchain/tools match what this repo expects.
+doctor:
+    cargo xtask doctor
+
+# Install/remove the shared pre-commit hook into the workspace + Rust submodules.
+hooks-install:
+    cargo xtask hooks install
+
+hooks-remove:
+    cargo xtask hooks remove
+
+# Kernel helpers (x86_64).
+kernels-check:
+    cargo xtask kernels check
+
+kernels-check-one distro:
+    cargo xtask kernels check {{distro}}
+
+kernels-build-all-x86-64:
+    cargo xtask kernels build-all-x86-64
+
+kernels-rebuild-all-x86-64:
+    cargo xtask kernels build-all-x86-64 --rebuild
 
 # Boot into a checkpoint stage (interactive serial, Ctrl-A X to exit)
 [no-exit-message]
 checkpoint n distro="leviso":
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    # Determine ISO and disk paths based on distro
-    if [ "{{distro}}" = "leviso" ]; then
-        iso="{{justfile_directory()}}/.artifacts/out/leviso/levitateos-x86_64.iso"
-        disk_dir="{{justfile_directory()}}/.artifacts/out/leviso"
-        disk_name="levitate-test.qcow2"
-        vars_name="levitate-ovmf-vars.fd"
-        pretty_name="LevitateOS"
-        harness_distro="levitate"
-    elif [ "{{distro}}" = "acorn" ]; then
-        iso="{{justfile_directory()}}/.artifacts/out/AcornOS/acornos.iso"
-        disk_dir="{{justfile_directory()}}/.artifacts/out/AcornOS"
-        disk_name="acorn-test.qcow2"
-        vars_name="acorn-ovmf-vars.fd"
-        pretty_name="AcornOS"
-        harness_distro="acorn"
-    elif [ "{{distro}}" = "iuppiter" ]; then
-        iso="{{justfile_directory()}}/.artifacts/out/IuppiterOS/iuppiter-x86_64.iso"
-        disk_dir="{{justfile_directory()}}/.artifacts/out/IuppiterOS"
-        disk_name="iuppiter-test.qcow2"
-        vars_name="iuppiter-ovmf-vars.fd"
-        pretty_name="IuppiterOS"
-        harness_distro="iuppiter"
-    else
-        echo "Unknown distro: {{distro}}"
-        echo "Valid options: leviso, acorn, iuppiter"
-        exit 1
-    fi
-
-    if [ "{{n}}" = "1" ]; then
-        echo "Booting $pretty_name live ISO... (Ctrl-A X to exit)"
-        qemu-system-x86_64 \
-            -enable-kvm \
-            -cpu host \
-            -smp 4 \
-            -m 4G \
-            -device virtio-scsi-pci,id=scsi0 \
-            -device scsi-cd,drive=cdrom0,bus=scsi0.0 \
-            -drive id=cdrom0,if=none,format=raw,readonly=on,file="$iso" \
-            -drive if=pflash,format=raw,readonly=on,file={{ovmf}} \
-            -vga none \
-            -nographic \
-            -serial mon:stdio \
-            -no-reboot
-    elif [ "{{n}}" = "2" ]; then
-        echo "Booting $pretty_name interactive checkpoint 2 (live tools)... (Ctrl-A X to exit)"
-        cd testing/install-tests && cargo run --bin checkpoints -- --distro "$harness_distro" --checkpoint 2 --interactive
-    elif [ "{{n}}" = "4" ]; then
-        echo "Booting installed $pretty_name... (Ctrl-A X to exit)"
-        qemu-system-x86_64 \
-            -enable-kvm \
-            -cpu host \
-            -smp 4 \
-            -m 4G \
-            -drive file="$disk_dir/$disk_name",format=qcow2,if=virtio \
-            -drive if=pflash,format=raw,readonly=on,file={{ovmf}} \
-            -drive if=pflash,format=raw,file="$disk_dir/$vars_name" \
-            -boot c \
-            -netdev user,id=net0 \
-            -device virtio-net-pci,netdev=net0 \
-            -vga none \
-            -nographic \
-            -serial mon:stdio \
-            -no-reboot
-    else
-        echo "Checkpoint {{n}} is automated — use 'just test {{n}} {{distro}}' instead"
-        echo "Interactive checkpoints: 1 (live), 2 (live tools), 4 (installed)"
-        exit 1
-    fi
+    cargo xtask checkpoints boot {{n}} {{distro}}
 
 # Run automated checkpoint test (pass/fail)
 test n distro="levitate":
-    cd testing/install-tests && cargo run --bin checkpoints -- --distro {{distro}} --checkpoint {{n}}
+    cargo xtask checkpoints test {{n}} {{distro}}
 
 # Run all checkpoint tests up to N
 test-up-to n distro="levitate":
-    cd testing/install-tests && cargo run --bin checkpoints -- --distro {{distro}} --up-to {{n}}
+    cargo xtask checkpoints test-up-to {{n}} {{distro}}
 
 # Show checkpoint test status
 test-status distro="levitate":
-    cd testing/install-tests && cargo run --bin checkpoints -- --distro {{distro}} --status
+    cargo xtask checkpoints status {{distro}}
 
 # Reset checkpoint test state
 test-reset distro="levitate":
-    cd testing/install-tests && cargo run --bin checkpoints -- --distro {{distro}} --reset
+    cargo xtask checkpoints reset {{distro}}
 
 # Build ISO
 build distro="leviso":

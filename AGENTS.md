@@ -17,7 +17,7 @@ This repo uses git submodules; prefer `git clone --recurse-submodules` or run
 - Boot interactively: `just checkpoint 1 leviso` (live boot), `just checkpoint 2 leviso` (live tools + interactive). Exit QEMU: `Ctrl-A X`.
 - Run automated checkpoints: `just test 4 levitate`, `just test-up-to 6 levitate`, `just test-status levitate` (also: `acorn`, `iuppiter`).
 - Rust checks (CI-style): `cargo test --verbose`, `cargo fmt -- --check`, `cargo clippy -- -D warnings`.
-- Install pre-commit hooks (fmt + clippy + unit tests): `tools/install-hooks.sh`.
+- Install pre-commit hooks (fmt + clippy + unit tests): `cargo xtask hooks install`.
 - Docs dev/build (Bun): `bun run dev`, `bun run build`, `bun run check`.
 
 ## Working in Dirty Trees
