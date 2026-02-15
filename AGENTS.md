@@ -24,6 +24,11 @@ This repo uses git submodules; prefer `git clone --recurse-submodules` or run
 - If the git working tree already has changes, assume they are intentional and leave them untouched by default.
 - Do not revert/remove unrelated diffs unless the user explicitly asks to clean up, minimize a PR, or revert specific files.
 - It is still OK to mention that unrelated changes exist when it affects reviewability, submodule pointers, conflicts, or CI noise.
+- Always assume all diffs are intentional, including diffs you do not recognize.
+- Never suggest reverting changes. Only revert when the user explicitly requests reverting specific files/changes.
+- If unrelated diffs affect reviewability or risk mixing concerns, ask whether to include them in the current scope or leave them alone.
+- Keep a short running list of files you changed in the current task and include it in your final message.
+- If a diff is in a file you touched in the current task, treat it as part of your work: re-open the file/diff to reorient; do not ask the user to explain your own changes.
 
 ## Commit Behavior ("Commit ALL")
 - If the user asks to commit "ALL" (or asks for a "full clean working tree"), the goal is a fully clean `git status` in the superproject and in every submodule.
