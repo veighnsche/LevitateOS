@@ -8,7 +8,6 @@ members = [
     "AcornOS",
     "IuppiterOS",
     "leviso-elf",
-    "xtask",
     "tools/recipe",
     "tools/recstrap",
     "tools/recfstab",
