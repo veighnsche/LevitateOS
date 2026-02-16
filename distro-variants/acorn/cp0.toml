@@ -1,0 +1,43 @@
+schema_version = 3
+
+[identity]
+os_name = "AcornOS"
+os_id = "acornos"
+iso_label = "ACORNOS"
+os_version = "1.0"
+default_hostname = "acornos"
+
+[artifacts]
+rootfs_name = "filesystem.erofs"
+initramfs_live_output = "initramfs-live.cpio.gz"
+iso_filename = "acornos.iso"
+
+[cp0]
+required_build_tools = [
+  "recipe",
+  "cargo",
+  "make",
+  "recuki",
+  "ukify",
+  "mkfs.erofs",
+  "xorriso",
+  "reciso",
+  "recinit",
+  "recstrap",
+  "recfstab",
+  "recchroot",
+]
+kernel_kconfig_path = "kconfig"
+recipe_kernel_script = "distro-builder/recipes/linux.rhai"
+recipe_kernel_invocation = "recipe install"
+kernel_release_path = "kernel-build/include/config/kernel.release"
+kernel_image_path = "staging/boot/vmlinuz"
+kernel_modules_path = "staging/usr/lib/modules/<kernel.release>"
+kernel_version = "6.19"
+kernel_sha256 = "303079a8250b8f381f82b03f90463d12ac98d4f6b149b761ea75af1323521357"
+kernel_localversion = "-acorn"
+module_install_path = "/usr/lib/modules"
+
+[cp0.evidence]
+script_path = "checkpoint-0-build-capability.sh"
+pass_marker = "CHECKPOINT 0 PASSED"

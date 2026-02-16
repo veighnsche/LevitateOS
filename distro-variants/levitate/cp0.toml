@@ -1,0 +1,44 @@
+schema_version = 3
+
+[identity]
+os_name = "LevitateOS"
+os_id = "levitateos"
+iso_label = "LEVITATEOS"
+os_version = "1.0"
+default_hostname = "levitateos"
+
+[artifacts]
+rootfs_name = "filesystem.erofs"
+initramfs_live_output = "initramfs-live.cpio.gz"
+iso_filename = "levitateos-x86_64.iso"
+initramfs_installed_output = "initramfs-installed.img"
+
+[cp0]
+required_build_tools = [
+  "recipe",
+  "cargo",
+  "make",
+  "recuki",
+  "ukify",
+  "mkfs.erofs",
+  "xorriso",
+  "reciso",
+  "recinit",
+  "recstrap",
+  "recfstab",
+  "recchroot",
+]
+kernel_kconfig_path = "kconfig"
+recipe_kernel_script = "distro-builder/recipes/linux.rhai"
+recipe_kernel_invocation = "recipe install"
+kernel_release_path = "kernel-build/include/config/kernel.release"
+kernel_image_path = "staging/boot/vmlinuz"
+kernel_modules_path = "staging/usr/lib/modules/<kernel.release>"
+kernel_version = "6.12.71"
+kernel_sha256 = "143e8bc76cc41f831b51aa5e75819bed55bed41f299d35922820f1d2d2b02600"
+kernel_localversion = "-levitate"
+module_install_path = "/usr/lib/modules"
+
+[cp0.evidence]
+script_path = "checkpoint-0-build-capability.sh"
+pass_marker = "CHECKPOINT 0 PASSED"

@@ -2,7 +2,8 @@
 
 ## Project Structure & Module Organization
 - `Cargo.toml`: Rust workspace (builders, shared libs, tools, tests).
-- `leviso/`, `AcornOS/`, `IuppiterOS/`: distro entrypoints (build ISO, run QEMU).
+- `leviso/`, `AcornOS/`, `IuppiterOS/`: old distro entrypoints - for reference.
+- `distro-variants/{levitate,acorn,ralph,iuppiter}`: new distro entrypoints that passes the strict conformance test. 
 - `distro-builder/`, `distro-spec/`, `distro-contract/`: shared build engine + specs/contracts.
 - `tools/`: standalone CLIs (`recipe`, `recstrap`, `recfstab`, `recchroot`, `reciso`, `recqemu`, `recart`, ...).
 - `testing/`: Rust test harnesses (notably `install-tests/` checkpoint tests and `rootfs-tests/`).
@@ -37,6 +38,14 @@ This repo uses git submodules; prefer `git clone --recurse-submodules` or run
 - 2) Then commit the superproject changes (submodule pointer bumps, `.gitmodules`, workspace membership, docs, etc.), also grouped by theme with meaningful messages.
 - Never commit files the agent believes should be gitignored (build outputs, caches, temp artifacts, secrets), even if they are currently unignored, unless the user explicitly asks to commit them.
 - If "should-be-gitignored" files are present and are blocking a clean tree, prefer adding/adjusting `.gitignore` (and, if needed, removing them from tracking) rather than committing them.
+
+## Conformance test (distro-contract)
+- Primary theme: find and fix inconsistencies across the full checkpoint ladder (CP0-CP8). Do not hide inconsistencies to make tests pass.
+- Treat inconsistencies as first-class failures: path mismatches, schema drift, duplicate sources of truth, checkpoint responsibility leakage, and per-distro behavior divergence without explicit declaration.
+- Preserve checkpoint boundaries from `checkpoints.md`: each checkpoint must enforce its own scope and must not absorb or mask failures that belong to another checkpoint.
+- CP0 is the build-capability exception (not a spawnable runtime state). CP1-CP8 are spawnable system-state checkpoints and must remain independently auditable.
+- For CP0 kernel conformance, enforce Recipe Rhai kernel orchestration (`distro-builder/recipes/linux.rhai` via `recipe install`) and kernel provenance invariants (`kconfig` validity, `kernel.release` version prefix, distro `CONFIG_LOCALVERSION` suffix match).
+- Prefer one canonical declaration per invariant (single source of truth). When multiple values exist, converge or fail conformance.
 
 ## Checkpoint System
 
