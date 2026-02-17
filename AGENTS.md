@@ -10,11 +10,19 @@
 - `docs/`: Bun/Turbo workspaces (`docs/website`, `docs/tui`, `docs/content`).
 - `llm-toolkit/`: Python utilities for local LLM workflows.
 
+## Legacy Crates Are Read-Only
+- Treat legacy distro crates as read-only by default: `leviso/`, `AcornOS/`, `IuppiterOS/`, `RalphOS/`.
+- Do not add new wiring, conformance logic, stage logic, or feature work to legacy crates.
+- Implement new behavior in `distro-variants/*`, `distro-contract`, `distro-builder`, and `testing/*`.
+- Legacy crate edits are allowed only when the user explicitly requests them for a scoped compatibility fix.
+- Never choose legacy-crate edits as a shortcut when equivalent work belongs in the new entrypoints.
+
 This repo uses git submodules; prefer `git clone --recurse-submodules` or run
 `git submodule update --init --recursive`.
 
 ## Build, Test, and Development Commands
-- Build an ISO: `just build leviso` (or `cd leviso && cargo run -- build`).
+- Build an ISO (Stage 00 endpoint): `just build levitate` (aliases: `leviso`, `acorn`, `iuppiter`, `ralph`).
+- Build all ISOs (Stage 00 endpoint): `just build-all`.
 - Boot interactively: `just stage 1 leviso` (live boot), `just stage 2 leviso` (live tools + interactive). Exit QEMU: `Ctrl-A X`.
 - Run automated stages: `just test 4 levitate`, `just test-up-to 6 levitate`, `just test-status levitate` (also: `acorn`, `iuppiter`).
 - Rust checks (CI-style): `cargo test --verbose`, `cargo fmt -- --check`, `cargo clippy -- -D warnings`.
@@ -46,6 +54,12 @@ This repo uses git submodules; prefer `git clone --recurse-submodules` or run
 - Stage 00 is the build-capability exception (not a spawnable runtime state). Stage 01-Stage 08 are spawnable system-state stages and must remain independently auditable.
 - For Stage 00 kernel conformance, enforce Recipe Rhai kernel orchestration (`distro-builder/recipes/linux.rhai` via `recipe install`) and kernel provenance invariants (`kconfig` validity, `kernel.release` version prefix, distro `CONFIG_LOCALVERSION` suffix match).
 - Prefer one canonical declaration per invariant (single source of truth). When multiple values exist, converge or fail conformance.
+
+## Stage Naming Policy
+- Use canonical numbered stage names everywhere in new work: `00Build`, `01Boot`, `02LiveTools`, `03Install`, `04LoginGate`, `05Harness`, `06Runtime`, `07Update`, `08Package`.
+- Do not introduce new unclear aliases such as `stage00`, `stage_00`, or mixed ad-hoc labels in new modules/files/APIs.
+- For filesystem ordering, prefer numbered prefixes in filenames/modules (for example `s00_build`, `s01_boot`).
+- Compatibility exception: keep existing schema keys/protocol fields unchanged where external compatibility depends on them (for example contract TOML keys that already use `stage_00`).
 
 ## Stage System
 
@@ -101,12 +115,38 @@ Kernel compilation is centralized in `xtask` so it only happens during the allow
 - Rebuild regardless of existing artifacts: `cargo xtask kernels build-all --rebuild`
 
 To verify whether a kernel is built for the right distro, check the kernel release suffix (from `CONFIG_LOCALVERSION` in each distro `kconfig`):
-- LevitateOS: `file .artifacts/out/leviso/staging/boot/vmlinuz` should include `-levitate`
-- AcornOS: `file .artifacts/out/AcornOS/staging/boot/vmlinuz` should include `-acorn`
-- IuppiterOS: `file .artifacts/out/IuppiterOS/staging/boot/vmlinuz` should include `-iuppiter`
-- RalphOS: `file .artifacts/out/RalphOS/staging/boot/vmlinuz` should include `-ralph`
+- LevitateOS: `file .artifacts/out/levitate/staging/boot/vmlinuz` should include `-levitate`
+- AcornOS: `file .artifacts/out/acorn/staging/boot/vmlinuz` should include `-acorn`
+- IuppiterOS: `file .artifacts/out/iuppiter/staging/boot/vmlinuz` should include `-iuppiter`
+- RalphOS: `file .artifacts/out/ralph/staging/boot/vmlinuz` should include `-ralph`
 
 If the suffix does not match, treat it as a broken kernel provenance/build and rebuild via `cargo xtask kernels build <distro> --rebuild`.
+
+### Kernel Boundary Policy (Do Not Blur This)
+- The "kernel" is strictly the kernel payload and provenance artifacts:
+- `.artifacts/out/<DistroDir>/kernel-build/**` (including `include/config/kernel.release`, `arch/x86/boot/bzImage`, `.config`)
+- `.artifacts/out/<DistroDir>/staging/boot/vmlinuz`
+- `.artifacts/out/<DistroDir>/staging/usr/lib/modules/<kernel.release>/` (or equivalent modules tree under staging)
+- Rebuilding the kernel means changing any artifact above. Kernel rebuilds must go through `cargo xtask kernels build ...` only.
+- Everything else is non-kernel and may be rebuilt at any time without rebuilding the kernel.
+
+### Non-Kernel Rebuild Policy (Always Allowed)
+- Non-kernel artifacts include (not exhaustive):
+- `.artifacts/out/<DistroDir>/filesystem.erofs`
+- `.artifacts/out/<DistroDir>/initramfs-live.cpio.gz`
+- `.artifacts/out/<DistroDir>/initramfs-installed.img`
+- `.artifacts/out/<DistroDir>/*.iso`
+- `.artifacts/out/<DistroDir>/*.sha512`
+- Stage 00 ISO rebuilds must reuse existing kernel artifacts whenever kernel conformance/provenance already passes.
+- Do not invoke kernel rebuilds as a shortcut when only ISO/rootfs/initramfs content changed.
+- If ISO needs to be rebuilt, rebuild ISO (and dependent non-kernel artifacts) only.
+
+### Reproducibility-First Build Policy (Strict)
+- It is strictly forbidden to use ad-hoc/manual artifact surgery to "make builds pass" (for example: `cp`, `mv`, `ln -s`, direct edits under `.artifacts/out/*`, one-off directory reshuffles, or hand-fixing output paths).
+- If Stage `00Build` fails due to layout/path/provenance mismatches, fix the code/contract/wiring in `distro-builder`, `distro-variants/*`, `distro-contract`, `distro-spec`, or `testing/*` so the build is reproducible from commands alone.
+- "Build S00 ISO" means the repository code is correct end-to-end; it does not mean post-build manual patching of outputs.
+- Any temporary manual workaround discovered during debugging must be replaced by a code fix before reporting success.
+- Prefer deterministic verification commands (`just build <distro>`, `cargo run -p distro-builder --bin distro-builder -- iso build <distro> 00Build`, Stage 00 preflight) as proof of reproducibility.
 
 ## Centralized Artifact Store
 
@@ -119,7 +159,7 @@ Supported kinds (initial):
 - `kernel_payload` (`.artifacts/out/<DistroDir>/staging/boot/vmlinuz` + kernel modules under `.artifacts/out/<DistroDir>/staging/{lib,usr/lib}/modules/`)
 - `rootfs_erofs` (e.g. `.artifacts/out/<DistroDir>/filesystem.erofs`)
 - `initramfs` (e.g. `.artifacts/out/<DistroDir>/initramfs-live.cpio.gz`)
-- `install_initramfs` (LevitateOS only, e.g. `.artifacts/out/leviso/initramfs-installed.img`)
+- `install_initramfs` (LevitateOS only, e.g. `.artifacts/out/levitate/initramfs-installed.img`)
 - `iso` (e.g. `.artifacts/out/<DistroDir>/*.iso`)
 - `iso_checksum` (e.g. `.artifacts/out/<DistroDir>/*.sha512` or `.artifacts/out/<DistroDir>/*.iso.sha512`)
 

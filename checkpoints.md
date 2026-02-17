@@ -15,33 +15,40 @@ represent a bootable runtime state.
 
 ## Distro Behavior (Authoritative)
 
+All distros share the same Stage ladder (00–08).
+Differences below describe *policy and intent*, not structural deviations from the ladder.
+
 | Area | LevitateOS | RalphOS | AcornOS | iuppiterOS |
 |---|---|---|---|---|
 | Visibility | Public | Public | Public | Private/internal |
-| Purpose | Stable Daily | R4D Sandbox | Snappy Daily | iuppter-dar |
-| Steal apps from | Rocky DVD ISO | Rocky DVD ISO | Alpine Extended | Alpine Extended |
-| Toolchain | glibc/systemd/GNU | glibc/systemd/GNU | musl/OpenRC/busybox | musl/OpenRC/busybox |
-| Pre-installed |  |  |  |  |
-| Package Manager | recipe | recipe | recipe | recipe |
-| 00 linux kernel | LTS | LTS | Mainline | LTS |
-| 01 Boot | auto-login root
-| 02 live tools | Full | Minimal | Full | Minimal |
-| 03
-| 08 release target | `ISO` + `qcow2` + `.img` | `qcow2` | `ISO` + `qcow2` + `.img` | Private `.img` |
+| Purpose | Stable daily workstation | R4D sandbox + agent runtime | Lightweight daily system | HDD refurbishment / ephemeral tooling |
+| Toolchain | glibc / systemd / GNU | glibc / systemd / GNU | musl / OpenRC / busybox | musl / OpenRC / busybox |
+| Kernel Policy (00) | LTS (.artifacts/out/levitate/kernel-build) | LTS (.artifacts/out/ralph/kernel-build) | Mainline (.artifacts/out/acorn/kernel-build) | LTS (/home/vince/LevitateOS/.artifacts/out/iuppiter/kernel-build) |
+| Boot Policy (01) | Auto-login root (live) | Auto-login root (live) | Auto-login root (live) | Auto-login root (live) |
+| Live Tools Scope (02) | Arch-parity + docs/TUI | Minimal automated installer | Arch-parity + docs/TUI | Minimal automated installer |
+| Install UX (03) | Narrated logs | Verbose logs | Narrated logs | Verbose logs |
+| Login Model (04) | User-defined account | Root only (pw protected) | User-defined account | Auto-login root (ephemeral) |
+| Harness Authority (05) | User login + sudo verified | Root login verified | User login + sudo verified | Auto-login (ephemeral pass) |
+| Runtime Validation (06) | Full integration test | Full e2e test | Integration test | e2e test |
+| Update Mechanism (07) | A/B + high-value payload mutation | A/B swap validation | A/B + high-value payload mutation | A/B swap validation |
+| Packaging Policy (08) | Public `ISO` + `qcow2` + `.img` | Public `qcow2` | Public `ISO` + `qcow2` + `.img` | Private `.img` |
+| Package Manager | `recipe` | `recipe` | `recipe` | none |
+| App Source | Rocky DVD ISO baseline | Rocky DVD ISO baseline | Alpine Extended baseline | Alpine Extended baseline |
+
 
 ## Stages
 
 | Stage | Ladder Semantics (Proven Authority) | Game Savepoint Semantics (Spawnable State) |
 |---|---|---|
-| 00-Build | Kernel + ISO build succeeds. | Not spawnable (build only). |
-| 01-Boot | Live ISO boots to ready state. | Spawn into minimal live environment. |
-| 02-LiveTools | Live ISO tools verified. | Spawn into live env with functional installer + toolchain. |
-| 03-Install | Disk installation completes. | Spawn into freshly installed system (pre-login verified). |
-| 04-LoginGate | Installed system reaches deterministic login boundary. | Spawn at login surface (TTY/DM/console ready). |
-| 05-Harness | Harness can reliably authenticate and execute commands. | Spawn into installed system with trusted automation access. |
-| 06-Runtime | Core programs pass integration tests under harness control. | Spawn into validated runtime baseline (canonical state). |
-| 07-Update | A/B slot edit + reboot into alternate slot verified. | Spawn into update-capable system with confirmed slot identity. |
-| 08-Package | 06 baseline convertible to release artifacts (`qcow2`, `.img`, ISO where applicable). | Spawn into distributable image derived from 06 baseline. |
+| 00Build | Kernel + ISO build succeeds. | Not spawnable (build only). |
+| 01Boot | Live ISO boots to ready state. | Spawn into minimal live environment. |
+| 02LiveTools | Live ISO tools verified. | Spawn into live env with functional installer + toolchain. |
+| 03Install | Disk installation completes. | Spawn into freshly installed system (pre-login verified). |
+| 04LoginGate | Installed system reaches deterministic login boundary. | Spawn at login surface (TTY/DM/console ready). |
+| 05Harness | Harness can reliably authenticate and execute commands. | Spawn into installed system with trusted automation access. |
+| 06Runtime | Core programs pass integration tests under harness control. | Spawn into validated runtime baseline (canonical state). |
+| 07Update | A/B slot edit + reboot into alternate slot verified. | Spawn into update-capable system with confirmed slot identity. |
+| 08Package | 06 baseline convertible to release artifacts (`qcow2`, `.img`, ISO where applicable). | Spawn into distributable image derived from 06 baseline. |
 
 ### Caveat
 
