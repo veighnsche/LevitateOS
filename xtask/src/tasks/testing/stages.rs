@@ -47,28 +47,36 @@ impl BootConfig {
     fn for_distro(root: &Path, distro: crate::cli::BootDistro) -> Self {
         match distro {
             crate::cli::BootDistro::Leviso => Self {
-                iso: root.join(".artifacts/out/leviso/levitateos-x86_64.iso"),
-                disk_dir: root.join(".artifacts/out/leviso"),
+                iso: root.join(".artifacts/out/levitate/levitateos-x86_64-s00_build.iso"),
+                disk_dir: root.join(".artifacts/out/levitate"),
                 disk_name: "levitate-test.qcow2",
                 vars_name: "levitate-ovmf-vars.fd",
                 pretty_name: "LevitateOS",
                 harness_distro: crate::cli::HarnessDistro::Levitate,
             },
             crate::cli::BootDistro::Acorn => Self {
-                iso: root.join(".artifacts/out/AcornOS/acornos.iso"),
-                disk_dir: root.join(".artifacts/out/AcornOS"),
+                iso: root.join(".artifacts/out/acorn/acornos-s00_build.iso"),
+                disk_dir: root.join(".artifacts/out/acorn"),
                 disk_name: "acorn-test.qcow2",
                 vars_name: "acorn-ovmf-vars.fd",
                 pretty_name: "AcornOS",
                 harness_distro: crate::cli::HarnessDistro::Acorn,
             },
             crate::cli::BootDistro::Iuppiter => Self {
-                iso: root.join(".artifacts/out/IuppiterOS/iuppiter-x86_64.iso"),
-                disk_dir: root.join(".artifacts/out/IuppiterOS"),
+                iso: root.join(".artifacts/out/iuppiter/iuppiter-x86_64-s00_build.iso"),
+                disk_dir: root.join(".artifacts/out/iuppiter"),
                 disk_name: "iuppiter-test.qcow2",
                 vars_name: "iuppiter-ovmf-vars.fd",
                 pretty_name: "IuppiterOS",
                 harness_distro: crate::cli::HarnessDistro::Iuppiter,
+            },
+            crate::cli::BootDistro::Ralph => Self {
+                iso: root.join(".artifacts/out/ralph/ralphos-x86_64-s00_build.iso"),
+                disk_dir: root.join(".artifacts/out/ralph"),
+                disk_name: "ralph-test.qcow2",
+                vars_name: "ralph-ovmf-vars.fd",
+                pretty_name: "RalphOS",
+                harness_distro: crate::cli::HarnessDistro::Ralph,
             },
         }
     }

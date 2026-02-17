@@ -23,6 +23,9 @@ pub enum BootDistro {
 
     #[value(name = "iuppiter")]
     Iuppiter,
+
+    #[value(name = "ralph")]
+    Ralph,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -35,6 +38,9 @@ pub enum HarnessDistro {
 
     #[value(name = "iuppiter")]
     Iuppiter,
+
+    #[value(name = "ralph")]
+    Ralph,
 }
 
 impl HarnessDistro {
@@ -43,6 +49,7 @@ impl HarnessDistro {
             Self::Levitate => "levitate",
             Self::Acorn => "acorn",
             Self::Iuppiter => "iuppiter",
+            Self::Ralph => "ralph",
         }
     }
 }

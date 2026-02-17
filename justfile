@@ -74,9 +74,21 @@ test-status distro="levitate":
 test-reset distro="levitate":
     cargo xtask stages reset {{distro}}
 
-# Build ISO
-build distro="leviso":
-    cd {{distro}} && cargo run -- build
+# Build ISO via new distro-builder endpoint (`distro-variants` Stage 00 flow)
+build distro="levitate" stage="00Build":
+    distro_id="{{distro}}"; \
+    case "$distro_id" in \
+      leviso|levitate) distro_id="levitate" ;; \
+      acorn|acornos) distro_id="acorn" ;; \
+      iuppiter|iuppiteros) distro_id="iuppiter" ;; \
+      ralph|ralphos) distro_id="ralph" ;; \
+      *) echo "Unsupported distro '$distro_id' (expected levitate|acorn|iuppiter|ralph)" >&2; exit 2 ;; \
+    esac; \
+    cargo run -p distro-builder --bin distro-builder -- iso build "$distro_id" "{{stage}}"
+
+# Build ISOs for all variants via new endpoint
+build-all stage="00Build":
+    cargo run -p distro-builder --bin distro-builder -- iso build-all "{{stage}}"
 
 # Docs content (shared by website + tui)
 docs-content-build:

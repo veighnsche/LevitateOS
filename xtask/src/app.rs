@@ -56,9 +56,7 @@ pub fn run(cli: crate::cli::Cli) -> Result<()> {
             crate::cli::StagesCmd::Status { distro } => {
                 crate::tasks::testing::stages::status(distro)
             }
-            crate::cli::StagesCmd::Reset { distro } => {
-                crate::tasks::testing::stages::reset(distro)
-            }
+            crate::cli::StagesCmd::Reset { distro } => crate::tasks::testing::stages::reset(distro),
         },
     }
 }
