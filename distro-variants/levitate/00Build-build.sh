@@ -10,14 +10,19 @@ REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
 . "${REPO_ROOT}/distro-variants/_shared/s00_build_artifacts.sh"
 
 OUTPUT_DIR="${REPO_ROOT}/.artifacts/out/levitate"
-KERNEL_RELEASE_PATH="${KERNEL_RELEASE_PATH:-${OUTPUT_DIR}/kernel-build/include/config/kernel.release}"
-KERNEL_IMAGE_PATH="${KERNEL_IMAGE_PATH:-${OUTPUT_DIR}/staging/boot/vmlinuz}"
-ISO_PATH="${ISO_PATH:-${OUTPUT_DIR}/levitateos-x86_64-s00_build.iso}"
+DISTRO_ID="levitate"
+KERNEL_OUTPUT_DIR="${KERNEL_OUTPUT_DIR:-${OUTPUT_DIR}}"
+BUILD_STAGE_DIRNAME="${BUILD_STAGE_DIRNAME:-s00-build}"
+STAGE_OUTPUT_DIR="${STAGE_OUTPUT_DIR:-${KERNEL_OUTPUT_DIR}/${BUILD_STAGE_DIRNAME}}"
+STAGE_ARTIFACT_TAG="${STAGE_ARTIFACT_TAG:-$(printf '%s' "$BUILD_STAGE_DIRNAME" | cut -c1-3)}"
+KERNEL_RELEASE_PATH="${KERNEL_RELEASE_PATH:-${KERNEL_OUTPUT_DIR}/kernel-build/include/config/kernel.release}"
+KERNEL_IMAGE_PATH="${KERNEL_IMAGE_PATH:-${KERNEL_OUTPUT_DIR}/staging/boot/vmlinuz}"
+ISO_PATH="${ISO_PATH:-${STAGE_OUTPUT_DIR}/levitateos-x86_64-s00_build.iso}"
 
-ROOTFS_PATH="${OUTPUT_DIR}/filesystem.erofs"
-INITRAMFS_LIVE_PATH="${OUTPUT_DIR}/initramfs-live.cpio.gz"
-LIVE_OVERLAY_DIR="${OUTPUT_DIR}/live-overlay"
-LIVE_OVERLAY_IMAGE="${OUTPUT_DIR}/overlayfs.erofs"
+ROOTFS_PATH="${STAGE_OUTPUT_DIR}/${STAGE_ARTIFACT_TAG}-filesystem.erofs"
+INITRAMFS_LIVE_PATH="${STAGE_OUTPUT_DIR}/${STAGE_ARTIFACT_TAG}-initramfs-live.cpio.gz"
+LIVE_OVERLAY_DIR="${STAGE_OUTPUT_DIR}/live-overlay"
+LIVE_OVERLAY_IMAGE="${STAGE_OUTPUT_DIR}/${STAGE_ARTIFACT_TAG}-overlayfs.erofs"
 INIT_TEMPLATE="${REPO_ROOT}/tools/recinit/templates/init_tiny.template"
 BUSYBOX_URL="${BUSYBOX_URL:-https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox}"
 BUSYBOX_PATH="${BUSYBOX_PATH:-${REPO_ROOT}/.artifacts/tools/busybox-static}"
@@ -29,9 +34,16 @@ OS_VERSION="1.0"
 
 need_file "$KERNEL_RELEASE_PATH"
 need_file "$KERNEL_IMAGE_PATH"
+mkdir -p "$STAGE_OUTPUT_DIR"
+rm -f "${STAGE_OUTPUT_DIR}/filesystem.erofs" \
+      "${STAGE_OUTPUT_DIR}/initramfs-live.cpio.gz" \
+      "${STAGE_OUTPUT_DIR}/overlayfs.erofs"
 
-ROOTFS_SOURCE_DIR="${OUTPUT_DIR}/.s00-rootfs-minimal"
-prepare_stage00_minimal_rootfs_dir "$ROOTFS_SOURCE_DIR"
+if [ "$BUILD_STAGE_DIRNAME" = "s00-build" ]; then
+    ROOTFS_SOURCE_DIR="$(prepare_s00_build_inputs "$DISTRO_ID" "$STAGE_OUTPUT_DIR")"
+else
+    ROOTFS_SOURCE_DIR="$(prepare_s01_boot_inputs "$DISTRO_ID" "$STAGE_OUTPUT_DIR")"
+fi
 
 rm -f "$ROOTFS_PATH"
 build_rootfs_erofs "$ROOTFS_SOURCE_DIR" "$ROOTFS_PATH"
@@ -39,9 +51,9 @@ build_rootfs_erofs "$ROOTFS_SOURCE_DIR" "$ROOTFS_PATH"
 need_file "$ROOTFS_PATH"
 
 KERNEL_RELEASE="$(tr -d '\n' < "$KERNEL_RELEASE_PATH")"
-MODULES_DIR="${OUTPUT_DIR}/staging/usr/lib/modules/${KERNEL_RELEASE}"
+MODULES_DIR="${KERNEL_OUTPUT_DIR}/staging/usr/lib/modules/${KERNEL_RELEASE}"
 if [ ! -d "$MODULES_DIR" ]; then
-    MODULES_DIR="${OUTPUT_DIR}/staging/lib/modules/${KERNEL_RELEASE}"
+    MODULES_DIR="${KERNEL_OUTPUT_DIR}/staging/lib/modules/${KERNEL_RELEASE}"
 fi
 if [ ! -d "$MODULES_DIR" ]; then
     echo "missing modules dir for recinit: $MODULES_DIR" >&2
@@ -57,11 +69,14 @@ if [ ! -s "$BUSYBOX_PATH" ]; then
 fi
 need_file "$BUSYBOX_PATH"
 rm -f "$INITRAMFS_LIVE_PATH"
+STAGE_INIT_TEMPLATE="${STAGE_OUTPUT_DIR}/${STAGE_ARTIFACT_TAG}-init.template"
+cp "$INIT_TEMPLATE" "$STAGE_INIT_TEMPLATE"
+printf '\n# stage-artifact-tag: %s\n' "$STAGE_ARTIFACT_TAG" >> "$STAGE_INIT_TEMPLATE"
 if command -v recinit >/dev/null 2>&1; then
     recinit build-tiny \
         --modules-dir "$MODULES_DIR" \
         --busybox "$BUSYBOX_PATH" \
-        --template "$INIT_TEMPLATE" \
+        --template "$STAGE_INIT_TEMPLATE" \
         --output "$INITRAMFS_LIVE_PATH" \
         --iso-label "$ISO_LABEL" \
         --rootfs-path "live/filesystem.erofs"
@@ -70,7 +85,7 @@ else
     cargo run -q -p recinit -- build-tiny \
         --modules-dir "$MODULES_DIR" \
         --busybox "$BUSYBOX_PATH" \
-        --template "$INIT_TEMPLATE" \
+        --template "$STAGE_INIT_TEMPLATE" \
         --output "$INITRAMFS_LIVE_PATH" \
         --iso-label "$ISO_LABEL" \
         --rootfs-path "live/filesystem.erofs"
@@ -78,9 +93,7 @@ fi
 
 need_file "$INITRAMFS_LIVE_PATH"
 
-if [ ! -d "$LIVE_OVERLAY_DIR" ]; then
-    mkdir -p "$LIVE_OVERLAY_DIR"
-fi
+need_dir "$LIVE_OVERLAY_DIR"
 rm -f "$LIVE_OVERLAY_IMAGE"
 build_overlayfs_erofs "$LIVE_OVERLAY_DIR" "$LIVE_OVERLAY_IMAGE"
 need_file "$LIVE_OVERLAY_IMAGE"

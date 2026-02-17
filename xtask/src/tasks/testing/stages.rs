@@ -47,7 +47,7 @@ impl BootConfig {
     fn for_distro(root: &Path, distro: crate::cli::BootDistro) -> Self {
         match distro {
             crate::cli::BootDistro::Leviso => Self {
-                iso: root.join(".artifacts/out/levitate/levitateos-x86_64-s00_build.iso"),
+                iso: root.join(".artifacts/out/levitate/s01-boot/levitateos-x86_64-s01_boot.iso"),
                 disk_dir: root.join(".artifacts/out/levitate"),
                 disk_name: "levitate-test.qcow2",
                 vars_name: "levitate-ovmf-vars.fd",
@@ -55,7 +55,7 @@ impl BootConfig {
                 harness_distro: crate::cli::HarnessDistro::Levitate,
             },
             crate::cli::BootDistro::Acorn => Self {
-                iso: root.join(".artifacts/out/acorn/acornos-s00_build.iso"),
+                iso: root.join(".artifacts/out/acorn/s01-boot/acornos-s01_boot.iso"),
                 disk_dir: root.join(".artifacts/out/acorn"),
                 disk_name: "acorn-test.qcow2",
                 vars_name: "acorn-ovmf-vars.fd",
@@ -63,7 +63,7 @@ impl BootConfig {
                 harness_distro: crate::cli::HarnessDistro::Acorn,
             },
             crate::cli::BootDistro::Iuppiter => Self {
-                iso: root.join(".artifacts/out/iuppiter/iuppiter-x86_64-s00_build.iso"),
+                iso: root.join(".artifacts/out/iuppiter/s01-boot/iuppiter-x86_64-s01_boot.iso"),
                 disk_dir: root.join(".artifacts/out/iuppiter"),
                 disk_name: "iuppiter-test.qcow2",
                 vars_name: "iuppiter-ovmf-vars.fd",
@@ -71,7 +71,7 @@ impl BootConfig {
                 harness_distro: crate::cli::HarnessDistro::Iuppiter,
             },
             crate::cli::BootDistro::Ralph => Self {
-                iso: root.join(".artifacts/out/ralph/ralphos-x86_64-s00_build.iso"),
+                iso: root.join(".artifacts/out/ralph/s01-boot/ralphos-x86_64-s01_boot.iso"),
                 disk_dir: root.join(".artifacts/out/ralph"),
                 disk_name: "ralph-test.qcow2",
                 vars_name: "ralph-ovmf-vars.fd",
@@ -85,7 +85,7 @@ impl BootConfig {
 fn boot_live_iso(root: &Path, cfg: &BootConfig) -> Result<()> {
     if !cfg.iso.is_file() {
         bail!(
-            "Missing ISO: {} (build it first, e.g. `just build` for the distro)",
+            "Missing Stage 01 ISO: {} (build it first, e.g. `just build <distro> 01Boot`)",
             cfg.iso.display()
         );
     }

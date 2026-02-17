@@ -9,6 +9,13 @@ need_file() {
     fi
 }
 
+need_dir() {
+    if [ ! -d "$1" ]; then
+        echo "missing required directory: $1" >&2
+        exit 1
+    fi
+}
+
 need_cmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "missing required command: $1" >&2
@@ -40,18 +47,60 @@ build_rootfs_erofs() {
     run_distro_builder artifact build-rootfs-erofs "$1" "$2"
 }
 
-prepare_stage00_minimal_rootfs_dir() {
-    if [ "$#" -ne 1 ]; then
-        echo "prepare_stage00_minimal_rootfs_dir requires <rootfs_dir>" >&2
+prepare_live_inputs() {
+    prepare_s01_boot_inputs "$@"
+}
+
+prepare_s00_build_inputs() {
+    if [ "$#" -ne 2 ]; then
+        echo "prepare_s00_build_inputs requires <distro_id> <output_dir>" >&2
         exit 64
     fi
 
-    rootfs_dir="$1"
-    rm -rf "$rootfs_dir"
-    mkdir -p "$rootfs_dir"
+    distro_id="$1"
+    output_dir="$2"
+    rootfs_source_path_file="${output_dir}/.live-rootfs-source.path"
+    legacy_source_path_file="${output_dir}/.s01-rootfs-source.path"
 
-    # Deterministic Stage 00 minimal rootfs marker.
-    printf 'stage=00Build\nprofile=minimal\n' >"${rootfs_dir}/.stage00-minimal-rootfs"
+    run_distro_builder artifact prepare-s00-build-inputs "$distro_id" "$output_dir" 1>&2
+    rm -f "$legacy_source_path_file"
+
+    need_file "$rootfs_source_path_file"
+    ROOTFS_SOURCE_DIR="$(tr -d '\n' < "$rootfs_source_path_file")"
+    if [ -z "$ROOTFS_SOURCE_DIR" ]; then
+        echo "invalid live rootfs source path file: $rootfs_source_path_file" >&2
+        exit 1
+    fi
+    need_dir "$ROOTFS_SOURCE_DIR"
+    need_dir "${output_dir}/live-overlay"
+
+    printf '%s\n' "$ROOTFS_SOURCE_DIR"
+}
+
+prepare_s01_boot_inputs() {
+    if [ "$#" -ne 2 ]; then
+        echo "prepare_s01_boot_inputs requires <distro_id> <output_dir>" >&2
+        exit 64
+    fi
+
+    distro_id="$1"
+    output_dir="$2"
+    rootfs_source_path_file="${output_dir}/.live-rootfs-source.path"
+    legacy_source_path_file="${output_dir}/.s01-rootfs-source.path"
+
+    run_distro_builder artifact prepare-s01-boot-inputs "$distro_id" "$output_dir" 1>&2
+    rm -f "$legacy_source_path_file"
+
+    need_file "$rootfs_source_path_file"
+    ROOTFS_SOURCE_DIR="$(tr -d '\n' < "$rootfs_source_path_file")"
+    if [ -z "$ROOTFS_SOURCE_DIR" ]; then
+        echo "invalid live rootfs source path file: $rootfs_source_path_file" >&2
+        exit 1
+    fi
+    need_dir "$ROOTFS_SOURCE_DIR"
+    need_dir "${output_dir}/live-overlay"
+
+    printf '%s\n' "$ROOTFS_SOURCE_DIR"
 }
 
 build_overlayfs_erofs() {

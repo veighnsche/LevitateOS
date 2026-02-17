@@ -3,7 +3,7 @@ set -eu
 
 KERNEL_RELEASE_PATH="${KERNEL_RELEASE_PATH:-.artifacts/out/acorn/kernel-build/include/config/kernel.release}"
 KERNEL_IMAGE_PATH="${KERNEL_IMAGE_PATH:-.artifacts/out/acorn/staging/boot/vmlinuz}"
-ISO_PATH="${ISO_PATH:-.artifacts/out/acorn/acornos-s00_build.iso}"
+ISO_PATH="${ISO_PATH:-.artifacts/out/acorn/s00-build/acornos-s00_build.iso}"
 
 if [ ! -s "$KERNEL_RELEASE_PATH" ]; then
     echo "missing kernel release output: $KERNEL_RELEASE_PATH" >&2

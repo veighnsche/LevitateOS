@@ -1,4 +1,4 @@
-schema_version = 4
+schema_version = 5
 
 [identity]
 os_name = "AcornOS"
@@ -8,8 +8,8 @@ os_version = "1.0"
 default_hostname = "acornos"
 
 [artifacts]
-rootfs_name = "filesystem.erofs"
-initramfs_live_output = "initramfs-live.cpio.gz"
+rootfs_name = "s00-filesystem.erofs"
+initramfs_live_output = "s00-initramfs-live.cpio.gz"
 iso_filename = "acornos-s00_build.iso"
 
 [stage_00]
@@ -40,9 +40,9 @@ module_install_path = "/usr/lib/modules"
 
 [stage_00.non_kernel_inputs]
 required_for_00build = [
-  "filesystem.erofs",
-  "initramfs-live.cpio.gz",
-  "overlayfs.erofs",
+  "s00-filesystem.erofs",
+  "s00-initramfs-live.cpio.gz",
+  "s00-overlayfs.erofs",
 ]
 deferred_to_01boot = []
 deferred_to_02livetools = []

@@ -54,6 +54,10 @@ Differences below describe *policy and intent*, not structural deviations from t
 
 At 00 the ISO must build successfully, but it is not yet feature-complete.
 Each subsequent stage validates additional functionality and requires rebuilding the ISO with the newly verified components included.
+Each stage must assemble from its own stage-scoped non-kernel artifacts (`s00-build`, `s01-boot`, ...); non-kernel cross-stage reuse is not allowed.
+Kernel artifacts are the only shared exception across stages.
+Each stage artifact must satisfy a strict stage envelope: nothing required may be missing, and nothing from later stages may be present.
+If a stage artifact includes payload outside its declared stage envelope, that stage must fail conformance.
 The ISO at 06 represents the fully verified runtime baseline.
 08 converts that verified baseline into distributable images.
 

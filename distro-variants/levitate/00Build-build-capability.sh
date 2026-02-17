@@ -4,7 +4,7 @@ set -eu
 # 00Build evidence: verify kernel + ISO capability only.
 KERNEL_RELEASE_PATH="${KERNEL_RELEASE_PATH:-.artifacts/out/levitate/kernel-build/include/config/kernel.release}"
 KERNEL_IMAGE_PATH="${KERNEL_IMAGE_PATH:-.artifacts/out/levitate/staging/boot/vmlinuz}"
-ISO_PATH="${ISO_PATH:-.artifacts/out/levitate/levitateos-x86_64-s00_build.iso}"
+ISO_PATH="${ISO_PATH:-.artifacts/out/levitate/s00-build/levitateos-x86_64-s00_build.iso}"
 
 if [ ! -s "$KERNEL_RELEASE_PATH" ]; then
     echo "missing kernel release output: $KERNEL_RELEASE_PATH" >&2
