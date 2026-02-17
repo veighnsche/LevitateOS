@@ -2,8 +2,8 @@
 
 Required Stage 00 files:
 - `kconfig`
-- `stage-00.toml`
+- `00Build.toml`
 - `recipes/kernel.rhai`
-- `stage-00-build-capability.sh`
+- `00Build-build-capability.sh`
 
-`stage-00.toml` is the Stage 00 source of truth for Acorn.
+`00Build.toml` is the Stage 00 source of truth for Acorn.

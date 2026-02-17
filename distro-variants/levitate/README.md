@@ -5,9 +5,10 @@ This directory is the model Stage 00 declaration scaffold for all distro variant
 ## Required Stage 00 Files
 
 - `kconfig`
-- `stage-00.toml`
+- `00Build.toml`
 - `recipes/kernel.rhai`
-- `stage-00-build-capability.sh`
+- `00Build-build.sh`
+- `00Build-build-capability.sh`
 
 ## Stage 00 Invariants Enforced
 
@@ -20,5 +21,5 @@ This directory is the model Stage 00 declaration scaffold for all distro variant
 
 ## Source Of Truth
 
-`stage-00.toml` is the authoritative Stage 00 conformance contract for this variant.
+`00Build.toml` is the authoritative Stage 00 conformance contract for this variant.
 `distro-contract` loads and validates this manifest directly from `distro-variants`.

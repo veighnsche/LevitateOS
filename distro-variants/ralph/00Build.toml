@@ -1,4 +1,4 @@
-schema_version = 3
+schema_version = 4
 
 [identity]
 os_name = "RalphOS"
@@ -10,7 +10,7 @@ default_hostname = "ralphos"
 [artifacts]
 rootfs_name = "filesystem.erofs"
 initramfs_live_output = "initramfs-live.cpio.gz"
-iso_filename = "ralphos-x86_64.iso"
+iso_filename = "ralphos-x86_64-s00_build.iso"
 
 [stage_00]
 required_build_tools = [
@@ -38,6 +38,16 @@ kernel_sha256 = "143e8bc76cc41f831b51aa5e75819bed55bed41f299d35922820f1d2d2b0260
 kernel_localversion = "-ralph"
 module_install_path = "/usr/lib/modules"
 
+[stage_00.non_kernel_inputs]
+required_for_00build = [
+  "filesystem.erofs",
+  "initramfs-live.cpio.gz",
+  "overlayfs.erofs",
+]
+deferred_to_01boot = []
+deferred_to_02livetools = []
+deferred_to_03install_plus = []
+
 [stage_00.evidence]
-script_path = "stage-00-build-capability.sh"
+script_path = "00Build-build-capability.sh"
 pass_marker = "STAGE 00 PASSED"
