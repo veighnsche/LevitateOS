@@ -90,3 +90,6 @@ ovmf_vars2.fd
 .ralph/.claude-md-backup
 .ralph/.claude-md-checksum
 .ralph/logs/
+
+# Local stage runtime state
+.stages/
