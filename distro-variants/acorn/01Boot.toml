@@ -1,5 +1,6 @@
 [stage_01.boot_inputs]
 os_name = "AcornOS"
 overlay_kind = "openrc"
+required_services = ["sshd"]
 openrc_inittab = "desktop_with_serial"
 profile_overlay = "distro-variants/acorn/profile/live-overlay"

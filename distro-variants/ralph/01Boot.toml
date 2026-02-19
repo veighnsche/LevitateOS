@@ -1,3 +1,4 @@
 [stage_01.boot_inputs]
 os_name = "RalphOS"
 overlay_kind = "systemd"
+required_services = ["sshd"]

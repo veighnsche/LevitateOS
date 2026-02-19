@@ -5,7 +5,7 @@ use std::process::Command;
 
 #[derive(Clone, Copy)]
 pub(crate) struct KernelTarget {
-    pub distro_dir: &'static str,
+    pub distro_id: &'static str,
     pub kernel: &'static distro_spec::shared::KernelSource,
     pub module_install_path: &'static str,
 }
@@ -21,22 +21,22 @@ pub(crate) struct AutoFixOptions {
 pub(crate) fn target_for(d: crate::cli::Distro) -> KernelTarget {
     match d {
         crate::cli::Distro::Leviso => KernelTarget {
-            distro_dir: "leviso",
+            distro_id: "levitate",
             kernel: &distro_spec::levitate::KERNEL_SOURCE,
             module_install_path: distro_spec::levitate::MODULE_INSTALL_PATH,
         },
         crate::cli::Distro::AcornOS => KernelTarget {
-            distro_dir: "AcornOS",
+            distro_id: "acorn",
             kernel: &distro_spec::acorn::KERNEL_SOURCE,
             module_install_path: distro_spec::acorn::MODULE_INSTALL_PATH,
         },
         crate::cli::Distro::IuppiterOS => KernelTarget {
-            distro_dir: "IuppiterOS",
+            distro_id: "iuppiter",
             kernel: &distro_spec::iuppiter::KERNEL_SOURCE,
             module_install_path: distro_spec::iuppiter::MODULE_INSTALL_PATH,
         },
         crate::cli::Distro::RalphOS => KernelTarget {
-            distro_dir: "RalphOS",
+            distro_id: "ralph",
             kernel: &distro_spec::ralph::KERNEL_SOURCE,
             module_install_path: distro_spec::ralph::MODULE_INSTALL_PATH,
         },
@@ -73,9 +73,12 @@ pub(crate) fn kernel_is_built(root: &Path, t: &KernelTarget) -> bool {
 }
 
 pub(crate) fn verify_one(root: &Path, t: &KernelTarget) -> Result<String> {
-    let out_dir = root.join(".artifacts/out").join(t.distro_dir);
-    let rel_file = out_dir.join("kernel-build/include/config/kernel.release");
-    let vmlinuz = out_dir.join("staging/boot/vmlinuz");
+    let kernel_root = root
+        .join(".artifacts/kernel")
+        .join(t.distro_id)
+        .join("current");
+    let rel_file = kernel_root.join("kernel-build/include/config/kernel.release");
+    let vmlinuz = kernel_root.join("staging/boot/vmlinuz");
 
     if !rel_file.is_file() {
         bail!("Missing kernel.release: {}", rel_file.display());
@@ -91,7 +94,7 @@ pub(crate) fn verify_one(root: &Path, t: &KernelTarget) -> Result<String> {
     if !t.kernel.version.is_empty() && !rel.starts_with(t.kernel.version) {
         bail!(
             "{} kernel.release '{}' does not start with '{}' (expected kernel version from distro-spec)",
-            t.distro_dir,
+            t.distro_id,
             rel,
             t.kernel.version
         );
@@ -100,18 +103,18 @@ pub(crate) fn verify_one(root: &Path, t: &KernelTarget) -> Result<String> {
     if !rel.ends_with(t.kernel.localversion) {
         bail!(
             "{} kernel.release '{}' does not end with '{}' (wrong kernel localversion; expected a distro-specific kernel build)",
-            t.distro_dir,
+            t.distro_id,
             rel,
             t.kernel.localversion
         );
     }
 
-    let m1 = out_dir.join(format!("staging/lib/modules/{rel}"));
-    let m2 = out_dir.join(format!("staging/usr/lib/modules/{rel}"));
+    let m1 = kernel_root.join(format!("staging/lib/modules/{rel}"));
+    let m2 = kernel_root.join(format!("staging/usr/lib/modules/{rel}"));
     if !m1.is_dir() && !m2.is_dir() {
         bail!(
             "Missing modules dir for {} ({}) under staging/{{lib,usr/lib}}/modules/",
-            t.distro_dir,
+            t.distro_id,
             rel
         );
     }
@@ -136,15 +139,23 @@ pub(crate) fn build_recipe_bin(root: &Path) -> Result<PathBuf> {
 pub(crate) fn build_kernel_via_recipe(
     recipe_bin: &Path,
     root: &Path,
-    distro_dir: &str,
+    distro_id: &str,
     force_rebuild: bool,
     kernel: &distro_spec::shared::KernelSource,
     module_install_path: &str,
     autofix: &AutoFixOptions,
 ) -> Result<()> {
     let recipe_rhai = root.join("distro-builder/recipes/linux.rhai");
-    let build_dir = root.join(distro_dir).join("downloads");
+    let build_dir = root
+        .join(".artifacts/work")
+        .join(distro_id)
+        .join("downloads");
     let recipes_path = root.join("distro-builder/recipes");
+    let kconfig_path = root.join("distro-variants").join(distro_id).join("kconfig");
+    let kernel_artifact_root = root
+        .join(".artifacts/kernel")
+        .join(distro_id)
+        .join("current");
 
     let mut cmd = Command::new(recipe_bin);
     cmd.current_dir(root);
@@ -162,6 +173,14 @@ pub(crate) fn build_kernel_via_recipe(
         .args([
             "--define",
             &format!("KERNEL_LOCALVERSION={}", kernel.localversion),
+        ])
+        .args([
+            "--define",
+            &format!("KERNEL_KCONFIG_PATH={}", kconfig_path.display()),
+        ])
+        .args([
+            "--define",
+            &format!("KERNEL_ARTIFACT_ROOT={}", kernel_artifact_root.display()),
         ])
         .args([
             "--define",

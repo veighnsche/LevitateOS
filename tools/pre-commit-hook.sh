@@ -49,7 +49,18 @@ fi
 
 # Parent repo commits are just submodule pointer updates — no Rust checks needed
 if [ "$IS_PARENT_REPO" = true ]; then
-    exit 0
+    echo ""
+    echo ">>> Running parent-repo policy guard..."
+    echo ""
+    if (cd "$WORKSPACE_ROOT" && cargo xtask policy audit-legacy-bindings 2>&1); then
+        echo "OK  Policy guard clean"
+        exit 0
+    else
+        echo "FAIL Policy guard failed"
+        echo ""
+        echo "  Fix forbidden legacy bindings or skip with: git commit --no-verify"
+        exit 1
+    fi
 fi
 
 # No Cargo.toml means non-Rust submodule — skip

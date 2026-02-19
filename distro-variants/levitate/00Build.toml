@@ -1,4 +1,4 @@
-schema_version = 5
+schema_version = 6
 
 [identity]
 os_name = "LevitateOS"
@@ -11,7 +11,7 @@ default_hostname = "levitateos"
 rootfs_name = "s00-filesystem.erofs"
 initramfs_live_output = "s00-initramfs-live.cpio.gz"
 iso_filename = "levitateos-x86_64-s00_build.iso"
-initramfs_installed_output = "initramfs-installed.img"
+initramfs_installed_output = "s00-initramfs-installed.img"
 
 [stage_00]
 required_build_tools = [
@@ -49,6 +49,16 @@ deferred_to_01boot = []
 deferred_to_02livetools = []
 deferred_to_03install_plus = []
 
+[stage_00.iso_assembly]
+live_uki_filename = "levitateos-live.efi"
+emergency_uki_filename = "levitateos-emergency.efi"
+debug_uki_filename = "levitateos-debug.efi"
+live_cmdline = "video=1920x1080"
+
 [stage_00.evidence]
 script_path = "00Build-build-capability.sh"
 pass_marker = "STAGE 00 PASSED"
+
+[stage_01]
+required_kernel_cmdline = ["audit=1"]
+required_live_services = ["sshd"]

@@ -1,7 +1,8 @@
 # LevitateOS development commands
 
 # QEMU tools environment
-tools_prefix := join(justfile_directory(), "leviso/downloads/.tools")
+# The tooling cache lives under .artifacts/tools/.tools.
+tools_prefix := join(justfile_directory(), ".artifacts/tools/.tools")
 export PATH := tools_prefix / "usr/bin" + ":" + tools_prefix / "usr/libexec" + ":" + env("PATH")
 export LD_LIBRARY_PATH := tools_prefix / "usr/lib64"
 export OVMF_PATH := tools_prefix / "usr/share/edk2/ovmf/OVMF_CODE.fd"
@@ -20,6 +21,10 @@ env shell="bash":
 # Check that local toolchain/tools match what this repo expects.
 doctor:
     cargo xtask doctor
+
+# Fail fast on forbidden legacy stage/rootfs bindings.
+policy-legacy:
+    cargo xtask policy audit-legacy-bindings
 
 # Install/remove the shared pre-commit hook into the workspace + Rust submodules.
 hooks-install:
@@ -53,18 +58,131 @@ kernels-rebuild distro:
 kernels-rebuild-all:
     cargo xtask kernels build-all --rebuild
 
+# Internal delegate for stage booting.
+# Keep `cargo xtask stages boot` as the only execution path for stage wrappers.
+[script, no-exit-message]
+_boot_stage n distro="levitate" inject="" inject_file="" ssh="false" no_shell="false" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub") ssh_privkey="" ssh_port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{ssh}}" = "true" ] && [ "{{n}}" != "1" ] && [ "{{n}}" != "01" ]; then
+      echo "SSH boot mode supports only stage 1 (got: {{n}})" >&2
+      exit 2
+    fi
+
+    args=(cargo xtask stages boot {{n}} "{{distro}}")
+
+    if [ "{{ssh}}" = "true" ]; then
+      args+=(--ssh --ssh-port "{{ssh_port}}")
+    fi
+
+    if [ "{{no_shell}}" = "true" ]; then
+      args+=(--no-shell)
+    fi
+
+    if [ -n "{{inject_file}}" ]; then
+      args+=(--inject-file "{{inject_file}}")
+    elif [ -n "{{inject}}" ]; then
+      args+=(--inject "{{inject}}")
+    elif [ -f "{{ssh_pubkey}}" ]; then
+      tmp=$(mktemp)
+      trap 'rm -f "$tmp"' EXIT
+      key="$(tr -d '\n' < "{{ssh_pubkey}}")"
+      printf 'SSH_AUTHORIZED_KEY=%s\n' "$key" > "$tmp"
+      args+=(--inject-file "$tmp")
+    fi
+
+    if [ "{{ssh}}" = "true" ] && [ -n "{{ssh_privkey}}" ]; then
+      args+=(--ssh-private-key "{{ssh_privkey}}")
+    fi
+
+    "${args[@]}"
+
 # Boot into a stage (interactive serial, Ctrl-A X to exit)
 [no-exit-message]
-stage n distro="leviso":
-    cargo xtask stages boot {{n}} {{distro}}
+stage n distro="levitate" inject="" inject_file="" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub"):
+    just _boot_stage {{n}} {{distro}} "{{inject}}" "{{inject_file}}" false false "{{ssh_pubkey}}" "" 2222
+
+# Boot a live stage in background and SSH into it (no serial wrapper harness).
+[no-exit-message]
+stage-ssh n distro="levitate" inject="" inject_file="" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub") ssh_privkey=(env("HOME") + "/.ssh/id_ed25519") ssh_port="2222":
+    just _boot_stage {{n}} {{distro}} "{{inject}}" "{{inject_file}}" true false "{{ssh_pubkey}}" "{{ssh_privkey}}" "{{ssh_port}}"
+
+# Single-path Stage 01 parity gate (serial boot + SSH boot).
+[script, no-exit-message]
+s01-parity distro="levitate" inject="" inject_file="" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub") ssh_privkey=(env("HOME") + "/.ssh/id_ed25519") ssh_port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build 01Boot {{distro}}
+
+    tmp_serial=""
+    tmp_ssh=""
+    cleanup() {
+      [ -n "${tmp_serial}" ] && [ -f "${tmp_serial}" ] && rm -f "${tmp_serial}"
+      [ -n "${tmp_ssh}" ] && [ -f "${tmp_ssh}" ] && rm -f "${tmp_ssh}"
+    }
+    trap cleanup EXIT INT TERM
+
+    serial_args=()
+    if [ -n "{{inject_file}}" ]; then
+      serial_args=(--inject-file "{{inject_file}}")
+    elif [ -n "{{inject}}" ]; then
+      serial_args=(--inject "{{inject}}")
+    elif [ -f "{{ssh_pubkey}}" ]; then
+      tmp_serial="$(mktemp)"
+      key="$(tr -d '\n' < "{{ssh_pubkey}}")"
+      printf 'SSH_AUTHORIZED_KEY=%s\n' "$key" > "$tmp_serial"
+      serial_args=(--inject-file "$tmp_serial")
+    fi
+
+    ssh_args=(--ssh --ssh-port "{{ssh_port}}" --no-shell)
+    if [ -n "{{ssh_privkey}}" ]; then
+      ssh_args+=(--ssh-private-key "{{ssh_privkey}}")
+    fi
+    if [ -n "{{inject_file}}" ]; then
+      ssh_args+=(--inject-file "{{inject_file}}")
+    elif [ -n "{{inject}}" ]; then
+      ssh_args+=(--inject "{{inject}}")
+    elif [ -f "{{ssh_pubkey}}" ]; then
+      tmp_ssh="$(mktemp)"
+      key="$(tr -d '\n' < "{{ssh_pubkey}}")"
+      printf 'SSH_AUTHORIZED_KEY=%s\n' "$key" > "$tmp_ssh"
+      ssh_args+=(--inject-file "$tmp_ssh")
+    fi
+
+    cargo xtask stages boot 1 "{{distro}}" --no-shell "${serial_args[@]}"
+    cargo xtask stages boot 1 "{{distro}}" "${ssh_args[@]}"
 
 # Run automated stage test (pass/fail)
-test n distro="levitate":
-    cargo xtask stages test {{n}} {{distro}}
+test n distro="levitate" inject="" inject_file="" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub"):
+    if [ -n "{{inject_file}}" ]; then \
+      cargo xtask stages test {{n}} {{distro}} --inject-file "{{inject_file}}"; \
+    elif [ -n "{{inject}}" ]; then \
+      cargo xtask stages test {{n}} {{distro}} --inject "{{inject}}"; \
+    elif [ -f "{{ssh_pubkey}}" ]; then \
+      tmp=$(mktemp); \
+      trap 'rm -f "$tmp"' EXIT; \
+      key="$(tr -d '\n' < "{{ssh_pubkey}}")"; \
+      printf 'SSH_AUTHORIZED_KEY=%s\n' "$key" > "$tmp"; \
+      cargo xtask stages test {{n}} {{distro}} --inject-file "$tmp"; \
+    else \
+      cargo xtask stages test {{n}} {{distro}}; \
+    fi
 
 # Run all stage tests up to N
-test-up-to n distro="levitate":
-    cargo xtask stages test-up-to {{n}} {{distro}}
+test-up-to n distro="levitate" inject="" inject_file="" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub"):
+    if [ -n "{{inject_file}}" ]; then \
+      cargo xtask stages test-up-to {{n}} {{distro}} --inject-file "{{inject_file}}"; \
+    elif [ -n "{{inject}}" ]; then \
+      cargo xtask stages test-up-to {{n}} {{distro}} --inject "{{inject}}"; \
+    elif [ -f "{{ssh_pubkey}}" ]; then \
+      tmp=$(mktemp); \
+      trap 'rm -f "$tmp"' EXIT; \
+      key="$(tr -d '\n' < "{{ssh_pubkey}}")"; \
+      printf 'SSH_AUTHORIZED_KEY=%s\n' "$key" > "$tmp"; \
+      cargo xtask stages test-up-to {{n}} {{distro}} --inject-file "$tmp"; \
+    else \
+      cargo xtask stages test-up-to {{n}} {{distro}}; \
+    fi
 
 # Show stage test status
 test-status distro="levitate":
@@ -74,21 +192,18 @@ test-status distro="levitate":
 test-reset distro="levitate":
     cargo xtask stages reset {{distro}}
 
-# Build ISO via new distro-builder endpoint (`distro-variants` Stage 00 flow)
-build distro="levitate" stage="00Build":
-    distro_id="{{distro}}"; \
-    case "$distro_id" in \
-      leviso|levitate) distro_id="levitate" ;; \
-      acorn|acornos) distro_id="acorn" ;; \
-      iuppiter|iuppiteros) distro_id="iuppiter" ;; \
-      ralph|ralphos) distro_id="ralph" ;; \
-      *) echo "Unsupported distro '$distro_id' (expected levitate|acorn|iuppiter|ralph)" >&2; exit 2 ;; \
-    esac; \
-    cargo run -p distro-builder --bin distro-builder -- iso build "$distro_id" "{{stage}}"
+# Build ISO via new distro-builder endpoint (`distro-variants` Stage flow).
+# Human-friendly: use `<stage-or-distro> [<stage-or-distro>]`.
+# `distro-builder` canonicalizes missing/default values and aliases.
+[script, no-exit-message]
+build *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo run -p distro-builder --bin distro-builder -- iso build {{args}}
 
 # Build ISOs for all variants via new endpoint
-build-all stage="00Build":
-    cargo run -p distro-builder --bin distro-builder -- iso build-all "{{stage}}"
+build-all *args:
+    cargo run -p distro-builder --bin distro-builder -- iso build-all {{args}}
 
 # Docs content (shared by website + tui)
 docs-content-build:

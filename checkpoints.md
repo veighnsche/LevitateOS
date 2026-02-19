@@ -23,7 +23,7 @@ Differences below describe *policy and intent*, not structural deviations from t
 | Visibility | Public | Public | Public | Private/internal |
 | Purpose | Stable daily workstation | R4D sandbox + agent runtime | Lightweight daily system | HDD refurbishment / ephemeral tooling |
 | Toolchain | glibc / systemd / GNU | glibc / systemd / GNU | musl / OpenRC / busybox | musl / OpenRC / busybox |
-| Kernel Policy (00) | LTS (.artifacts/out/levitate/kernel-build) | LTS (.artifacts/out/ralph/kernel-build) | Mainline (.artifacts/out/acorn/kernel-build) | LTS (/home/vince/LevitateOS/.artifacts/out/iuppiter/kernel-build) |
+| Kernel Policy (00) | LTS (.artifacts/kernel/levitate/current/kernel-build) | LTS (.artifacts/kernel/ralph/current/kernel-build) | Mainline (.artifacts/kernel/acorn/current/kernel-build) | LTS (.artifacts/kernel/iuppiter/current/kernel-build) |
 | Boot Policy (01) | Auto-login root (live) | Auto-login root (live) | Auto-login root (live) | Auto-login root (live) |
 | Live Tools Scope (02) | Arch-parity + docs/TUI | Minimal automated installer | Arch-parity + docs/TUI | Minimal automated installer |
 | Install UX (03) | Narrated logs | Verbose logs | Narrated logs | Verbose logs |
@@ -71,9 +71,9 @@ The ISO at 06 represents the fully verified runtime baseline.
 
 | Stage | Lev x86_64 A/B | Lev x86_64 mutable | Lev aarch64 A/B | Lev aarch64 mutable | Ralph x86_64 A/B | Ralph aarch64 A/B | Acorn x86_64 A/B | Acorn x86_64 mutable | Acorn aarch64 A/B | Acorn aarch64 mutable | Iuppiter x86_64 A/B |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 00 | X | OK | X | X | OK | X | X | X | X | X | X |
-| 01 | X | OK | X | X | X | X | X | OK | X | X | X |
-| 02 | X | OK | X | X | X | X | X | OK | X | X | X |
+| 00 | OK | OK | X | X | OK | X | OK | OK | X | X | OK |
+| 01 | OK | OK | X | X | OK | X | OK | OK | X | X | OK |
+| 02 | OK | OK | X | X | OK | X | OK | OK | X | X | OK |
 | 03 | X | X | X | X | X | X | X | X | X | X | X |
 | 04 | X | X | X | X | X | X | X | X | X | X | X |
 | 05 | X | X | X | X | X | X | X | X | X | X | X |
@@ -83,7 +83,7 @@ The ISO at 06 represents the fully verified runtime baseline.
 
 ## Notes
 
-- Levitate/Acorn A/B columns are expected to remain `X` until A/B install flow is implemented.
+- Levitate/Acorn A/B columns are expected to remain `X` from install/layout-dependent stages onward (starting at 03) until A/B install flow is implemented.
 - Ralph live install env is internal even though Ralph is public; 08 release target is public `qcow2`.
 - Iuppiter remains private/internal; 08 release target is non-public `.img`.
 - DO NOT UNDERESTIMATE 05: it is the stage where the harness becomes a trusted instrument (reliable login + readiness detection + command execution on an installed OS); without 05, 06–08 results are not credible.

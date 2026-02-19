@@ -16,10 +16,10 @@ pub fn run(distro: Option<crate::cli::Distro>) -> Result<()> {
     for d in distros {
         let t = super::common::target_for(d);
         match super::common::verify_one(&root, &t) {
-            Ok(rel) => eprintln!("[ok] {}: {}", t.distro_dir, rel),
+            Ok(rel) => eprintln!("[ok] {}: {}", t.distro_id, rel),
             Err(e) => {
                 fail = true;
-                eprintln!("[bad] {}: {:#}", t.distro_dir, e);
+                eprintln!("[bad] {}: {:#}", t.distro_id, e);
             }
         }
     }

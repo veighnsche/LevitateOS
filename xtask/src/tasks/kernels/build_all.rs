@@ -35,7 +35,7 @@ pub fn run(rebuild_even_if_verified: bool, autofix: super::common::AutoFixOption
     for t in targets.iter() {
         eprintln!(
             "  {}: {}{}",
-            t.distro_dir, t.kernel.version, t.kernel.localversion
+            t.distro_id, t.kernel.version, t.kernel.localversion
         );
     }
 
@@ -47,7 +47,7 @@ pub fn run(rebuild_even_if_verified: bool, autofix: super::common::AutoFixOption
             super::common::build_kernel_via_recipe(
                 recipe_bin.as_path(),
                 &root,
-                t.distro_dir,
+                t.distro_id,
                 rebuild_even_if_verified,
                 t.kernel,
                 t.module_install_path,
@@ -69,13 +69,13 @@ where
     F: FnOnce() -> Result<()>,
 {
     if !rebuild_even_if_verified && super::common::kernel_is_built(root, t) {
-        eprintln!("[skip] {} kernel already built+verified", t.distro_dir);
+        eprintln!("[skip] {} kernel already built+verified", t.distro_id);
         return Ok(());
     }
 
-    eprintln!("[step] Build kernel: {}", t.distro_dir);
+    eprintln!("[step] Build kernel: {}", t.distro_id);
     if let Err(e) = build() {
-        return Err(e).context(format!("Kernel build failed for {}", t.distro_dir));
+        return Err(e).context(format!("Kernel build failed for {}", t.distro_id));
     }
 
     let rel = match super::common::verify_one(root, t) {
@@ -83,10 +83,10 @@ where
         Err(e) => {
             return Err(e).context(format!(
                 "Kernel build finished for {} but artifacts failed verification",
-                t.distro_dir
+                t.distro_id
             ));
         }
     };
-    eprintln!("[ok] {}: {}", t.distro_dir, rel);
+    eprintln!("[ok] {}: {}", t.distro_id, rel);
     Ok(())
 }

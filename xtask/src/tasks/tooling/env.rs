@@ -2,12 +2,12 @@ use anyhow::Result;
 
 pub fn run(shell: crate::cli::Shell) -> Result<()> {
     let root = crate::util::repo::repo_root()?;
-    let tools = crate::util::repo::tools_prefix(&root);
+    let tools = crate::util::repo::tools_prefix(&root)?;
 
     let usr_bin = tools.join("usr/bin");
     let usr_libexec = tools.join("usr/libexec");
     let ld_library_path = tools.join("usr/lib64");
-    let ovmf = crate::util::repo::ovmf_path(&root);
+    let ovmf = crate::util::repo::ovmf_path(&root)?;
 
     // This is intentionally the same wiring as the justfile.
     // Keep it as pure string exports so users can `eval` it.

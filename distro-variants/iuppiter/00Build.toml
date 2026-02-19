@@ -1,4 +1,4 @@
-schema_version = 5
+schema_version = 6
 
 [identity]
 os_name = "IuppiterOS"
@@ -48,6 +48,16 @@ deferred_to_01boot = []
 deferred_to_02livetools = []
 deferred_to_03install_plus = []
 
+[stage_00.iso_assembly]
+live_uki_filename = "iuppiter-live.efi"
+emergency_uki_filename = "iuppiter-emergency.efi"
+debug_uki_filename = "iuppiter-debug.efi"
+live_cmdline = ""
+
 [stage_00.evidence]
 script_path = "00Build-build-capability.sh"
 pass_marker = "STAGE 00 PASSED"
+
+[stage_01]
+required_kernel_cmdline = ["audit=1"]
+required_live_services = ["sshd"]

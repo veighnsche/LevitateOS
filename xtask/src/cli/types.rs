@@ -15,8 +15,8 @@ pub enum Distro {
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum BootDistro {
-    #[value(name = "leviso")]
-    Leviso,
+    #[value(name = "levitate")]
+    Levitate,
 
     #[value(name = "acorn")]
     Acorn,
@@ -92,6 +92,12 @@ pub enum Cmd {
     Stages {
         #[command(subcommand)]
         cmd: StagesCmd,
+    },
+
+    /// Repository policy checks.
+    Policy {
+        #[command(subcommand)]
+        cmd: PolicyCmd,
     },
 }
 
@@ -193,8 +199,27 @@ pub enum StagesCmd {
     /// Interactive stages: 01 (live ISO), 02 (live tools), 04 (installed).
     Boot {
         n: u8,
-        #[arg(value_enum, default_value_t = BootDistro::Leviso)]
+        #[arg(value_enum, default_value_t = BootDistro::Levitate)]
         distro: BootDistro,
+        #[arg(long, value_name = "KEY=VALUE[,KEY=VALUE...]")]
+        inject: Option<String>,
+        #[arg(long, value_name = "PATH")]
+        inject_file: Option<PathBuf>,
+        /// Boot the stage and wait for SSH readiness on the host forwarded port.
+        #[arg(long)]
+        ssh: bool,
+        /// SSH host-forward port when `--ssh` is enabled.
+        #[arg(long, default_value_t = 2222)]
+        ssh_port: u16,
+        /// Timeout in seconds to wait for SSH readiness and probe when `--ssh` is enabled.
+        #[arg(long, default_value_t = 90)]
+        ssh_timeout: u64,
+        /// Connect and verify SSH only, without opening an interactive shell.
+        #[arg(long)]
+        no_shell: bool,
+        /// SSH private key used for interactive or probe login when `--ssh` is enabled.
+        #[arg(long, value_name = "PATH")]
+        ssh_private_key: Option<PathBuf>,
     },
 
     /// Run automated stage test N (pass/fail).
@@ -202,6 +227,10 @@ pub enum StagesCmd {
         n: u8,
         #[arg(value_enum, default_value_t = HarnessDistro::Levitate)]
         distro: HarnessDistro,
+        #[arg(long, value_name = "KEY=VALUE[,KEY=VALUE...]")]
+        inject: Option<String>,
+        #[arg(long, value_name = "PATH")]
+        inject_file: Option<PathBuf>,
     },
 
     /// Run all automated stage tests up to N.
@@ -209,6 +238,10 @@ pub enum StagesCmd {
         n: u8,
         #[arg(value_enum, default_value_t = HarnessDistro::Levitate)]
         distro: HarnessDistro,
+        #[arg(long, value_name = "KEY=VALUE[,KEY=VALUE...]")]
+        inject: Option<String>,
+        #[arg(long, value_name = "PATH")]
+        inject_file: Option<PathBuf>,
     },
 
     /// Show stage test status.
@@ -222,6 +255,13 @@ pub enum StagesCmd {
         #[arg(value_enum, default_value_t = HarnessDistro::Levitate)]
         distro: HarnessDistro,
     },
+}
+
+#[derive(Subcommand)]
+pub enum PolicyCmd {
+    /// Fail if forbidden legacy bindings appear in code/config for stage wiring.
+    #[command(name = "audit-legacy-bindings")]
+    AuditLegacyBindings,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]

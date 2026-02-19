@@ -9,3 +9,5 @@ anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 distro-spec = { path = "../distro-spec" }
 which = "7"
+leviso-cheat-guard = { path = "../testing/cheat-guard" }
+regex = "1"

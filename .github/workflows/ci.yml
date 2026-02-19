@@ -139,6 +139,51 @@ jobs:
         timeout-minutes: 30
 
   # ===========================================================================
+  # Stage 2b: Single-path Stage 01 parity gate
+  # ===========================================================================
+  s01-parity:
+    name: Stage 01 Parity
+    needs: [changes, build]
+    if: needs.changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install QEMU tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf
+
+      - name: Run Stage 01 parity boot check
+        run: |
+          set -euo pipefail
+
+          if ! cargo xtask kernels check levitate; then
+            cargo xtask kernels build levitate
+          fi
+
+          cargo run -p distro-builder --bin distro-builder -- iso build levitate 01Boot
+
+          tmp_key="$(mktemp)"
+          tmp_pub="${tmp_key}.pub"
+          tmp_inject="$(mktemp)"
+          cleanup() {
+            rm -f "$tmp_key" "$tmp_pub" "$tmp_inject"
+          }
+          trap cleanup EXIT
+
+          ssh-keygen -q -t ed25519 -N "" -f "$tmp_key"
+          printf 'SSH_AUTHORIZED_KEY=%s\n' "$(cat "$tmp_pub")" > "$tmp_inject"
+
+          cargo xtask stages boot 1 levitate --inject-file "$tmp_inject" --no-shell
+          cargo xtask stages boot 1 levitate --inject-file "$tmp_inject" --ssh --ssh-port 2222 --no-shell --ssh-private-key "$tmp_key"
+
+  # ===========================================================================
   # Stage 3: Test rootfs (uses systemd-nspawn to test the system)
   # ===========================================================================
   rootfs-tests:

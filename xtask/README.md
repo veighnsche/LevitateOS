@@ -31,20 +31,24 @@ cargo run -p levitate-xtask -- hooks install
 cargo run -p levitate-xtask -- hooks remove
 
 # Install-test stages (boot/install regression signal)
-cargo run -p levitate-xtask -- stages boot 1 leviso
+cargo run -p levitate-xtask -- stages boot 1 levitate
 cargo run -p levitate-xtask -- stages test 4 levitate
 cargo run -p levitate-xtask -- stages test-up-to 6 levitate
 cargo run -p levitate-xtask -- stages status levitate
 cargo run -p levitate-xtask -- stages reset levitate
 
+# Optional boot injection (for stage boot/test paths)
+cargo run -p levitate-xtask -- stages boot 1 levitate --inject 'SSH_AUTHORIZED_KEY=ssh-ed25519 AAAA...'
+cargo run -p levitate-xtask -- stages test 1 levitate --inject-file /tmp/payload.env
+
 # Kernel artifacts verification
 cargo run -p levitate-xtask -- kernels check
-cargo run -p levitate-xtask -- kernels check leviso
+cargo run -p levitate-xtask -- kernels check levitate
 
 # Build one kernel (x86_64; policy window enforced)
-cargo run -p levitate-xtask -- kernels build leviso
+cargo run -p levitate-xtask -- kernels build levitate
 
-# Overnight kernel builds (leviso + AcornOS + IuppiterOS + RalphOS; policy window enforced: 23:00 through 10:00 local time)
+# Overnight kernel builds (levitate + acorn + iuppiter + ralph; policy window enforced: 23:00 through 10:00 local time)
 cargo run -p levitate-xtask -- kernels build-all
 # Rebuild even if already verified
 cargo run -p levitate-xtask -- kernels build-all --rebuild

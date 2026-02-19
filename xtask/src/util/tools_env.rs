@@ -5,12 +5,12 @@ use std::process::Command;
 
 /// Applies the same PATH/LD_LIBRARY_PATH/OVMF_PATH environment wiring as the repo `justfile`.
 pub fn apply_to_command(cmd: &mut Command, repo_root: &Path) -> Result<()> {
-    let tools = crate::util::repo::tools_prefix(repo_root);
+    let tools = crate::util::repo::tools_prefix(repo_root)?;
 
     let usr_bin = tools.join("usr/bin");
     let usr_libexec = tools.join("usr/libexec");
     let ld_library_path = tools.join("usr/lib64");
-    let ovmf = crate::util::repo::ovmf_path(repo_root);
+    let ovmf = crate::util::repo::ovmf_path(repo_root)?;
 
     let existing_path = env::var_os("PATH").unwrap_or_default();
     let mut paths = Vec::new();

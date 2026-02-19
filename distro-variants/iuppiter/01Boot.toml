@@ -1,5 +1,6 @@
 [stage_01.boot_inputs]
 os_name = "IuppiterOS"
 overlay_kind = "openrc"
+required_services = ["sshd"]
 openrc_inittab = "serial_only"
 profile_overlay = "distro-variants/iuppiter/profile/live-overlay"

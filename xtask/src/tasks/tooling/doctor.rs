@@ -2,8 +2,8 @@ use anyhow::{Result, bail};
 
 pub fn run() -> Result<()> {
     let root = crate::util::repo::repo_root()?;
-    let tools = crate::util::repo::tools_prefix(&root);
-    let ovmf = crate::util::repo::ovmf_path(&root);
+    let tools = crate::util::repo::tools_prefix(&root)?;
+    let ovmf = crate::util::repo::ovmf_path(&root)?;
 
     let mut ok = true;
 
