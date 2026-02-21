@@ -11,3 +11,6 @@ distro-spec = { path = "../distro-spec" }
 which = "7"
 leviso-cheat-guard = { path = "../testing/cheat-guard" }
 regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libc = "0.2"

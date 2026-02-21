@@ -22,10 +22,15 @@ STAGE_ROOT_DIR="${STAGE_ROOT_DIR:-${OUTPUT_DIR}/${BUILD_STAGE_DIRNAME}}"
 STAGE_RUN_DIR="${STAGE_RUN_DIR:-${STAGE_OUTPUT_DIR:-${STAGE_ROOT_DIR}}}"
 STAGE_OUTPUT_DIR="${STAGE_OUTPUT_DIR:-${STAGE_RUN_DIR}}"
 STAGE_ARTIFACT_TAG="${STAGE_ARTIFACT_TAG:-$(printf '%s' "$BUILD_STAGE_DIRNAME" | cut -c1-3)}"
+FORCE_COLOR="${FORCE_COLOR:-0}"
+ARTIFACT_NAME_WIDTH="${ARTIFACT_NAME_WIDTH:-8}"
+
+# Color policy: NO_COLOR disables color globally; FORCE_COLOR enables in non-TTY contexts.
 KERNEL_RELEASE_PATH="${KERNEL_RELEASE_PATH:-${KERNEL_OUTPUT_DIR}/kernel-build/include/config/kernel.release}"
 KERNEL_IMAGE_PATH="${KERNEL_IMAGE_PATH:-${KERNEL_OUTPUT_DIR}/staging/boot/vmlinuz}"
 ISO_FILENAME="${ISO_FILENAME:-${IDENTITY_OS_ID}-x86_64-s00_build.iso}"
 ISO_PATH="${ISO_PATH:-${STAGE_OUTPUT_DIR}/${ISO_FILENAME}}"
+ISO_SHA="${ISO_SHA:-${ISO_PATH%.iso}.sha512}"
 
 ROOTFS_PATH="${STAGE_OUTPUT_DIR}/${STAGE_ARTIFACT_TAG}-filesystem.erofs"
 INITRAMFS_LIVE_PATH="${STAGE_OUTPUT_DIR}/${STAGE_ARTIFACT_TAG}-initramfs-live.cpio.gz"
@@ -46,18 +51,18 @@ BUILD_STARTED_AT_UTC="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 BUILD_FINISHED_AT_UTC=""
 BUILD_STATUS="failed"
 
-TMP_EMPTY_OVERLAY_DIR=""
 TMP_STAGE_INIT_TEMPLATE=""
 TMP_STAGE_INIT_TEMPLATE_EDIT=""
+TMP_ARTIFACT_LIST=""
 cleanup_tmp_artifacts() {
-    if [ -n "${TMP_EMPTY_OVERLAY_DIR:-}" ] && [ -d "${TMP_EMPTY_OVERLAY_DIR}" ]; then
-        rm -rf "${TMP_EMPTY_OVERLAY_DIR}"
-    fi
     if [ -n "${TMP_STAGE_INIT_TEMPLATE:-}" ] && [ -f "${TMP_STAGE_INIT_TEMPLATE}" ]; then
         rm -f "${TMP_STAGE_INIT_TEMPLATE}"
     fi
     if [ -n "${TMP_STAGE_INIT_TEMPLATE_EDIT:-}" ] && [ -f "${TMP_STAGE_INIT_TEMPLATE_EDIT}" ]; then
         rm -f "${TMP_STAGE_INIT_TEMPLATE_EDIT}"
+    fi
+    if [ -n "${TMP_ARTIFACT_LIST:-}" ] && [ -f "${TMP_ARTIFACT_LIST}" ]; then
+        rm -f "${TMP_ARTIFACT_LIST}"
     fi
 }
 
@@ -77,13 +82,86 @@ file_size_bytes() {
     wc -c < "$target" | tr -d ' '
 }
 
+human_size() {
+    bytes="$1"
+    if command -v numfmt >/dev/null 2>&1; then
+        numfmt --to=iec --format='%.2f' "$bytes" 2>/dev/null || printf '%s bytes' "$bytes"
+        return
+    fi
+    awk -v bytes="$bytes" '
+        BEGIN {
+            if (bytes == "") {
+                printf "0.00 B";
+                exit 0;
+            }
+            split("B KiB MiB GiB TiB PiB", units, " ");
+            value = bytes + 0;
+            unit = 1;
+            while (value >= 1024 && unit < 6) {
+                value /= 1024;
+                unit++;
+            }
+            printf "%.2f %s", value, units[unit];
+        }
+    ' 2>/dev/null || printf '%s bytes' "$bytes"
+}
+
+colorize_blue_if_tty() {
+    value="$1"
+    if [ "${NO_COLOR:-0}" = "1" ]; then
+        printf '%s' "$value"
+        return
+    fi
+    if [ "${FORCE_COLOR}" = "1" ]; then
+        printf '\033[34m%s\033[0m' "$value"
+        return
+    fi
+    if [ -t 1 ] && [ "${TERM:-}" != "" ]; then
+        printf '\033[34m%s\033[0m' "$value"
+        return
+    fi
+    printf '%s' "$value"
+}
+
+print_artifact_table_row() {
+    label="$1"
+    bytes="$2"
+    filename="${label##*/}"
+    printf '  %-*.*s | %-24s\n' "$ARTIFACT_NAME_WIDTH" "$ARTIFACT_NAME_WIDTH" "$filename" "$(colorize_blue_if_tty "$bytes")"
+}
+
+set_artifact_name_width() {
+    artifact_name_width=8
+    artifact_name_width_input="${1:-}"
+    while IFS= read -r artifact_path; do
+        [ -z "$artifact_path" ] && continue
+        artifact_name="${artifact_path##*/}"
+        artifact_name_len="${#artifact_name}"
+        if [ "$artifact_name_len" -gt "$artifact_name_width" ]; then
+            artifact_name_width="$artifact_name_len"
+        fi
+    done < "$artifact_name_width_input"
+    ARTIFACT_NAME_WIDTH="$artifact_name_width"
+}
+
+collect_stage_artifacts() {
+    output_file="$1"
+    : > "$output_file"
+    for artifact_path in "$STAGE_OUTPUT_DIR"/*; do
+        [ -f "$artifact_path" ] || continue
+        artifact_name="${artifact_path##*/}"
+        printf '%s\n' "$artifact_path" >> "$output_file"
+    done
+}
+
 write_build_log_json() {
     BUILD_FINISHED_AT_UTC="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
     rootfs_size="$(file_size_bytes "$ROOTFS_PATH")"
     initramfs_size="$(file_size_bytes "$INITRAMFS_LIVE_PATH")"
     overlay_size="$(file_size_bytes "$LIVE_OVERLAY_IMAGE")"
     iso_size="$(file_size_bytes "$ISO_PATH")"
-    sha_size="$(file_size_bytes "$ISO_SHA")"
+    sha_path="${ISO_SHA:-}"
+    sha_size="$(file_size_bytes "$sha_path")"
     cat > "$BUILD_LOG_PATH" <<EOF
 {
   "schema": 1,
@@ -100,7 +178,7 @@ write_build_log_json() {
     "initramfs_live": { "path": "$(json_escape "$INITRAMFS_LIVE_PATH")", "size_bytes": $initramfs_size },
     "overlay_erofs": { "path": "$(json_escape "$LIVE_OVERLAY_IMAGE")", "size_bytes": $overlay_size },
     "iso": { "path": "$(json_escape "$ISO_PATH")", "size_bytes": $iso_size },
-    "iso_sha512": { "path": "$(json_escape "$ISO_SHA")", "size_bytes": $sha_size }
+    "iso_sha512": { "path": "$(json_escape "$sha_path")", "size_bytes": $sha_size }
   }
 }
 EOF
@@ -118,9 +196,7 @@ need_file "$KERNEL_RELEASE_PATH"
 need_file "$KERNEL_IMAGE_PATH"
 mkdir -p "$STAGE_OUTPUT_DIR"
 ROOTFS_SOURCE_DIR="$(prepare_stage_inputs "$BUILD_STAGE_DIRNAME" "$DISTRO_ID" "$STAGE_OUTPUT_DIR")"
-if [ -d "$LIVE_OVERLAY_DIR" ]; then
-    rm -rf "$LIVE_OVERLAY_DIR"
-fi
+need_dir "$LIVE_OVERLAY_DIR"
 
 rm -f "$ROOTFS_PATH"
 build_rootfs_erofs "$ROOTFS_SOURCE_DIR" "$ROOTFS_PATH"
@@ -201,10 +277,8 @@ cargo run -q -p recinit -- build-tiny \
     --rootfs-path "live/filesystem.erofs"
 need_file "$INITRAMFS_LIVE_PATH"
 
-TMP_EMPTY_OVERLAY_DIR="$(mktemp -d "${STAGE_OUTPUT_DIR}/.tmp-${STAGE_ARTIFACT_TAG}-overlay.XXXXXX")"
-
 rm -f "$LIVE_OVERLAY_IMAGE"
-build_overlayfs_erofs "$TMP_EMPTY_OVERLAY_DIR" "$LIVE_OVERLAY_IMAGE"
+build_overlayfs_erofs "$LIVE_OVERLAY_DIR" "$LIVE_OVERLAY_IMAGE"
 need_file "$LIVE_OVERLAY_IMAGE"
 
 mkdir -p "$(dirname "$ISO_PATH")"
@@ -253,14 +327,20 @@ elif [ -f "$ISO_TMP_SHA_ALT2" ]; then
 fi
 
 BUILD_STATUS="success"
+TMP_ARTIFACT_LIST="$(mktemp "${STAGE_OUTPUT_DIR}/.tmp-${STAGE_ARTIFACT_TAG}-artifacts.XXXXXX")"
+collect_stage_artifacts "$TMP_ARTIFACT_LIST"
+set_artifact_name_width "$TMP_ARTIFACT_LIST"
 printf '%s\n' "Artifact summary:"
-printf '  %s (%s bytes)\n' "$ROOTFS_PATH" "$(file_size_bytes "$ROOTFS_PATH")"
-printf '  %s (%s bytes)\n' "$INITRAMFS_LIVE_PATH" "$(file_size_bytes "$INITRAMFS_LIVE_PATH")"
-printf '  %s (%s bytes)\n' "$LIVE_OVERLAY_IMAGE" "$(file_size_bytes "$LIVE_OVERLAY_IMAGE")"
-printf '  %s (%s bytes)\n' "$ISO_PATH" "$(file_size_bytes "$ISO_PATH")"
-if [ -f "$ISO_SHA" ]; then
-    printf '  %s (%s bytes)\n' "$ISO_SHA" "$(file_size_bytes "$ISO_SHA")"
+printf '  %-*s | %-24s\n' "$ARTIFACT_NAME_WIDTH" "Artifact" "Size"
+left_sep="$(printf '%*s' "$ARTIFACT_NAME_WIDTH" '' | tr ' ' '-')"
+right_sep="$(printf '%*s' 24 '' | tr ' ' '-')"
+printf '  %s-+-%s\n' "$left_sep" "$right_sep"
+if [ ! -s "$TMP_ARTIFACT_LIST" ]; then
+    printf '  %s\n' "(no artifacts found)"
+else
+    while IFS= read -r artifact_path; do
+        print_artifact_table_row "$artifact_path" "$(human_size "$(file_size_bytes "$artifact_path")")"
+    done < "$TMP_ARTIFACT_LIST"
 fi
-printf '  %s\n' "$BUILD_LOG_PATH"
 
 echo "Built ISO: $ISO_PATH"

@@ -1,6 +1,10 @@
 use anyhow::{Context, Result, bail};
+use serde::Deserialize;
+use std::fs::OpenOptions;
 use std::fs::{self, File};
+use std::io::Write;
 use std::net::TcpListener;
+use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
@@ -21,24 +25,49 @@ pub fn boot(
     let cfg = BootConfig::for_distro(&root, distro);
 
     match n {
-        1 => boot_live_iso(
-            &root,
-            &cfg,
-            inject,
-            inject_file,
-            ssh,
-            ssh_port,
-            ssh_timeout,
-            no_shell,
-            ssh_private_key,
-        ),
+        1 => {
+            let iso_path = resolve_stage_iso(
+                "01Boot",
+                &cfg.stage01_root,
+                cfg.stage01_iso_filename,
+                &cfg.stage01_iso_legacy,
+                cfg.harness_distro,
+            )?;
+            boot_live_iso(
+                &root,
+                &cfg,
+                "Stage 01 live ISO",
+                &iso_path,
+                inject,
+                inject_file,
+                ssh,
+                ssh_port,
+                ssh_timeout,
+                no_shell,
+                ssh_private_key,
+            )
+        }
         2 => {
-            if ssh {
-                bail!(
-                    "`--ssh` is only supported for Stage 01; use `cargo xtask stages boot 1 --ssh`."
-                );
-            }
-            boot_interactive_stage_02(&root, &cfg, inject, inject_file)
+            let iso_path = resolve_stage_iso(
+                "02LiveTools",
+                &cfg.stage02_root,
+                cfg.stage02_iso_filename,
+                &cfg.stage02_iso_legacy,
+                cfg.harness_distro,
+            )?;
+            boot_live_iso(
+                &root,
+                &cfg,
+                "Stage 02 live tools ISO",
+                &iso_path,
+                inject,
+                inject_file,
+                ssh,
+                ssh_port,
+                ssh_timeout,
+                no_shell,
+                ssh_private_key,
+            )
         }
         4 => {
             if ssh {
@@ -89,7 +118,12 @@ pub fn reset(distro: crate::cli::HarnessDistro) -> Result<()> {
 }
 
 struct BootConfig {
-    iso: PathBuf,
+    stage01_root: PathBuf,
+    stage01_iso_legacy: PathBuf,
+    stage01_iso_filename: &'static str,
+    stage02_root: PathBuf,
+    stage02_iso_legacy: PathBuf,
+    stage02_iso_filename: &'static str,
     disk_dir: PathBuf,
     disk_name: &'static str,
     vars_name: &'static str,
@@ -101,7 +135,14 @@ impl BootConfig {
     fn for_distro(root: &Path, distro: crate::cli::BootDistro) -> Self {
         match distro {
             crate::cli::BootDistro::Levitate => Self {
-                iso: root.join(".artifacts/out/levitate/s01-boot/levitateos-x86_64-s01_boot.iso"),
+                stage01_root: root.join(".artifacts/out/levitate/s01-boot"),
+                stage01_iso_legacy: root
+                    .join(".artifacts/out/levitate/s01-boot/levitateos-x86_64-s01_boot.iso"),
+                stage01_iso_filename: "levitateos-x86_64-s01_boot.iso",
+                stage02_root: root.join(".artifacts/out/levitate/s02-live-tools"),
+                stage02_iso_legacy: root
+                    .join(".artifacts/out/levitate/s02-live-tools/levitateos-x86_64-s02_live_tools.iso"),
+                stage02_iso_filename: "levitateos-x86_64-s02_live_tools.iso",
                 disk_dir: root.join(".artifacts/out/levitate"),
                 disk_name: "levitate-test.qcow2",
                 vars_name: "levitate-ovmf-vars.fd",
@@ -109,7 +150,13 @@ impl BootConfig {
                 harness_distro: crate::cli::HarnessDistro::Levitate,
             },
             crate::cli::BootDistro::Acorn => Self {
-                iso: root.join(".artifacts/out/acorn/s01-boot/acornos-s01_boot.iso"),
+                stage01_root: root.join(".artifacts/out/acorn/s01-boot"),
+                stage01_iso_legacy: root.join(".artifacts/out/acorn/s01-boot/acornos-s01_boot.iso"),
+                stage01_iso_filename: "acornos-s01_boot.iso",
+                stage02_root: root.join(".artifacts/out/acorn/s02-live-tools"),
+                stage02_iso_legacy: root
+                    .join(".artifacts/out/acorn/s02-live-tools/acornos-s02_live_tools.iso"),
+                stage02_iso_filename: "acornos-s02_live_tools.iso",
                 disk_dir: root.join(".artifacts/out/acorn"),
                 disk_name: "acorn-test.qcow2",
                 vars_name: "acorn-ovmf-vars.fd",
@@ -117,7 +164,14 @@ impl BootConfig {
                 harness_distro: crate::cli::HarnessDistro::Acorn,
             },
             crate::cli::BootDistro::Iuppiter => Self {
-                iso: root.join(".artifacts/out/iuppiter/s01-boot/iuppiter-x86_64-s01_boot.iso"),
+                stage01_root: root.join(".artifacts/out/iuppiter/s01-boot"),
+                stage01_iso_legacy: root
+                    .join(".artifacts/out/iuppiter/s01-boot/iuppiter-x86_64-s01_boot.iso"),
+                stage01_iso_filename: "iuppiter-x86_64-s01_boot.iso",
+                stage02_root: root.join(".artifacts/out/iuppiter/s02-live-tools"),
+                stage02_iso_legacy: root
+                    .join(".artifacts/out/iuppiter/s02-live-tools/iuppiter-x86_64-s02_live_tools.iso"),
+                stage02_iso_filename: "iuppiter-x86_64-s02_live_tools.iso",
                 disk_dir: root.join(".artifacts/out/iuppiter"),
                 disk_name: "iuppiter-test.qcow2",
                 vars_name: "iuppiter-ovmf-vars.fd",
@@ -125,7 +179,14 @@ impl BootConfig {
                 harness_distro: crate::cli::HarnessDistro::Iuppiter,
             },
             crate::cli::BootDistro::Ralph => Self {
-                iso: root.join(".artifacts/out/ralph/s01-boot/ralphos-x86_64-s01_boot.iso"),
+                stage01_root: root.join(".artifacts/out/ralph/s01-boot"),
+                stage01_iso_legacy: root
+                    .join(".artifacts/out/ralph/s01-boot/ralphos-x86_64-s01_boot.iso"),
+                stage01_iso_filename: "ralphos-x86_64-s01_boot.iso",
+                stage02_root: root.join(".artifacts/out/ralph/s02-live-tools"),
+                stage02_iso_legacy: root
+                    .join(".artifacts/out/ralph/s02-live-tools/ralphos-x86_64-s02_live_tools.iso"),
+                stage02_iso_filename: "ralphos-x86_64-s02_live_tools.iso",
                 disk_dir: root.join(".artifacts/out/ralph"),
                 disk_name: "ralph-test.qcow2",
                 vars_name: "ralph-ovmf-vars.fd",
@@ -136,15 +197,103 @@ impl BootConfig {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct StageRunManifest {
+    status: String,
+    created_at_utc: String,
+    finished_at_utc: Option<String>,
+    iso_path: Option<String>,
+}
+
+fn resolve_stage_iso(
+    stage_label: &str,
+    stage_root: &Path,
+    stage_iso_filename: &str,
+    stage_iso_legacy: &Path,
+    harness_distro: crate::cli::HarnessDistro,
+) -> Result<PathBuf> {
+    let mut candidates: Vec<(String, PathBuf)> = Vec::new();
+    if stage_root.is_dir() {
+        for entry in fs::read_dir(stage_root).with_context(|| {
+            format!(
+                "reading {} output directory '{}'",
+                stage_label,
+                stage_root.display()
+            )
+        })? {
+            let entry = entry.with_context(|| {
+                format!(
+                    "iterating {} output directory '{}'",
+                    stage_label,
+                    stage_root.display()
+                )
+            })?;
+            let run_dir = entry.path();
+            if !run_dir.is_dir() {
+                continue;
+            }
+            let manifest_path = run_dir.join("run-manifest.json");
+            if !manifest_path.is_file() {
+                continue;
+            }
+            let raw = fs::read(&manifest_path).with_context(|| {
+                format!("reading stage run manifest '{}'", manifest_path.display())
+            })?;
+            let manifest: StageRunManifest = serde_json::from_slice(&raw).with_context(|| {
+                format!("parsing stage run manifest '{}'", manifest_path.display())
+            })?;
+            if manifest.status != "success" {
+                continue;
+            }
+            let sort_key = manifest
+                .finished_at_utc
+                .clone()
+                .unwrap_or(manifest.created_at_utc.clone());
+            let iso_candidate = manifest
+                .iso_path
+                .as_ref()
+                .map(PathBuf::from)
+                .filter(|path| path.is_file())
+                .unwrap_or_else(|| run_dir.join(stage_iso_filename));
+            if iso_candidate.is_file() {
+                candidates.push((sort_key, iso_candidate));
+            }
+        }
+    }
+
+    candidates.sort_by(|a, b| b.0.cmp(&a.0));
+    if let Some((_, iso_path)) = candidates.into_iter().next() {
+        return Ok(iso_path);
+    }
+
+    if stage_iso_legacy.is_file() {
+        return Ok(stage_iso_legacy.to_path_buf());
+    }
+
+    bail!(
+        "Missing {} ISO: {} (build it first, e.g. `just build {} {}`)\n\
+         Also checked latest successful stage runs under '{}'.",
+        stage_label,
+        stage_iso_legacy.display(),
+        harness_distro.id(),
+        stage_label,
+        stage_root.display()
+    )
+}
+
 struct BootInjection {
     path: PathBuf,
     cleanup: bool,
+    media_iso: Option<PathBuf>,
 }
 
 impl Drop for BootInjection {
     fn drop(&mut self) {
         if self.cleanup {
             let _ = fs::remove_file(&self.path);
+        }
+        if let Some(path) = &self.media_iso {
+            let _ = fs::remove_file(path);
         }
     }
 }
@@ -160,6 +309,7 @@ fn boot_injection_payload(
         return Ok(Some(BootInjection {
             path,
             cleanup: false,
+            media_iso: None,
         }));
     }
 
@@ -205,12 +355,15 @@ fn boot_injection_payload(
     Ok(Some(BootInjection {
         path,
         cleanup: true,
+        media_iso: None,
     }))
 }
 
 fn boot_live_iso(
     root: &Path,
     cfg: &BootConfig,
+    stage_label: &'static str,
+    iso_path: &Path,
     inject: Option<String>,
     inject_file: Option<PathBuf>,
     ssh: bool,
@@ -219,18 +372,16 @@ fn boot_live_iso(
     no_shell: bool,
     ssh_private_key: Option<PathBuf>,
 ) -> Result<()> {
-    if !cfg.iso.is_file() {
-        bail!(
-            "Missing Stage 01 ISO: {} (build it first, e.g. `just build {} 01Boot`)",
-            cfg.iso.display(),
-            cfg.harness_distro.id()
-        );
+    let mut injection = boot_injection_payload(inject, inject_file)?;
+    if let Some(inj) = injection.as_mut() {
+        inj.media_iso = Some(create_boot_injection_iso(&inj.path)?);
     }
-    let injection = boot_injection_payload(inject, inject_file)?;
     if ssh {
         boot_live_iso_ssh(
             root,
             cfg,
+            stage_label,
+            iso_path,
             injection,
             ssh_port,
             ssh_timeout,
@@ -238,13 +389,14 @@ fn boot_live_iso(
             ssh_private_key,
         )
     } else {
-        boot_live_iso_serial(root, cfg, injection, no_shell)
+        boot_live_iso_serial(root, cfg, iso_path, injection, no_shell)
     }
 }
 
 fn boot_live_iso_serial(
     root: &Path,
     cfg: &BootConfig,
+    iso_path: &Path,
     injection: Option<BootInjection>,
     no_shell: bool,
 ) -> Result<()> {
@@ -252,11 +404,11 @@ fn boot_live_iso_serial(
         let log_path = temp_log_path("levitate-stage01-serial-boot");
         let mut cmd = qemu_base_command(
             root,
-            cfg,
-            injection.as_ref().map(|v| v.path.as_path()),
+            iso_path,
+            injection.as_ref(),
             None,
         )?;
-        let child = spawn_qemu_with_log(&mut cmd, &log_path)?;
+        let child = spawn_qemu_with_log(&mut cmd, &log_path, false)?;
         monitor_live_iso_serial(child, &log_path)?;
         let _ = fs::remove_file(&log_path);
         return Ok(());
@@ -265,8 +417,8 @@ fn boot_live_iso_serial(
     eprintln!("Booting {} live ISO... (Ctrl-A X to exit)", cfg.pretty_name);
     let mut cmd = qemu_base_command(
         root,
-        cfg,
-        injection.as_ref().map(|v| v.path.as_path()),
+        iso_path,
+        injection.as_ref(),
         None,
     )?;
     run_checked(&mut cmd)
@@ -339,6 +491,8 @@ fn detect_live_boot_success(log_path: &Path, pattern: &str) -> bool {
 fn boot_live_iso_ssh(
     root: &Path,
     cfg: &BootConfig,
+    stage_label: &'static str,
+    iso_path: &Path,
     injection: Option<BootInjection>,
     ssh_port: u16,
     ssh_timeout: u64,
@@ -346,19 +500,19 @@ fn boot_live_iso_ssh(
     ssh_private_key: Option<PathBuf>,
 ) -> Result<()> {
     eprintln!(
-        "Booting {} live ISO with SSH wait (port 127.0.0.1:{ssh_port})...",
-        cfg.pretty_name
+        "Booting {} {} with SSH wait (port 127.0.0.1:{ssh_port})...",
+        cfg.pretty_name, stage_label
     );
     ensure_ssh_port_available(ssh_port)?;
 
     let mut cmd = qemu_base_command(
         root,
-        cfg,
-        injection.as_ref().map(|v| v.path.as_path()),
+        iso_path,
+        injection.as_ref(),
         Some(ssh_port),
     )?;
     let log_path = temp_log_path("levitate-stage01-ssh-boot");
-    let child = spawn_qemu_with_log(&mut cmd, &log_path)?;
+    let child = spawn_qemu_with_log(&mut cmd, &log_path, true)?;
     let result = monitor_live_iso_ssh(
         child,
         &log_path,
@@ -446,6 +600,9 @@ fn monitor_live_iso_ssh(
         }
 
         if Instant::now() > deadline {
+            if hook_seen {
+                let _ = collect_guest_ssh_debug(&mut child);
+            }
             let _ = child.kill();
             let _ = child.wait();
             let _ = fs::remove_file(&known_hosts);
@@ -469,7 +626,7 @@ fn detect_stage01_boot_hook(log_path: &Path) -> Result<Option<String>> {
         Err(_) => return Ok(None),
     };
 
-    for pat in ["___SHELL_READY___", "___PROMPT___"] {
+    for pat in ["___SHELL_READY___"] {
         if raw.contains(pat) {
             return Ok(Some(pat.to_string()));
         }
@@ -555,14 +712,22 @@ fn run_interactive_ssh(
     known_hosts: &Path,
     qemu: &mut Child,
 ) -> Result<()> {
+    // Some interactive shells emit cursor-position queries (CSI 6n). If a reply
+    // races with session teardown, bytes can leak into the next shell prompt.
+    flush_tty_input_queue();
+
     let mut args = common_ssh_args(private_key, ssh_port, known_hosts);
+    args.push("-tt".to_string());
     args.push("-o".to_string());
     args.push("BatchMode=no".to_string());
     args.push("root@127.0.0.1".to_string());
     let status = Command::new("ssh")
+        .env("TERM", "vt100")
         .args(&args)
         .status()
         .context("launching interactive SSH session")?;
+
+    flush_tty_input_queue();
 
     let _ = qemu.kill();
     let _ = qemu.wait();
@@ -573,8 +738,21 @@ fn run_interactive_ssh(
     }
 }
 
+fn flush_tty_input_queue() {
+    let tty = match OpenOptions::new().read(true).open("/dev/tty") {
+        Ok(file) => file,
+        Err(_) => return,
+    };
+    let fd = tty.as_raw_fd();
+    // SAFETY: tcflush only uses the provided valid file descriptor.
+    let _ = unsafe { libc::tcflush(fd, libc::TCIFLUSH) };
+}
+
 fn can_ssh_connect(ssh_port: u16, private_key: &Path, known_hosts: &Path) -> Result<bool> {
     let mut args = common_ssh_args(private_key, ssh_port, known_hosts);
+    args.push("-n".to_string());
+    args.push("-o".to_string());
+    args.push("BatchMode=yes".to_string());
     args.push("root@127.0.0.1".to_string());
     args.push("true".to_string());
     let status = Command::new("ssh")
@@ -608,9 +786,7 @@ fn resolve_ssh_private_key(arg: Option<PathBuf>) -> Result<PathBuf> {
 fn common_ssh_args(key: &Path, ssh_port: u16, known_hosts: &Path) -> Vec<String> {
     vec![
         "-o".to_string(),
-        "BatchMode=yes".to_string(),
-        "-o".to_string(),
-        "ConnectTimeout=2".to_string(),
+        "ConnectTimeout=10".to_string(),
         "-o".to_string(),
         "StrictHostKeyChecking=accept-new".to_string(),
         "-o".to_string(),
@@ -622,30 +798,6 @@ fn common_ssh_args(key: &Path, ssh_port: u16, known_hosts: &Path) -> Vec<String>
         "-p".to_string(),
         ssh_port.to_string(),
     ]
-}
-
-fn boot_interactive_stage_02(
-    root: &Path,
-    cfg: &BootConfig,
-    inject: Option<String>,
-    inject_file: Option<PathBuf>,
-) -> Result<()> {
-    eprintln!(
-        "Booting {} interactive Stage 02 (live tools)... (Ctrl-A X to exit)",
-        cfg.pretty_name
-    );
-    run_install_tests_in_dir(
-        root,
-        &[
-            "--distro",
-            cfg.harness_distro.id(),
-            "--stage",
-            "2",
-            "--interactive",
-        ],
-        inject,
-        inject_file,
-    )
 }
 
 fn boot_installed_disk(
@@ -749,8 +901,8 @@ fn run_install_tests_in_dir(
 
 fn qemu_base_command(
     root: &Path,
-    cfg: &BootConfig,
-    injection: Option<&Path>,
+    iso_path: &Path,
+    injection: Option<&BootInjection>,
     ssh_port: Option<u16>,
 ) -> Result<Command> {
     let ovmf = crate::util::repo::ovmf_path(root)?;
@@ -770,7 +922,7 @@ fn qemu_base_command(
         "-drive",
         &format!(
             "id=cdrom0,if=none,format=raw,readonly=on,file={}",
-            cfg.iso.display()
+            iso_path.display()
         ),
         "-drive",
         &format!("if=pflash,format=raw,readonly=on,file={}", ovmf.display()),
@@ -784,9 +936,22 @@ fn qemu_base_command(
     if let Some(injection) = injection {
         let fw_cfg = format!(
             "name=opt/levitate/boot-injection,file={}",
-            injection.display()
+            injection.path.display()
         );
         cmd.args(["-fw_cfg", &fw_cfg]);
+        if let Some(media_iso) = &injection.media_iso {
+            cmd.args([
+                "-device",
+                "virtio-scsi-pci,id=scsi2",
+                "-device",
+                "scsi-cd,drive=inject0,bus=scsi2.0",
+                "-drive",
+                &format!(
+                    "id=inject0,if=none,format=raw,readonly=on,file={}",
+                    media_iso.display()
+                ),
+            ]);
+        }
     }
     if let Some(ssh_port) = ssh_port {
         cmd.args([
@@ -804,7 +969,71 @@ fn qemu_base_command(
     Ok(cmd)
 }
 
-fn spawn_qemu_with_log(cmd: &mut Command, log_path: &Path) -> Result<Child> {
+fn create_boot_injection_iso(payload_path: &Path) -> Result<PathBuf> {
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("system clock before UNIX_EPOCH")?
+        .as_nanos();
+    let iso_path = std::env::temp_dir().join(format!("levitate-boot-injection-{ts}.iso"));
+
+    let mut tried = Vec::new();
+    for (tool, mut args) in [
+        (
+            "xorriso",
+            vec![
+                "-as".to_string(),
+                "mkisofs".to_string(),
+                "-quiet".to_string(),
+                "-V".to_string(),
+                "LEVITATE_INJECT".to_string(),
+                "-o".to_string(),
+                iso_path.display().to_string(),
+                "-graft-points".to_string(),
+            ],
+        ),
+        (
+            "genisoimage",
+            vec![
+                "-quiet".to_string(),
+                "-V".to_string(),
+                "LEVITATE_INJECT".to_string(),
+                "-o".to_string(),
+                iso_path.display().to_string(),
+                "-graft-points".to_string(),
+            ],
+        ),
+        (
+            "mkisofs",
+            vec![
+                "-quiet".to_string(),
+                "-V".to_string(),
+                "LEVITATE_INJECT".to_string(),
+                "-o".to_string(),
+                iso_path.display().to_string(),
+                "-graft-points".to_string(),
+            ],
+        ),
+    ] {
+        args.push(format!("boot-injection.env={}", payload_path.display()));
+        match Command::new(tool).args(&args).status() {
+            Ok(status) if status.success() => return Ok(iso_path),
+            Ok(status) => {
+                tried.push(format!("{tool} exited with status {status}"));
+            }
+            Err(err) => {
+                tried.push(format!("{tool} unavailable: {err}"));
+            }
+        }
+    }
+
+    bail!(
+        "failed to build boot-injection ISO from '{}': {}",
+        payload_path.display(),
+        tried.join("; ")
+    )
+}
+
+fn spawn_qemu_with_log(cmd: &mut Command, log_path: &Path, allow_stdin: bool) -> Result<Child> {
     let log_out = File::create(log_path)
         .with_context(|| format!("creating QEMU log file '{}'", log_path.display()))?;
     let log_err = log_out
@@ -812,9 +1041,37 @@ fn spawn_qemu_with_log(cmd: &mut Command, log_path: &Path) -> Result<Child> {
         .with_context(|| format!("duplicating QEMU log file '{}'", log_path.display()))?;
     cmd.stdout(Stdio::from(log_out));
     cmd.stderr(Stdio::from(log_err));
-    cmd.stdin(Stdio::null());
+    if allow_stdin {
+        cmd.stdin(Stdio::piped());
+    } else {
+        cmd.stdin(Stdio::null());
+    }
     let child = cmd.spawn().context("Spawning QEMU for SSH boot")?;
     Ok(child)
+}
+
+fn collect_guest_ssh_debug(child: &mut Child) -> Result<()> {
+    let Some(stdin) = child.stdin.as_mut() else {
+        return Ok(());
+    };
+
+    let probe = concat!(
+        "\n",
+        "echo ___SSH_DEBUG_BEGIN___\n",
+        "ss -ltnp | grep ':22' || true\n",
+        "ls -l /root/.ssh /root/.ssh/authorized_keys /run/boot-injection /run/boot-injection/* 2>/dev/null || true\n",
+        "cat /run/boot-injection/source /run/boot-injection/payload.env 2>/dev/null || true\n",
+        "journalctl -b -u sshd.service --no-pager -n 120 || true\n",
+        "echo ___SSH_DEBUG_END___\n",
+    );
+    stdin
+        .write_all(probe.as_bytes())
+        .context("writing guest SSH debug probe to QEMU stdin")?;
+    stdin
+        .flush()
+        .context("flushing guest SSH debug probe to QEMU stdin")?;
+    sleep(Duration::from_secs(2));
+    Ok(())
 }
 
 fn detect_boot_regression(log_path: &Path) -> Result<Option<String>> {

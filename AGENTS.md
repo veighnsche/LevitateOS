@@ -82,6 +82,12 @@ This file is intentionally compact. Priority is preventing policy violations and
 - If stage build fails, fix code/contracts/wiring; do not patch outputs manually.
 - A stage is considered working only if reproducible from repository commands with existing kernel artifacts.
 
+## 9.1) Build/Boot Boundary (Strict)
+- `build` commands produce artifacts; `stage`/`stage-ssh` commands consume existing artifacts.
+- Do not add implicit build side effects to stage boot/test wrappers.
+- Fixing wrapper parity/routing must not change artifact freshness policy.
+- If fresh artifacts are required, use explicit build commands (`just build ...`, `just build-up-to ...`) before stage boot/test.
+
 ## 10) Error Messaging Policy
 - Fail fast with explicit diagnostics.
 - Errors must name: component, stage, expectation, and concrete remediation command/path.
@@ -113,3 +119,15 @@ This file is intentionally compact. Priority is preventing policy violations and
 - Prefer `just` wrappers for env/tooling consistency.
 - Keep CLIs quiet on success, loud on failure.
 - Keep Rust code `fmt`/`clippy` clean.
+
+## 16) Single-Intent Ownership (Agent Workflow)
+- Treat every behavior request as an ownership update: **locate the existing codepiece first**, then edit that piece directly.
+- If an older behavior already exists, refinement must be additive/replace-in-place on that owner; do not create a parallel implementation by default.
+- Do not discard prior refinements during a migration; preserve and migrate existing behavior into the canonical codepath unless explicitly asked to archive it.
+- Before editing, do a quick duplicate-intent scan for the same user-visible behavior:
+  - if one canonical owner exists, use that;
+  - if no owner exists, create one implementation only.
+- If competing implementations are found, you must consolidate or remove/retire all but one in the same change set.
+- Preserve a single default output/logic path:
+  - no shadow/compatibility branch in the default path.
+  - if a legacy/compat path is needed, it must be a separate explicit command/flag and not the default behavior.

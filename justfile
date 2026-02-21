@@ -60,12 +60,14 @@ kernels-rebuild-all:
 
 # Internal delegate for stage booting.
 # Keep `cargo xtask stages boot` as the only execution path for stage wrappers.
+# Boundary rule: stage wrappers consume existing artifacts only.
+# Do not add implicit ISO build steps here; freshness is explicit via `just build*`.
 [script, no-exit-message]
 _boot_stage n distro="levitate" inject="" inject_file="" ssh="false" no_shell="false" ssh_pubkey=(env("HOME") + "/.ssh/id_ed25519.pub") ssh_privkey="" ssh_port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ "{{ssh}}" = "true" ] && [ "{{n}}" != "1" ] && [ "{{n}}" != "01" ]; then
-      echo "SSH boot mode supports only stage 1 (got: {{n}})" >&2
+    if [ "{{ssh}}" = "true" ] && [ "{{n}}" != "1" ] && [ "{{n}}" != "01" ] && [ "{{n}}" != "2" ] && [ "{{n}}" != "02" ]; then
+      echo "SSH boot mode supports only live stages 1/2 (got: {{n}})" >&2
       exit 2
     fi
 
@@ -199,11 +201,40 @@ test-reset distro="levitate":
 build *args:
     #!/usr/bin/env bash
     set -euo pipefail
+
     cargo run -p distro-builder --bin distro-builder -- iso build {{args}}
+
+# Build stage ISOs from 00 up to N (inclusive) for a distro.
+# Usage: just build-up-to 2 levitate
+[script, no-exit-message]
+build-up-to n distro="levitate":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "{{n}}" in
+      0|00) target=0 ;;
+      1|01) target=1 ;;
+      2|02) target=2 ;;
+      *)
+        echo "build-up-to supports stages 0..2 (got: {{n}})" >&2
+        exit 2
+        ;;
+    esac
+
+    stages=(00Build 01Boot 02LiveTools)
+    for i in $(seq 0 "$target"); do
+      stage="${stages[$i]}"
+      echo "==> Building ${stage} for {{distro}}"
+      just build "{{distro}}" "${stage}"
+    done
 
 # Build ISOs for all variants via new endpoint
 build-all *args:
     cargo run -p distro-builder --bin distro-builder -- iso build-all {{args}}
+
+# Remove stage artifacts output tree (all stage run directories and manifests).
+clean-out:
+    rm -rf .artifacts/out
 
 # Docs content (shared by website + tui)
 docs-content-build:
