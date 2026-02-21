@@ -79,3 +79,9 @@
 [submodule "RalphOS"]
 	path = RalphOS
 	url = git@github.com:LevitateOS/RalphOS.git
+[submodule "tools/recpart"]
+	path = tools/recpart
+	url = git@github.com:LevitateOS/recpart.git
+[submodule "tools/recguard"]
+	path = tools/recguard
+	url = git@github.com:LevitateOS/recguard.git
