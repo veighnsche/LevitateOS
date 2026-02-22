@@ -18,6 +18,7 @@ members = [
     "tools/reciso",
     "tools/recart",
     "tools/recab",
+    "tools/recpart",
     "tools/recqemu",
     "testing/fsdbg",
     "testing/cheat-guard",
